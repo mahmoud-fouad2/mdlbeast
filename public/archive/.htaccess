@@ -15,14 +15,8 @@ DirectoryIndex index.html
   RewriteRule .* - [L]
 </IfModule>
 
-# CORS for fonts and static assets
-<IfModule mod_headers.c>
-  <FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2|css|js)$">
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, OPTIONS"
-    # Avoid setting Access-Control-Allow-Headers here to prevent server errors on some hosts
-  </FilesMatch>
-</IfModule>
+# Note: removed mod_headers directives to avoid 500s on shared hosts.
+# If your host allows setting headers, configure them at the host control panel or server config.
 
 # Prevent directory listing
 <IfModule mod_autoindex.c>
