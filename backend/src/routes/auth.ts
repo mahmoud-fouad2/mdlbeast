@@ -24,14 +24,15 @@ router.post(
     try {
       const { username, password } = req.body
 
-      const result = await query("SELECT * FROM users WHERE username = $1", [username])
+      // DB schema uses 'email' and 'name' columns; accept username input as email
+      const result = await query("SELECT * FROM users WHERE email = $1", [username])
 
       if (result.rows.length === 0) {
         return res.status(401).json({ error: "Invalid credentials" })
       }
 
       const user = result.rows[0]
-      const isValidPassword = await bcrypt.compare(password, user.password)
+      const isValidPassword = await bcrypt.compare(password, user.password) // password column exists as 'password'
 
       if (!isValidPassword) {
         return res.status(401).json({ error: "Invalid credentials" })
@@ -45,8 +46,8 @@ router.post(
         token,
         user: {
           id: user.id,
-          username: user.username,
-          full_name: user.full_name,
+          username: user.email || user.name,
+          full_name: user.name || user.full_name,
           role: user.role,
         },
       })
