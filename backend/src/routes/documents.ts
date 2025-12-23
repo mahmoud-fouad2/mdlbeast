@@ -13,7 +13,7 @@ router.use(authenticateToken)
 // Get all documents
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { status, type, search, limit = 100, offset = 0 } = req.query
+    const { status, type, search, limit = 100, offset = 0, tenant_id } = req.query
 
     let queryText = "SELECT * FROM documents WHERE 1=1"
     const queryParams: any[] = []
@@ -28,6 +28,12 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     if (type) {
       queryText += ` AND type = $${paramCount}`
       queryParams.push(type)
+      paramCount++
+    }
+
+    if (tenant_id) {
+      queryText += ` AND tenant_id = $${paramCount}`
+      queryParams.push(Number(tenant_id))
       paramCount++
     }
 
@@ -98,6 +104,7 @@ router.post(
         classification,
         notes,
         attachments = [],
+        tenant_id = null,
       } = req.body
 
       // Check if barcode exists
@@ -107,9 +114,10 @@ router.post(
         return res.status(400).json({ error: "Barcode already exists" })
       }
 
+      // Insert document with optional tenant_id
       const result = await query(
-        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id, tenant_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING *`,
         [
           barcode,
@@ -124,8 +132,23 @@ router.post(
           notes,
           JSON.stringify(attachments),
           authReq.user?.id,
+          tenant_id,
         ],
       )
+
+      // Ensure barcodes table has an entry for this barcode so scanner works
+      try {
+        const bc = await query("SELECT id FROM barcodes WHERE barcode = $1 LIMIT 1", [barcode])
+        if (bc.rows.length === 0) {
+          await query(
+            `INSERT INTO barcodes (barcode, type, status, priority, subject, attachments, user_id, tenant_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [barcode, type, status || null, priority || null, subject || null, JSON.stringify(attachments || []), authReq.user?.id, tenant_id || null],
+          )
+        }
+      } catch (e) {
+        console.warn('Failed to ensure barcode entry:', e)
+      }
 
       res.status(201).json(result.rows[0])
     } catch (error) {

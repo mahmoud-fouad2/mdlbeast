@@ -70,8 +70,9 @@ export default function DashboardPage() {
           const t = await apiClient.getTenants().catch(() => [])
           setTenants(t || [])
 
-          const u = await apiClient.getUsers().catch(() => [])
-          setUsers(u || [])
+            const u = await apiClient.getUsers().catch(() => [])
+          // Normalize users to ensure email field exists (some backends return username only)
+          setUsers((u || []).map((us: any) => ({ ...us, email: us.email || us.username || '' })))
         } catch (e) {
           console.warn('Failed to load tenants or users', e)
         }
@@ -84,6 +85,34 @@ export default function DashboardPage() {
     }
     loadData()
   }, [router])
+
+  // When tenant selection changes, re-fetch docs scoped to that tenant
+  useEffect(() => {
+    const refetch = async () => {
+      try {
+        const documents = await apiClient.getDocuments(selectedTenantId ? { tenant_id: selectedTenantId } : undefined)
+        const mappedDocs = (documents || []).map((doc: any) => ({
+          ...doc,
+          id: doc.id,
+          barcode: doc.barcode || doc.barcodeId || '' ,
+          barcodeId: doc.barcode || doc.barcodeId || '' ,
+          title: doc.subject || doc.title || '',
+          subject: doc.subject || doc.title || '',
+          sender: doc.sender || doc.from || '',
+          receiver: doc.receiver || doc.recipient || '',
+          recipient: doc.receiver || doc.recipient || '',
+          date: doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : ''),
+          documentDate: doc.date || doc.documentDate || '',
+          type: (String(doc.type || '').toLowerCase().includes('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+          companyId: doc.companyId || doc.tenant_id || null,
+        }))
+        setDocs(mappedDocs)
+      } catch (e) {
+        console.warn('Failed to refetch documents for tenant', e)
+      }
+    }
+    refetch()
+  }, [selectedTenantId])
 
   const handleSaveDoc = async (data: any) => {
     try {

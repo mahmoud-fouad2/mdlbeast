@@ -104,9 +104,24 @@ const App: React.FC = () => {
     }
     tryInit();
 
+    // If the app is served under /archive static export and someone navigated to /archive/dashboard
+    // some static hosts require /index.html to be present; auto-redirect to the index.html fallback so page loads correctly.
+    try {
+      if (typeof window !== 'undefined') {
+        const p = window.location.pathname || ''
+        if (p.endsWith('/archive/dashboard') && !p.endsWith('/index.html')) {
+          window.location.replace(p + '/index.html')
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     // Global error handlers to capture unexpected script/runtime errors and show a simple banner
     const onError = (ev: ErrorEvent) => {
       console.error('Global error captured', ev.error || ev.message || ev);
+      // ignore common external script HTML responses to reduce noise
+      if (String(ev.filename || '').includes('wp-emoji-loader') || String(ev.message || '').includes("Unexpected token '<'")) return;
       setGlobalError(String(ev.message || ev.error || 'خطأ غير متوقع في الواجهة'));
       setTimeout(() => setGlobalError(null), 6000);
     }

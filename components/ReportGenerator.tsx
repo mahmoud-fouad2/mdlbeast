@@ -38,18 +38,19 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
     const logoUrl = settings.logoUrl;
 
     const tableRows = filteredDocs.map(doc => {
-      const barcode = doc.barcode || doc.barcodeId || ''
-      const title = doc.subject || doc.title || ''
+      const barcode = doc.barcode || doc.barcodeId || (doc.referenceNumber || '')
+      const title = doc.subject || doc.title || doc.description || '—'
       const typeStr = (String(doc.type || '').toLowerCase().includes('in') || String(doc.type) === DocType.INCOMING) ? 'وارد' : 'صادر'
-      const sender = doc.sender || doc.from || ''
-      const dateStr = doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '')
+      const sender = doc.sender || doc.from || doc.createdBy || doc.user_id || '—'
+      const receiver = doc.receiver || doc.recipient || doc.to || '—'
+      const dateStr = doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '—')
       return `
         <tr>
-          <td style="text-align: center; font-family: monospace; font-weight: bold;">${barcode}</td>
-          <td>${title}</td>
-          <td style="text-align: center;">${typeStr}</td>
-          <td>${sender}</td>
-          <td style="text-align: center;">${dateStr}</td>
+          <td style="text-align: center; font-family: monospace; font-weight: bold; width: 140px;">${barcode}</td>
+          <td style="width: 40%; word-break: break-word;">${title}</td>
+          <td style="text-align: center; width: 80px;">${typeStr}</td>
+          <td style="width: 160px;">${sender}</td>
+          <td style="text-align: center; width: 120px;">${dateStr}</td>
         </tr>
       `
     }).join('');
@@ -60,10 +61,11 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
           <title>تقرير المعاملات - ${startDate} إلى ${endDate}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+            @page { size: A4; margin: 20mm; }
             body { 
               font-family: 'Tajawal', sans-serif; 
               direction: rtl; 
-              padding: 40px; 
+              padding: 20mm 18mm; 
               color: #0f172a;
               line-height: 1.6;
             }

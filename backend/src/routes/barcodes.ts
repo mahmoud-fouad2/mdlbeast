@@ -8,7 +8,32 @@ router.get("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
     const q = await query("SELECT * FROM barcodes WHERE barcode = $1 LIMIT 1", [barcode])
-    if (q.rows.length === 0) return res.status(404).json({ error: "Not found" })
+    if (q.rows.length === 0) {
+      // fallback: check documents (existing older entries) and synthesize a response
+      const d = await query('SELECT * FROM documents WHERE barcode = $1 LIMIT 1', [barcode])
+      if (d.rows.length > 0) {
+        const doc = d.rows[0]
+        const synth = {
+          barcode: doc.barcode,
+          type: doc.type,
+          status: doc.status,
+          priority: doc.priority,
+          subject: doc.subject,
+          attachments: doc.attachments,
+          user_id: doc.user_id,
+          tenant_id: doc.tenant_id || null,
+          created_at: doc.created_at,
+        }
+        // try to insert into barcodes table for caching
+        try {
+          await query('INSERT INTO barcodes (barcode, type, status, priority, subject, attachments, user_id, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [synth.barcode, synth.type, synth.status, synth.priority, synth.subject, JSON.stringify(synth.attachments || []), synth.user_id, synth.tenant_id])
+        } catch (e) {
+          // ignore unique constraint etc
+        }
+        return res.json(synth)
+      }
+      return res.status(404).json({ error: 'Not found' })
+    }
     res.json(q.rows[0])
   } catch (err: any) {
     console.error("Get barcode error:", err)
