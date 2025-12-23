@@ -1,25 +1,33 @@
 # .htaccess for the /archive static export folder
-# - Avoid rewrites for static/_next assets
-# - Set CORS headers for fonts and common static assets
-# - Prevent directory listing
+# - Serve index directly and keep Next assets untouched
 
 DirectoryIndex index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # If a request comes to /_next or /static at the site root, internally rewrite it to /archive
-  # This allows requests like https://zaco.sa/_next/... to be served from /archive/_next/...
+  # Prevent any redirect or rewrite on archive's Next assets
+  RewriteRule ^_next/ - [L]
+  RewriteRule ^archive/_next/ - [L]
+
+  # If requests come to root /_next or /static, rewrite them internally to /archive
   RewriteCond %{REQUEST_URI} ^/_next/ [OR]
   RewriteCond %{REQUEST_URI} ^/static/ [OR]
   RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|svg|woff2|woff|ttf|otf|eot|ico)$ [NC]
   RewriteRule ^(.*)$ /archive/$1 [L]
+</IfModule>
 
-  # DO NOT rewrite already-correct archive _next/static requests
-  RewriteCond %{REQUEST_URI} ^/archive/_next/ [OR]
-  RewriteCond %{REQUEST_URI} ^/archive/static/ [OR]
-  RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|svg|woff2|woff|ttf|otf|eot|ico)$ [NC]
-  RewriteRule .* - [L]
+# CORS for fonts and JS/CSS — explicit origin (Bluehost safe)
+<IfModule mod_headers.c>
+<FilesMatch "\.(woff2|woff|ttf|otf|eot|js|css)$">
+  Header always set Access-Control-Allow-Origin "https://zaco.sa"
+  Header always set Access-Control-Allow-Methods "GET, OPTIONS"
+</FilesMatch>
+</IfModule>
+
+# Prevent directory listing
+<IfModule mod_autoindex.c>
+  Options -Indexes
 </IfModule>
 
 # Note: removed mod_headers directives to avoid 500s on shared hosts.

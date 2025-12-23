@@ -1,11 +1,19 @@
-# Public root-level .htaccess to protect /archive from site-wide redirects and WordPress rewrites
+<IfModule mod_rewrite.c>
+RewriteEngine On
 
-# Ensure requests to /_next and /static are served from /archive
+# ❌ Prevent any Redirect or Rewrite on Next files
+RewriteRule ^_next/ - [L]
+RewriteRule ^archive/_next/ - [L]
+
+# ❌ Prevent converting or redirecting www on Next files
+RewriteCond %{REQUEST_URI} ^/(archive/)?_next/ [NC]
+RewriteRule .* - [L]
+</IfModule>
+
+# Quick block for the WP emoji loader (fast mitigation)
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Internally map requests like /_next/* -> /archive/_next/* (avoid WP catching them)
-  RewriteRule ^_next/(.*)$ /archive/_next/$1 [L]
-  RewriteRule ^static/(.*)$ /archive/static/$1 [L]
+  RewriteRule ^wp-includes/js/wp-emoji-loader.min.js$ - [F,L]
 </IfModule>
 
 # Force canonical host: redirect www to non-www (preserve path)
@@ -15,33 +23,29 @@
   RewriteRule ^(.*)$ https://zaco.sa/$1 [R=301,L]
 </IfModule>
 
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # Ensure /archive is not rewritten to WordPress index.php
-  RewriteRule ^archive/ - [L]
-</IfModule>
-
-# Keep WordPress block but ensure it won't capture /archive
 # BEGIN WordPress
 <IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.php$ - [L]
-  RewriteCond %{REQUEST_URI} !^/archive/    # <-- ensure archive is excluded
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.php [L]
+RewriteEngine On
+RewriteBase /
+
+RewriteRule ^index\.php$ - [L]
+
+# ✅ Exclude Next.js from WordPress handling
+RewriteCond %{REQUEST_URI} !^/_next/
+RewriteCond %{REQUEST_URI} !^/archive/_next/
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
 </IfModule>
 # END WordPress
 
-# Safe CORS for font files (applies on both www and non-www)
+# CORS for fonts and JS/CSS — explicit origin for Bluehost
 <IfModule mod_headers.c>
-  <FilesMatch "\.(ttf|otf|eot|woff|woff2)$">
-    Header set Access-Control-Allow-Origin "*"
-    # Also set CORS for cross-host fetches
-    Header set Access-Control-Allow-Methods "GET, OPTIONS"
-  </FilesMatch>
+<FilesMatch "\.(woff2|woff|ttf|otf|eot|js|css)$">
+  Header always set Access-Control-Allow-Origin "https://zaco.sa"
+  Header always set Access-Control-Allow-Methods "GET, OPTIONS"
+</FilesMatch>
 </IfModule>
 
 # Security: prevent directory listing
