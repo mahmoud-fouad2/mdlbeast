@@ -155,7 +155,24 @@ app.post("/debug/reset-db", async (req, res) => {
 
     const fs = await import("fs")
     const path = await import("path")
-    const base = path.resolve(__dirname, "..", "scripts")
+    // Support multiple possible locations for the SQL scripts depending on build/runtime layout
+    const candidates = [
+      path.resolve(__dirname, "..", "scripts"),        // backend/scripts (when running from dist)
+      path.resolve(__dirname, "..", "..", "scripts"), // project-root/scripts (when dist is in backend/dist)
+      path.resolve(process.cwd(), "scripts"),            // working directory scripts
+    ]
+
+    let base: string | null = null
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        base = c
+        break
+      }
+    }
+
+    if (!base) {
+      throw new Error("SQL scripts not found. Searched: " + candidates.join(", "))
+    }
 
     const createSql = fs.readFileSync(path.join(base, "01_create_tables.sql"), "utf8")
     const seedSql = fs.readFileSync(path.join(base, "02_seed_data.sql"), "utf8")
