@@ -26,6 +26,11 @@ app.use(morgan("dev"))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// Mount API routes
+app.use('/api/auth', authRoutes)
+app.use('/api/documents', documentRoutes)
+app.use('/api/users', userRoutes)
+
 // Health check
 app.get("/", (req, res) => {
   res.status(200).json({
