@@ -4,22 +4,23 @@ export enum DocType {
 }
 
 export enum DocStatus {
-  PENDING = 'PENDING',
-  ARCHIVED = 'ARCHIVED',
+  PENDING = 'وارد',
+  SENT = 'صادر',
+  ARCHIVED = 'محفوظ',
   COMPLETED = 'COMPLETED',
   URGENT = 'URGENT'
 }
 
 export enum SecurityLevel {
-  PUBLIC = 'PUBLIC',
-  CONFIDENTIAL = 'CONFIDENTIAL',
-  TOP_SECRET = 'TOP_SECRET'
+  PUBLIC = 'عام',
+  CONFIDENTIAL = 'سري',
+  TOP_SECRET = 'سري للغاية'
 }
 
 export enum Priority {
-  NORMAL = 'NORMAL',
-  HIGH = 'HIGH',
-  IMMEDIATE = 'IMMEDIATE'
+  NORMAL = 'عادي',
+  HIGH = 'عاجل',
+  IMMEDIATE = 'عاجل جداً'
 }
 
 export interface Company {
@@ -32,43 +33,59 @@ export interface Company {
 
 export interface User {
   id: string;
+  username: string;
+  full_name: string;
   name: string;
   email: string;
   password: string;
   role: 'ADMIN' | 'USER';
-  createdAt: string;
+  created_at: Date;
   companyId?: string;
 }
 
+export interface Attachment {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+}
+
 export interface Correspondence {
-  id: string; 
+  id: number;
+  barcode: string;
   barcodeId: string;
   companyId: string;
   type: DocType;
   title: string;
   sender: string;
+  receiver: string;
   recipient: string;
-  referenceNumber: string; 
-  internalRef: string;     
-  documentDate: string;    
-  archiveDate: string;     // الحقل الجديد المضاف
-  date: string;            
+  referenceNumber: string;
+  internalRef: string;
+  documentDate: string;
+  archiveDate: string;
+  date: string;
+  subject: string;
   description: string;
-  status: DocStatus;
-  security: SecurityLevel;
-  priority: Priority;
+  status: string;
+  security: string;
+  priority: string;
   category: string;
-  physicalLocation: string; 
+  physicalLocation: string;
   attachmentCount: number;
-  signatory: string;        
-  tags: string[];           
-  createdAt: string;
+  attachments: Attachment[];
+  signatory: string;
+  tags: string[];
+  created_at: Date;
   createdBy?: string;
   pdfFile?: {
     name: string;
     size: string;
     url: string;
   };
+  user_id?: number;
+  updated_at: Date;
+  notes: string;
 }
 
 export interface SystemSettings {

@@ -1,6 +1,6 @@
 "use client"
 
-import type { Correspondence, SystemSettings } from "@/lib/types"
+import type { Correspondence, SystemSettings } from "@/types"
 import { FileText } from "lucide-react"
 
 interface OfficialReceiptProps {

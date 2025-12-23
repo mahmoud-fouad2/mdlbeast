@@ -23,6 +23,7 @@ export default function DashboardPage() {
     orgName: "زوايا البناء للإستشارات الهندسية",
     orgNameEn: "ZAWAYA ALBINA ENGINEERING",
     logoUrl: "https://www.zaco.sa/logo2.png",
+    companies: [],
   })
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function DashboardPage() {
   if (!currentUser) return null
 
   const NavItem = ({ id, label, icon: Icon, adminOnly = false }: any) => {
-    if (adminOnly && currentUser.role !== "admin" && currentUser.role !== "ADMIN") return null
+    if (adminOnly && currentUser.role !== "ADMIN") return null
     return (
       <button
         onClick={() => setActiveTab(id)}
@@ -153,7 +154,7 @@ export default function DashboardPage() {
                 {currentUser.full_name || currentUser.name}
               </div>
               <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                {currentUser.role === "admin" || currentUser.role === "ADMIN" ? "مدير نظام" : "محرر"}
+                {currentUser.role === "ADMIN" ? "مدير نظام" : "محرر"}
               </div>
             </div>
           </div>

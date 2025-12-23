@@ -1,7 +1,11 @@
 import express from "express"
 import { query } from "../config/database"
 import type { Request, Response } from "express"
+import { authenticateToken, isAdmin } from "../middleware/auth"
 const router = express.Router()
+
+// Require authentication for tenant operations
+router.use(authenticateToken)
 
 // Create tenant
 router.post("/", isAdmin, async (req: Request, res: Response) => {

@@ -1,24 +1,72 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Scan, Search, FileText, X, AlertCircle } from 'lucide-react';
-import { Correspondence } from '../types';
+import { apiClient } from '../lib/api-client';
 
-interface BarcodeScannerProps {
-  docs: Correspondence[];
-}
-
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ docs }) => {
+const BarcodeScanner: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [manualId, setManualId] = useState('');
-  const [foundDoc, setFoundDoc] = useState<Correspondence | null>(null);
+  const [foundDoc, setFoundDoc] = useState<any | null>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    return () => stopScanner();
+  }, [])
+
+  const detectorRef = useRef<any | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const fetchByBarcode = async (barcode: string) => {
+    try {
+      const res = await apiClient.getBarcode(barcode);
+      if (res) {
+        setFoundDoc(res);
+        const tl = await apiClient.getBarcodeTimeline(barcode);
+        setTimeline(tl || []);
+      } else {
+        alert('لم يتم العثور على معاملة بهذا الرقم.');
+      }
+    } catch (err) {
+      console.error('API error', err);
+      alert('حدث خطأ أثناء جلب البيانات من الخادم.');
+    }
+  };
+
+  const decodeLoop = async () => {
+    if (!videoRef.current || !detectorRef.current) return;
+    try {
+      // BarcodeDetector API
+      const detections = await detectorRef.current.detect(videoRef.current);
+      if (detections && detections.length) {
+        const code = detections[0].rawValue || detections[0].rawData;
+        if (code) {
+          stopScanner();
+          fetchByBarcode(code);
+          return;
+        }
+      }
+    } catch (err) {
+      // ignore detection errors
+      console.debug('Detection error', err);
+    }
+    rafRef.current = requestAnimationFrame(decodeLoop);
+  };
 
   const startScanner = async () => {
     setIsScanning(true);
     setFoundDoc(null);
+    setTimeline([]);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+      }
+
+      if ((window as any).BarcodeDetector) {
+        detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code', 'ean_13', 'code_128', 'code_39', 'code_93'] });
+        rafRef.current = requestAnimationFrame(decodeLoop);
+      } else {
+        alert('الكشف التلقائي غير متوفر في المتصفح. الرجاء استخدام البحث اليدوي.');
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
@@ -28,21 +76,23 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ docs }) => {
   };
 
   const stopScanner = () => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
+    detectorRef.current = null;
     setIsScanning(false);
   };
 
-  const handleManualSearch = (e: React.FormEvent) => {
+  const handleManualSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const doc = docs.find(d => d.barcodeId.toUpperCase() === manualId.toUpperCase());
-    if (doc) {
-      setFoundDoc(doc);
-    } else {
-      alert("لم يتم العثور على معاملة بهذا الرقم.");
-    }
+    if (!manualId || manualId.trim().length < 2) return;
+    await fetchByBarcode(manualId.trim().toUpperCase());
   };
 
   return (
@@ -118,19 +168,54 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ docs }) => {
               <div className="space-y-4">
                 <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
                   <span className="text-slate-500 text-sm">من:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.sender}</span>
+                  <span className="font-bold text-slate-800">{foundDoc.sender || foundDoc.from || '—'}</span>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
                   <span className="text-slate-500 text-sm">إلى:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.recipient}</span>
+                  <span className="font-bold text-slate-800">{foundDoc.recipient || foundDoc.to || '—'}</span>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
                   <span className="text-slate-500 text-sm">تاريخ التسجيل:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.date}</span>
+                  <span className="font-bold text-slate-800">{foundDoc.date || foundDoc.created_at || '—'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl">
                   <span className="text-slate-500 text-sm block mb-1">الوصف:</span>
-                  <p className="text-sm text-slate-700 leading-relaxed">{foundDoc.description || 'لا يوجد وصف مضاف.'}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{foundDoc.description || foundDoc.notes || 'لا يوجد وصف مضاف.'}</p>
+                </div>
+
+                <div className="mt-4">
+                  <h4 className="text-sm font-bold text-slate-700 mb-2">السجل الزمني</h4>
+                  <div className="space-y-2 max-h-40 overflow-auto">
+                    {timeline.length ? (
+                      timeline.map((t, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-100">
+                          <div className="text-xs text-slate-500 font-mono">{new Date(t.created_at || t.date || t.ts || Date.now()).toLocaleString()}</div>
+                          <div className="text-sm text-slate-700">{t.message || t.note || t.action || JSON.stringify(t)}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-sm text-slate-500">لا توجد مدخلات في السجل حتى الآن.</div>
+                    )}
+                  </div>
+
+                  <form className="mt-3 flex gap-2" onSubmit={async (e) => {
+                    e.preventDefault();
+                    const el = (e.target as HTMLFormElement).elements.namedItem('note') as HTMLInputElement;
+                    const val = el.value.trim();
+                    if (!val) return;
+                    try {
+                      await apiClient.addBarcodeTimeline(foundDoc.barcodeId || foundDoc.code || foundDoc.barcode, { action: val });
+                      // optimistic: append locally and then refetch
+                      setTimeline(prev => [{ created_at: new Date().toISOString(), message: val, action: val }, ...prev]);
+                      el.value = '';
+                    } catch (err) {
+                      console.error(err);
+                      alert('فشل إضافة مدخل للسجل');
+                    }
+                  }}>
+                    <input name="note" placeholder="أضف ملاحظة للسجل" className="flex-1 p-2 rounded-xl border border-slate-200" />
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-xl">إضافة</button>
+                  </form>
                 </div>
               </div>
 

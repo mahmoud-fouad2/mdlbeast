@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import type { Correspondence } from "@/lib/types"
+import type { Correspondence } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 
 interface PdfStamperProps {

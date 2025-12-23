@@ -1,6 +1,6 @@
 "use client"
 
-import type { Correspondence, SystemSettings } from "@/lib/types"
+import type { Correspondence, SystemSettings } from "@/types"
 import { Printer, ImageIcon } from "lucide-react"
 
 interface BarcodePrinterProps {
