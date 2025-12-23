@@ -34,6 +34,7 @@ const App: React.FC = () => {
 
   const [newCompany, setNewCompany] = useState({ nameAr: '', nameEn: '', logoUrl: 'https://www.zaco.sa/logo2.png' });
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const loadInitialData = async () => {
     try {
@@ -102,6 +103,21 @@ const App: React.FC = () => {
       loadInitialData();
     }
     tryInit();
+
+    // Global error handlers to capture unexpected script/runtime errors and show a simple banner
+    const onError = (ev: ErrorEvent) => {
+      console.error('Global error captured', ev.error || ev.message || ev);
+      setGlobalError(String(ev.message || ev.error || 'خطأ غير متوقع في الواجهة'));
+      setTimeout(() => setGlobalError(null), 6000);
+    }
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      console.error('Unhandled rejection', ev.reason);
+      setGlobalError(String(ev.reason?.message || ev.reason || 'خطأ غير متوقع في الواجهة'));
+      setTimeout(() => setGlobalError(null), 6000);
+    }
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); }
   }, []);
 
   useEffect(() => {
@@ -231,6 +247,9 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl mx-auto w-full">
+          {globalError && (
+            <div className="mb-6 p-3 bg-red-50 text-red-700 rounded-xl font-bold">{globalError}</div>
+          )}
           {activeTab === 'dashboard' && <Dashboard docs={docs} />}
           {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} />}
           {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} />}

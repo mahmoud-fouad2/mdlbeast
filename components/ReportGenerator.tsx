@@ -124,16 +124,18 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
           </style>
         </head>
         <body>
+          <div style="position: absolute; top: 8px; left: 40px; font-size: 12px; color: #64748b;">تاريخ الطباعة: ${new Date().toLocaleString('ar-SA')}</div>
+          <div style="position: absolute; top: 8px; right: 40px; font-size: 12px; color: #64748b;">نطاق: ${startDate} إلى ${endDate}</div>
+
           <div class="header">
-             <div class="corner-date corner-left">تاريخ الطباعة: ${new Date().toLocaleString('ar-SA')}</div>
-             <div class="corner-date corner-right">نطاق: ${startDate} إلى ${endDate}</div>
+             <div style="width: 120px; text-align:left;">
+               <img src="${logoUrl}" style="height: 70px; object-fit: contain;" />
+             </div>
              <div class="header-info" style="text-align: center;">
                 <h1>${orgName}</h1>
                 <p>نظام ArchivX Enterprise - مركز التقارير</p>
              </div>
-             <div style="width: 120px; text-align:center;">
-               <img src="${logoUrl}" style="height: 70px; object-fit: contain;" />
-             </div>
+             <div style="width: 120px; text-align:center;"></div>
           </div>
 
           <div class="report-title">

@@ -80,7 +80,7 @@ export default function Dashboard({ docs }: DashboardProps) {
         <div className="lg:col-span-2 bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <h3 className="text-lg font-black mb-10 text-slate-900 font-heading">توزيع الحركة الشهرية</h3>
           <div className="h-64 min-h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={typeData}>
                 <XAxis
                   dataKey="name"
@@ -152,7 +152,7 @@ export default function Dashboard({ docs }: DashboardProps) {
                   <div className="text-[10px] font-bold text-slate-400">{doc.sender}</div>
                 </div>
               </div>
-              <div className="text-xs font-mono font-bold text-slate-400">{doc.barcodeId || doc.barcode}</div>
+              <div className="text-xs font-mono font-bold text-slate-400 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis">{doc.barcodeId || doc.barcode}</div>
             </div>
           ))}
           {docs.length === 0 && (

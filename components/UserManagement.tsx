@@ -14,22 +14,29 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<Partial<User>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (users.find(u => u.email === newUser.email)) {
-      alert("هذا البريد الإلكتروني مسجل مسبقاً");
+      setMessage("هذا البريد الإلكتروني مسجل مسبقاً");
+      setTimeout(() => setMessage(null), 2500);
       return;
     }
     try {
+      setIsSaving(true);
       await apiClient.createUser({ username: newUser.email, password: newUser.password, full_name: newUser.name, role: newUser.role === 'ADMIN' ? 'admin' : 'user' })
-      alert('تم إنشاء المستخدم بنجاح')
-      onUpdateUsers([])
+      setMessage('تم إنشاء المستخدم بنجاح')
+      onUpdateUsers(await apiClient.getUsers().catch(()=>[]))
       setNewUser({ name: '', email: '', password: '', role: 'USER' });
       setShowAddForm(false);
     } catch (err: any) {
       console.error(err)
-      alert(err.message || 'فشل إنشاء المستخدم')
+      setMessage(err.message || 'فشل إنشاء المستخدم')
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 2500);
     }
   };
 
@@ -37,14 +44,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
     e.preventDefault();
     if (!editingUserId) return;
     try {
-      await apiClient.updateUser(editingUserId, { full_name: editUser.name, role: editUser.role === 'ADMIN' ? 'admin' : 'user', password: editUser.password })
-      alert('تم تحديث المستخدم')
-      onUpdateUsers([])
+      setIsSaving(true);
+      await apiClient.updateUser(editingUserId, { full_name: editUser.name, role: editUser.role === 'ADMIN' ? 'admin' : 'user', password: editUser.password || undefined })
+      setMessage('تم تحديث المستخدم')
+      onUpdateUsers(await apiClient.getUsers().catch(()=>[]))
       setEditingUserId(null);
       setEditUser({});
     } catch (err: any) {
       console.error(err)
-      alert(err.message || 'فشل تحديث المستخدم')
+      setMessage(err.message || 'فشل تحديث المستخدم')
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 2500);
     }
   };
 
@@ -67,7 +78,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
 
   const startEditing = (user: User) => {
     setEditingUserId(user.id);
-    setEditUser({ name: user.name, email: user.email, password: user.password, role: user.role });
+    setEditUser({ name: user.full_name || user.name || user.username || '', email: user.email, password: '', role: user.role });
     setShowAddForm(false);
   };
 
@@ -91,8 +102,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
            <div className="md:col-span-2 flex justify-between items-center mb-2">
              <h3 className="text-xl font-black text-slate-900">{editingUserId ? 'تعديل بيانات مستخدم' : 'إضافة مستخدم جديد'}</h3>
              {editingUserId && <button type="button" onClick={() => setEditingUserId(null)} className="text-slate-400 hover:text-red-500"><X size={20}/></button>}
-           </div>
-           <div className="space-y-2">
+           </div>           {message && <div className="md:col-span-2 p-3 bg-green-50 text-green-700 rounded-xl font-bold">{message}</div>}           <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">الاسم الكامل</label>
               <div className="relative">
                 <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -114,9 +124,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">كلمة المرور</label>
               <div className="relative">
                 <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <input required type="text" placeholder="••••••••" className="w-full pr-12 p-4 bg-slate-50 rounded-2xl outline-none focus:bg-white focus:border-slate-900 font-bold" 
+                <input type="text" placeholder="••••••••" className="w-full pr-12 p-4 bg-slate-50 rounded-2xl outline-none focus:bg-white focus:border-slate-900 font-bold" 
                   value={editingUserId ? editUser.password : newUser.password} 
                   onChange={e => editingUserId ? setEditUser({...editUser, password: e.target.value}) : setNewUser({...newUser, password: e.target.value})} />
+                <div className="text-[10px] text-slate-400 mt-2">{editingUserId ? 'اترك الحقل فارغاً إذا لا تريد تغيير كلمة المرور' : ''}</div>
               </div>
            </div>
            <div className="space-y-2">
@@ -131,8 +142,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
                 <option value="ADMIN">مدير نظام (تحكم كامل)</option>
               </select>
            </div>
-           <button type="submit" className="md:col-span-2 bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2">
-             {editingUserId ? <><Check size={20}/> حفظ التغييرات</> : 'تفعيل حساب المستخدم'}
+           <button type="submit" disabled={isSaving} className={`md:col-span-2 ${isSaving ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-700'} bg-blue-600 text-white py-5 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2`}>
+             {isSaving ? 'جارٍ المعالجة...' : (editingUserId ? <><Check size={20}/> حفظ التغييرات</> : 'تفعيل حساب المستخدم')}
            </button>
         </form>
       )}

@@ -116,7 +116,7 @@ export default function DocumentList({ docs, settings }: DocumentListProps) {
                 filtered.map((doc) => (
                   <tr key={doc.id} className="hover:bg-slate-50/80 transition-all group">
                     <td className="px-8 py-7 text-center">
-                      <span className="font-mono text-[13px] font-black text-slate-900 bg-white border border-slate-300 px-4 py-2 rounded-xl shadow-sm tracking-wider">
+                        <span className="font-mono text-[13px] font-black text-slate-900 bg-white border border-slate-300 px-4 py-2 rounded-xl shadow-sm tracking-wider whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px] inline-block">
                         {doc.barcodeId || doc.barcode}
                       </span>
                     </td>

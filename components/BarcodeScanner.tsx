@@ -7,6 +7,8 @@ const BarcodeScanner: React.FC = () => {
   const [manualId, setManualId] = useState('');
   const [foundDoc, setFoundDoc] = useState<any | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -17,18 +19,26 @@ const BarcodeScanner: React.FC = () => {
   const rafRef = useRef<number | null>(null);
 
   const fetchByBarcode = async (barcode: string) => {
+    setIsLoadingBarcode(true);
+    setStatusMessage(null);
     try {
       const res = await apiClient.getBarcode(barcode);
       if (res) {
         setFoundDoc(res);
-        const tl = await apiClient.getBarcodeTimeline(barcode);
+        const tl = await apiClient.getBarcodeTimeline(barcode).catch(() => []);
         setTimeline(tl || []);
+        setStatusMessage('تم العثور على المعاملة');
       } else {
-        alert('لم يتم العثور على معاملة بهذا الرقم.');
+        setFoundDoc(null);
+        setTimeline([]);
+        setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('API error', err);
-      alert('حدث خطأ أثناء جلب البيانات من الخادم.');
+      if (err && String(err).toLowerCase().includes('not found')) setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
+      else setStatusMessage('حدث خطأ أثناء جلب البيانات من الخادم.');
+    } finally {
+      setIsLoadingBarcode(false);
     }
   };
 
@@ -160,7 +170,7 @@ const BarcodeScanner: React.FC = () => {
                   </span>
                   <h3 className="text-xl font-black mt-2 text-slate-900">{foundDoc.title}</h3>
                 </div>
-                <div className="font-mono text-xs font-bold bg-slate-100 p-2 rounded border border-slate-200">
+                <div className="font-mono text-xs font-bold bg-slate-100 p-2 rounded border border-slate-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px]">
                   {foundDoc.barcodeId}
                 </div>
               </div>
@@ -204,13 +214,17 @@ const BarcodeScanner: React.FC = () => {
                     const val = el.value.trim();
                     if (!val) return;
                     try {
+                      setStatusMessage('جاري إضافة المدخل...');
                       await apiClient.addBarcodeTimeline(foundDoc.barcodeId || foundDoc.code || foundDoc.barcode, { action: val });
                       // optimistic: append locally and then refetch
                       setTimeline(prev => [{ created_at: new Date().toISOString(), message: val, action: val }, ...prev]);
                       el.value = '';
+                      setStatusMessage('تم إضافة المدخل');
                     } catch (err) {
                       console.error(err);
-                      alert('فشل إضافة مدخل للسجل');
+                      setStatusMessage('فشل إضافة مدخل للسجل');
+                    } finally {
+                      setTimeout(() => setStatusMessage(null), 2000);
                     }
                   }}>
                     <input name="note" placeholder="أضف ملاحظة للسجل" className="flex-1 p-2 rounded-xl border border-slate-200" />
@@ -229,6 +243,8 @@ const BarcodeScanner: React.FC = () => {
               <div>
                 <p className="font-bold text-slate-600">انتظار القراءة</p>
                 <p className="text-sm">قم بمسح الباركود أو البحث اليدوي لعرض البيانات هنا</p>
+                {statusMessage && <p className="text-sm text-slate-600 mt-2">{statusMessage}</p>}
+                {isLoadingBarcode && <p className="text-sm text-slate-600 mt-2">جاري البحث...</p>}
               </div>
             </div>
           )}
