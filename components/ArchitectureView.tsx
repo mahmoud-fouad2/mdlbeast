@@ -1,0 +1,132 @@
+import React from 'react';
+import { Database, Shield, Zap, Printer, Box, Code, Globe, Lock } from 'lucide-react';
+
+const ArchitectureView: React.FC = () => {
+  const Feature = ({ icon: Icon, title, desc }: any) => (
+    <div className="flex gap-4 p-5 border border-slate-100 rounded-2xl hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all group bg-white/50">
+      <div className="bg-white p-3 rounded-xl shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors border border-slate-100">
+        <Icon size={24} />
+      </div>
+      <div>
+        <h4 className="font-black text-slate-900 mb-1">{title}</h4>
+        <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-16 animate-in fade-in duration-700 pb-20">
+      <div className="text-center space-y-4">
+        <div className="inline-block bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">Technical Specifications v2.5</div>
+        <h2 className="text-5xl font-black text-slate-900 tracking-tight leading-tight">هيكلية ArchivX <span className="text-blue-600">Enterprise</span></h2>
+        <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
+          نظام متكامل مبني على معايير الحوكمة السعودية (NDA) وأمن المعلومات السيبرانية.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Feature 
+          icon={Box} 
+          title="React 19 & Tailwind" 
+          desc="واجهات فائقة السرعة مع دعم كامل للغة العربية والاتجاه RTL." 
+        />
+        <Feature 
+          icon={Database} 
+          title="UUID v7 Precision" 
+          desc="مفاتيح أساسية مرتبة زمنياً تضمن سرعة البحث وتفرد السجلات عالمياً." 
+        />
+        <Feature 
+          icon={Lock} 
+          title="AES-256 Encryption" 
+          desc="تشفير البيانات الحساسة في طبقة قاعدة البيانات لضمان خصوصية المراسلات." 
+        />
+        <Feature 
+          icon={Globe} 
+          title="RESTful Web Services" 
+          desc="بنية API مرنة تسمح بالتكامل مع الأنظمة الحكومية (مثل أبشر أو سداد)." 
+        />
+        <Feature 
+          icon={Printer} 
+          title="High-DPI Vector Print" 
+          desc="توليد باركود SVG بدقة متناهية تضمن القراءة الصحيحة من أول محاولة." 
+        />
+        <Feature 
+          icon={Shield} 
+          title="RBAC Security" 
+          desc="نظام صلاحيات متطور (مدير، مدخل بيانات، مراجع) مع Audit Trail كامل." 
+        />
+      </div>
+
+      <div className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-3xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        
+        <h3 className="text-3xl font-black mb-10 flex items-center gap-4 relative z-10">
+          <div className="bg-blue-600 p-2 rounded-xl"><Code size={28} /></div>
+          تصميم REST API (Endpoints)
+        </h3>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 relative z-10">
+          <div className="space-y-6">
+            <div className="p-6 bg-slate-800/50 border border-slate-700 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="bg-green-600 text-[10px] font-black px-2 py-1 rounded">POST</span>
+                <code className="text-blue-300 font-mono text-sm">/api/v1/correspondence</code>
+              </div>
+              <p className="text-slate-400 text-xs mb-4">إنشاء معاملة جديدة وتوليد الباركود تلقائياً.</p>
+              <pre className="text-[10px] text-blue-100/60 bg-slate-900 p-4 rounded-xl border border-slate-700">
+{`{
+  "title": "طلب صيانة",
+  "type": "INCOMING",
+  "sender_id": "DEPT_04",
+  "priority": "HIGH"
+}`}
+              </pre>
+            </div>
+
+            <div className="p-6 bg-slate-800/50 border border-slate-700 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="bg-blue-600 text-[10px] font-black px-2 py-1 rounded">GET</span>
+                <code className="text-blue-300 font-mono text-sm">/api/v1/scan/{`{barcode}`}</code>
+              </div>
+              <p className="text-slate-400 text-xs mb-4">جلب تفاصيل المعاملة عبر قراءة الباركود.</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+             <div className="p-6 bg-slate-800/50 border border-slate-700 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="bg-orange-600 text-[10px] font-black px-2 py-1 rounded">PUT</span>
+                <code className="text-blue-300 font-mono text-sm">/api/v1/archive/{`{id}`}</code>
+              </div>
+              <p className="text-slate-400 text-xs mb-4">تحويل حالة المعاملة إلى "مؤرشفة" بعد الانتهاء.</p>
+            </div>
+
+            <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-900/20">
+              <h4 className="font-black mb-2 flex items-center gap-2 text-white">
+                <Shield size={20} /> أمن الاتصال
+              </h4>
+              <p className="text-sm text-blue-100 leading-relaxed mb-4">
+                جميع الطلبات تتطلب Authorization Header بترميز Bearer JWT. يتم تجديد التوكن كل ساعة لضمان أعلى درجات الأمان.
+              </p>
+              <div className="text-[11px] bg-slate-900/30 p-3 rounded-xl border border-blue-400/30">
+                Rate Limit: 100 req/min per user
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white p-12 rounded-[3rem] border border-slate-200 shadow-sm text-center">
+        <h3 className="text-2xl font-black mb-4">هل أنت جاهز للإنتاج؟</h3>
+        <p className="text-slate-500 mb-8 max-w-xl mx-auto">هذا النظام يمثل MVP متكامل وقابل للتحول فوراً إلى بيئة Production عبر ربطه بقاعدة بيانات PostgreSQL حقيقية.</p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <div className="px-6 py-3 bg-slate-100 rounded-2xl text-xs font-black text-slate-600">Dockerized Support</div>
+          <div className="px-6 py-3 bg-slate-100 rounded-2xl text-xs font-black text-slate-600">CI/CD Ready</div>
+          <div className="px-6 py-3 bg-slate-100 rounded-2xl text-xs font-black text-slate-600">Prometheus Monitoring</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ArchitectureView;

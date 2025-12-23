@@ -1,0 +1,7 @@
+{
+  "name": "ArchivX - Professional Correspondence Management",
+  "description": "نظام احترافي لإدارة الصادر والوارد مع نظام باركود ذكي (UUIDv7) وتوليد تقارير PDF بدقة عالية.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

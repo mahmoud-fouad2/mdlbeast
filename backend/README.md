@@ -1,0 +1,152 @@
+# نظام الأرشفة الموحد - Backend API
+
+نظام Backend للأرشفة الإلكترونية مبني بـ Express.js و TypeScript مع قاعدة بيانات PostgreSQL.
+
+## 🚀 التثبيت والإعداد
+
+### 1. تثبيت المكتبات
+```bash
+cd backend
+npm install
+```
+
+### 2. إعداد المتغيرات البيئية
+انسخ `.env.example` إلى `.env`:
+```bash
+cp .env.example .env
+```
+
+الملف `.env` يحتوي على الإعدادات الصحيحة بالفعل:
+```env
+DATABASE_URL=postgresql://zacodb_user:ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO@dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com/zacodb
+JWT_SECRET=JWT_7aP!Q9#xL$4M@Wc2KZr8NfD0m
+PORT=3001
+NODE_ENV=production
+FRONTEND_URL=https://zaco.sa
+```
+
+### 3. تشغيل SQL Scripts
+قم بتنفيذ السكريبتات لإنشاء قاعدة البيانات:
+
+```bash
+# الطريقة 1: استخدام psql
+PGPASSWORD=ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO psql -h dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com -U zacodb_user zacodb -f ../scripts/01_create_tables.sql
+
+PGPASSWORD=ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO psql -h dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com -U zacodb_user zacodb -f ../scripts/02_seed_data.sql
+
+# الطريقة 2: من داخل psql
+psql $DATABASE_URL
+\i ../scripts/01_create_tables.sql
+\i ../scripts/02_seed_data.sql
+```
+
+### 4. تشغيل Server
+
+**وضع التطوير:**
+```bash
+npm run dev
+```
+
+**وضع الإنتاج:**
+```bash
+npm run build
+npm start
+```
+
+Server سيعمل على: `http://localhost:3001`
+
+## 📡 API Endpoints
+
+### Authentication (المصادقة)
+- `POST /api/auth/login` - تسجيل دخول
+- `POST /api/auth/register` - تسجيل مستخدم جديد (admin فقط)
+
+### Documents (المستندات)
+- `GET /api/documents` - الحصول على جميع المستندات (مع الفلاتر)
+- `GET /api/documents/:barcode` - الحصول على مستند بالباركود
+- `POST /api/documents` - إنشاء مستند جديد
+- `PUT /api/documents/:barcode` - تحديث مستند
+- `DELETE /api/documents/:barcode` - حذف مستند
+- `GET /api/documents/stats/summary` - إحصائيات
+
+### Users (المستخدمين)
+- `GET /api/users` - جميع المستخدمين (admin فقط)
+- `GET /api/users/me` - المستخدم الحالي
+
+## 🔐 بيانات الدخول الافتراضية
+
+**Admin:**
+- Username: `admin@zaco.sa`
+- Password: `admin123`
+
+**User:**
+- Username: `user@zaco.sa`
+- Password: `user123`
+
+⚠️ **مهم جداً:** قم بتغيير كلمات المرور بعد أول تسجيل دخول!
+
+## 🛠️ أدوات مساعدة
+
+### توليد Password Hash
+```bash
+npx ts-node src/scripts/generate-password.ts
+```
+
+## 🧪 اختبار API
+
+### Health Check
+```bash
+curl http://localhost:3001/health
+```
+
+### تسجيل دخول
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin@zaco.sa","password":"admin123"}'
+```
+
+## 🗄️ قاعدة البيانات
+
+### معلومات الاتصال
+- **Host**: dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com
+- **Port**: 5432
+- **Database**: zacodb
+- **Username**: zacodb_user
+- **Password**: ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO
+
+### الجداول
+1. **users** - جدول المستخدمين
+2. **documents** - جدول المستندات
+
+## 📦 النشر على الإنتاج
+
+### Render
+1. Push الكود إلى GitHub
+2. إنشاء Web Service جديد في Render
+3. اضبط Build Command: `cd backend && npm install && npm run build`
+4. اضبط Start Command: `cd backend && npm start`
+5. أضف المتغيرات البيئية
+
+### Heroku
+```bash
+cd backend
+heroku create zaco-archive-api
+heroku config:set DATABASE_URL=...
+heroku config:set JWT_SECRET=...
+git push heroku main
+```
+
+## 🔒 الأمان
+
+- JWT authentication
+- Bcrypt password hashing
+- Helmet security headers
+- CORS protection
+- Input validation with express-validator
+
+## 📝 ملاحظات
+
+- جميع كلمات المرور مشفرة بـ bcrypt
+- JWT tokens صالحة لمدة 24 ساعة
+- CORS مضبوط للسماح فقط من FRONTEND_URL
