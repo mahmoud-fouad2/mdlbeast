@@ -2,7 +2,7 @@
 -- Seed a test barcode and a timeline entry (idempotent)
 
 WITH user_id AS (
-  SELECT id as uid FROM users WHERE username='admin@zaco.sa' OR email='admin@zaco.sa' LIMIT 1
+  SELECT id as uid FROM users WHERE username='admin@zaco.sa' LIMIT 1
 ), upsert AS (
   INSERT INTO barcodes (barcode, type, status, priority, subject, attachments, user_id, tenant_id)
   VALUES ('TEST123456','incoming','وارد','عادي','Seeded test barcode','[]'::jsonb, (SELECT uid FROM user_id), NULL)
