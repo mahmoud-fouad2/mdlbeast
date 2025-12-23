@@ -294,6 +294,73 @@ app.post("/debug/set-admin-password", async (req, res) => {
   }
 })
 
+// Debug: run a single migration SQL file (protected). Accepts file param (filename) limited to known scripts.
+app.post("/debug/run-migration", async (req, res) => {
+  const secret = req.query.secret
+  if (!(process.env.DEBUG === "true" || (typeof secret === "string" && secret === DEBUG_SECRET && DEBUG_SECRET !== ""))) {
+    return res.status(404).send("Not found")
+  }
+
+  try {
+    const filename = String(req.query.file || req.body?.file || "").trim()
+    const allowed = new Set(["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql"])
+    if (!allowed.has(filename)) {
+      return res.status(400).json({ error: "Invalid or unsupported migration file" })
+    }
+
+    const fs = await import("fs")
+    const path = await import("path")
+
+    // find scripts dir (reuse logic)
+    const candidates = [
+      path.resolve(__dirname, "..", "scripts"),
+      path.resolve(__dirname, "..", "..", "scripts"),
+      path.resolve(process.cwd(), "scripts"),
+    ]
+
+    let base: string | null = null
+    for (const c of candidates) {
+      if (fs.existsSync(path.join(c, filename))) {
+        base = c
+        break
+      }
+    }
+
+    if (!base) {
+      // try walking up
+      let cur = path.resolve(process.cwd())
+      for (let i = 0; i < 6; i++) {
+        const candidate = path.join(cur, "scripts")
+        if (fs.existsSync(path.join(candidate, filename))) {
+          base = candidate
+          break
+        }
+        const parent = path.dirname(cur)
+        if (parent === cur) break
+        cur = parent
+      }
+    }
+
+    if (!base) return res.status(404).json({ error: "Migration file not found" })
+
+    const sql = fs.readFileSync(path.join(base, filename), "utf8")
+
+    await query("BEGIN")
+    try {
+      await query(sql)
+      await query("COMMIT")
+      res.json({ status: "ok", file: filename })
+    } catch (err: any) {
+      await query("ROLLBACK")
+      console.error("Migration execution error:", err)
+      return res.status(500).json({ error: err.message || String(err) })
+    }
+  } catch (err: any) {
+    console.error("Run migration error:", err)
+    res.status(500).json({ error: err.message || String(err) })
+  }
+})
+
 // Debug: stream a pg_dump of the database for backup (protected)
 app.get("/debug/backup-db", async (req, res) => {
   const secret = req.query.secret
