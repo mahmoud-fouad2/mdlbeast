@@ -46,16 +46,39 @@ const App: React.FC = () => {
       const fetchedDocs = await apiClient.getDocuments().catch((e) => { console.warn('Documents fetch failed', e); return [] as any[] })
       const normalized = (fetchedDocs || []).map((d: any) => ({
         id: d.id,
-        barcodeId: d.barcode || d.barcode_id || d.barcodeId,
-        title: d.subject || d.title,
-        sender: d.sender,
-        recipient: d.receiver || d.recipient,
+        barcode: d.barcode || d.barcode_id || d.barcodeId || '',
+        barcodeId: d.barcode || d.barcode_id || d.barcodeId || '',
+        companyId: d.tenant_id || d.companyId || null,
+        type: (String(d.type || '').toLowerCase().includes('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+        title: d.subject || d.title || '',
+        sender: d.sender || '',
+        receiver: d.receiver || d.recipient || '',
+        recipient: d.receiver || d.recipient || '',
+        referenceNumber: d.referenceNumber || '',
+        internalRef: d.internalRef || '',
+        documentDate: d.date || '',
+        archiveDate: d.archived_at || '',
         date: d.date ? d.date.split('T')?.[0] : (d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : ''),
-        priority: d.priority,
-        type: (String(d.type || '').toLowerCase().includes('in') || String(d.type) === 'وارد') ? 'INCOMING' : 'OUTGOING',
-        createdAt: d.created_at
+        subject: d.subject || '',
+        description: d.description || d.notes || '',
+        status: d.status || '',
+        security: d.security || '',
+        priority: d.priority || '',
+        category: d.category || '',
+        physicalLocation: d.physical_location || '',
+        attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
+        attachments: d.attachments || [],
+        signatory: d.signatory || '',
+        tags: d.tags || [],
+        created_at: d.created_at ? new Date(d.created_at) : new Date(),
+        createdBy: d.created_by || d.createdBy || '',
+        pdfFile: d.pdf || d.pdfFile || undefined,
+        user_id: d.user_id || null,
+        updated_at: d.updated_at ? new Date(d.updated_at) : new Date(),
+        notes: d.notes || ''
       }))
-      setDocs(normalized);
+      setDocs(normalized as any);
+
 
       // Users (requires admin/auth)
       const fetchedUsers = await apiClient.getUsers().catch((e) => { console.warn('Users fetch failed', e); return [] as any[] })
@@ -147,7 +170,8 @@ const App: React.FC = () => {
   if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('archivx_session_user', JSON.stringify(u)); }} logoUrl={currentCompany?.logoUrl || 'https://www.zaco.sa/logo2.png'} />;
 
   const NavItem = ({ id, label, icon: Icon, adminOnly = false }: any) => {
-    if (adminOnly && currentUser.role !== 'ADMIN') return null;
+    // Show admin-only items for users whose role is 'admin' (case-insensitive)
+    if (adminOnly && String(currentUser?.role || '').toLowerCase() !== 'admin') return null;
     return (
       <button 
         onClick={() => setActiveTab(id)} 
