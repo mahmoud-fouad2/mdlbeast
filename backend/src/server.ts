@@ -39,6 +39,19 @@ app.get("/health", (_req, res) => {
   res.send("ok")
 })
 
+// Debug DB check (only enabled when DEBUG=true)
+if (process.env.DEBUG === "true") {
+  app.get("/debug/db", async (_req, res) => {
+    try {
+      const result = await query("SELECT COUNT(*)::int as cnt FROM users")
+      res.json({ users: result.rows[0].cnt })
+    } catch (err: any) {
+      console.error("Debug DB error:", err)
+      res.status(500).json({ error: err.message || String(err) })
+    }
+  })
+}
+
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/documents", documentRoutes)
