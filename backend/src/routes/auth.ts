@@ -66,7 +66,7 @@ router.post(
     body("full_name").trim().notEmpty().withMessage("Full name is required"),
     body("role").isIn(["admin", "user"]).withMessage("Invalid role"),
   ],
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })

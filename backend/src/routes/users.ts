@@ -1,6 +1,8 @@
 import express from "express"
+import type { Request, Response } from "express"
 import { query } from "../config/database"
 import { authenticateToken, isAdmin } from "../middleware/auth"
+import type { AuthRequest } from "../types"
 
 const router = express.Router()
 
@@ -8,7 +10,7 @@ const router = express.Router()
 router.use(authenticateToken)
 
 // Get all users (admin only)
-router.get("/", isAdmin, async (req, res) => {
+router.get("/", isAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const result = await query("SELECT id, username, full_name, role, created_at FROM users ORDER BY created_at DESC")
     res.json(result.rows)
@@ -19,11 +21,11 @@ router.get("/", isAdmin, async (req, res) => {
 })
 
 // Get current user
-router.get("/me", async (req, res) => {
+router.get("/me", async (req: AuthRequest, res: Response) => {
   try {
-    const authReq = req as any
+    const authReq = req
     const result = await query("SELECT id, username, full_name, role, created_at FROM users WHERE id = $1", [
-      authReq.user.id,
+      authReq.user?.id,
     ])
 
     if (result.rows.length === 0) {

@@ -11,7 +11,7 @@ const router = express.Router()
 router.use(authenticateToken)
 
 // Get all documents
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, search, limit = 100, offset = 0 } = req.query
 
@@ -49,7 +49,7 @@ router.get("/", async (req: Request, res: Response) => {
 })
 
 // Get document by barcode
-router.get("/:barcode", async (req, res) => {
+router.get("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
     const result = await query("SELECT * FROM documents WHERE barcode = $1", [barcode])
@@ -78,14 +78,14 @@ router.post(
     body("priority").isIn(["عادي", "عاجل", "عاجل جداً"]).withMessage("Invalid priority"),
     body("status").isIn(["وارد", "صادر", "محفوظ"]).withMessage("Invalid status"),
   ],
-  async (req, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
     }
 
     try {
-      const authReq = req as AuthRequest
+      const authReq = req
       const {
         barcode,
         type,
@@ -136,7 +136,7 @@ router.post(
 )
 
 // Update document
-router.put("/:barcode", async (req, res) => {
+router.put("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
     const { type, sender, receiver, date, subject, priority, status, classification, notes, attachments } = req.body
@@ -174,7 +174,7 @@ router.put("/:barcode", async (req, res) => {
 })
 
 // Delete document
-router.delete("/:barcode", async (req, res) => {
+router.delete("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
     const result = await query("DELETE FROM documents WHERE barcode = $1 RETURNING *", [barcode])
@@ -191,7 +191,7 @@ router.delete("/:barcode", async (req, res) => {
 })
 
 // Get statistics
-router.get("/stats/summary", async (req, res) => {
+router.get("/stats/summary", async (req: Request, res: Response) => {
   try {
     const result = await query(`
       SELECT 
