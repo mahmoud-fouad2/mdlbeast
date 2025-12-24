@@ -49,7 +49,7 @@ const App: React.FC = () => {
         barcode: d.barcode || d.barcode_id || d.barcodeId || '',
         barcodeId: d.barcode || d.barcode_id || d.barcodeId || '',
         companyId: d.tenant_id || d.companyId || null,
-        type: (String(d.type || '').toLowerCase().includes('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+        type: (String(d.type || '').toLowerCase().startsWith('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
         title: d.subject || d.title || '',
         sender: d.sender || '',
         receiver: d.receiver || d.recipient || '',

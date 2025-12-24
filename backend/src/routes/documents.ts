@@ -130,8 +130,9 @@ router.post(
       // Determine direction from provided 'type' or barcode prefix (flexible)
       let direction: 'INCOMING' | 'OUTGOING' | null = null
       if (typeof type === 'string') {
-        if (String(type).toUpperCase() === 'INCOMING' || String(type).toLowerCase().includes('in')) direction = 'INCOMING'
-        else if (String(type).toUpperCase() === 'OUTGOING' || String(type).toLowerCase().includes('out')) direction = 'OUTGOING'
+        const t = String(type).toUpperCase().trim()
+        if (t === 'INCOMING' || t.startsWith('IN')) direction = 'INCOMING'
+        else if (t === 'OUTGOING' || t.startsWith('OUT')) direction = 'OUTGOING'
       }
       if (!direction && barcode && typeof barcode === 'string') {
         if (barcode.toUpperCase().startsWith('IN')) direction = 'INCOMING'

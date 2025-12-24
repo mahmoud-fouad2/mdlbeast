@@ -60,7 +60,7 @@ export default function DashboardPage() {
           recipient: doc.receiver || doc.recipient || '',
           date: doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : ''),
           documentDate: doc.date || doc.documentDate || '',
-          type: (String(doc.type || '').toLowerCase().includes('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+          type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
           companyId: doc.companyId || doc.tenant_id || null,
         }))
         setDocs(mappedDocs)
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           recipient: doc.receiver || doc.recipient || '',
           date: doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : ''),
           documentDate: doc.date || doc.documentDate || '',
-          type: (String(doc.type || '').toLowerCase().includes('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+          type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
           companyId: doc.companyId || doc.tenant_id || null,
         }))
         setDocs(mappedDocs)
