@@ -66,8 +66,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // embed image and text into PDF
     const pdfDoc = await PDFDocument.load(pdfBytes)
     const pngImage = await pdfDoc.embedPng(imgBytes)
-    // embed a readable font for annotations
-    const helv = await pdfDoc.embedFont((await import('pdf-lib')).StandardFonts.Helvetica)
+    // embed readable fonts for annotations (regular + bold)
+    const helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
     const pages = pdfDoc.getPages()
     const page = pages[Math.max(0, Math.min(pageIndex, pages.length - 1))]
@@ -113,15 +114,43 @@ router.post('/:barcode/stamp', async (req, res) => {
       height: heightPdf,
     })
 
-    // draw textual annotation (barcode text + sender/company) below the barcode
-    const textX = xPdf
-    const textY = yPdf - 12
-    const lineHeight = 10
-    const barcodeText = String(barcode || '')
-    const senderText = String(doc.sender || doc.user || '')
-    // primary: barcode, secondary: sender/company
-    page.drawText(barcodeText, { x: textX, y: textY, size: 10, font: helv, color: rgb(0,0,0) })
-    page.drawText(senderText, { x: textX, y: textY - lineHeight, size: 9, font: helv, color: rgb(0,0,0) })
+    // draw centered, styled annotation (company name + barcode text + date)
+    const centerX = xPdf + widthPdf / 2
+    const gap = 6
+    const companyName = String(doc.company || doc.sender || doc.user || '')
+    const dateSource = doc.date || doc.created_at || new Date().toISOString()
+    let dateStr = ''
+    try {
+      dateStr = new Date(dateSource).toLocaleString('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    } catch (e) {
+      dateStr = String(dateSource)
+    }
+
+    const companySize = 11
+    const barcodeSize = 9
+    const dateSize = 9
+
+    const companyWidth = helvBold.widthOfTextAtSize(companyName, companySize)
+    const barcodeWidth = helv.widthOfTextAtSize(barcode, barcodeSize)
+    const dateWidth = helv.widthOfTextAtSize(dateStr, dateSize)
+
+    const companyX = centerX - (companyWidth / 2)
+    const barcodeX = centerX - (barcodeWidth / 2)
+    const dateX = centerX - (dateWidth / 2)
+
+    const companyY = yPdf - gap
+    const barcodeY = companyY - companySize - 4
+    const dateY = barcodeY - barcodeSize - 2
+
+    if (companyName) {
+      page.drawText(companyName, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
+    }
+
+    // barcode identifier centered below company
+    page.drawText(String(barcode || ''), { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
+
+    // timestamp centered below
+    page.drawText(dateStr, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
 
