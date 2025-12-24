@@ -140,14 +140,26 @@ router.post('/:barcode/stamp', async (req, res) => {
         // refresh public URL
         const publicRes = supabase.storage.from(targetBucket).getPublicUrl(targetKey) as any
         const newUrl = publicRes?.data?.publicUrl || pdf.url
-        // update attachments[0] url, size and key
-        attachments[0] = { ...(attachments[0] || {}), url: newUrl, size: outBytes.length, key: targetKey, bucket: targetBucket }
+        // create a signed URL so the client can immediately fetch the updated content (bypasses CDN caches)
+        let signedUrl: string | null = null
+        try {
+          const { data: signedData, error: signedErr } = await supabase.storage.from(targetBucket).createSignedUrl(targetKey, 60 * 60)
+          if (!signedErr && signedData?.signedUrl) signedUrl = signedData.signedUrl
+        } catch (e) {
+          console.warn('Failed to create signed URL for stamped object:', e)
+        }
+
+        // update attachments[0] url, size, key and mark stamp time
+        const stampedAt = new Date().toISOString()
+        attachments[0] = { ...(attachments[0] || {}), url: newUrl, size: outBytes.length, key: targetKey, bucket: targetBucket, stampedAt }
         const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
         const updatedDoc = upd.rows[0]
         // attach pdfFile convenience property
         const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
         const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
-        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
+        // provide signedUrl and a short-lived preview URL to the client so they can open the fresh copy immediately
+        const previewUrl = signedUrl || `${newUrl}?t=${Date.now()}`
+        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile, previewUrl })
       }
 
       // If original was local uploads path, overwrite it
@@ -155,13 +167,14 @@ router.post('/:barcode/stamp', async (req, res) => {
         const uploadsDir = path.resolve(process.cwd(), 'uploads')
         const fp = path.join(uploadsDir, pdf.url.replace('/uploads/', ''))
         fs.writeFileSync(fp, outBytes)
-        // update size
-        attachments[0] = { ...(attachments[0] || {}), size: outBytes.length }
+        // update size and mark stamp time
+        attachments[0] = { ...(attachments[0] || {}), size: outBytes.length, stampedAt: new Date().toISOString() }
         const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
         const updatedDoc = upd.rows[0]
         const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
         const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
-        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
+        const previewUrl = pdfFile?.url ? `${pdfFile.url}?t=${Date.now()}` : null
+        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile, previewUrl })
       }
 
       // fallback: create new local file and replace first attachment
@@ -171,12 +184,13 @@ router.post('/:barcode/stamp', async (req, res) => {
       const outPath = path.join(uploadsDir, filename)
       fs.writeFileSync(outPath, outBytes)
       const url = `/uploads/${filename}`
-      attachments[0] = { name: filename, url, size: outBytes.length }
+      attachments[0] = { name: filename, url, size: outBytes.length, stampedAt: new Date().toISOString() }
       const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
       const updatedDoc = upd.rows[0]
       const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
       const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
-      return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
+      const previewUrl = pdfFile?.url ? `${pdfFile.url}?t=${Date.now()}` : null
+      return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile, previewUrl })
     } catch (e: any) {
       console.error('Failed to save stamped file:', e)
       return res.status(500).json({ error: 'Failed to save stamped file' })

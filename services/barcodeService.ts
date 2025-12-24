@@ -7,11 +7,13 @@
  */
 export const generateUUIDv7 = (): string => {
   // Ensure this works in both browser and Node (fallbacks included)
-  const timestamp = Date.now() || (new Date()).getTime();
-  let hexTimestamp = timestamp.toString(16).padStart(12, '0');
+  // Use a robust timestamp source and ensure it is never zero
+  let timestamp = Date.now() || (new Date()).getTime();
+  if (!Number.isFinite(timestamp) || timestamp <= 0) timestamp = Math.floor(Date.now() / 1)
+  let hexTimestamp = Math.floor(timestamp).toString(16).padStart(12, '0');
 
-  // Fallback if hexTimestamp somehow all zeros
-  if (/^0+$/.test(hexTimestamp)) {
+  // Fallback if hexTimestamp somehow all zeros or invalid
+  if (!hexTimestamp || /^0+$/.test(hexTimestamp)) {
     hexTimestamp = Math.floor(Date.now() / 1000).toString(16).padStart(12, '0');
   }
 
