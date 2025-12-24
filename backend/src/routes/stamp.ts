@@ -109,29 +109,59 @@ router.post('/:barcode/stamp', async (req, res) => {
 
     // Overwrite original file when possible (Supabase key or local file), otherwise create a new local file and replace the first attachment
     try {
-      if (pdf.key && supabaseUrl && supabaseKey && supabaseBucket) {
-        const { createClient } = await import('@supabase/supabase-js')
-        const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
-        // upload bytes to the same key (upsert=true)
-        const { error: uploadErr } = await supabase.storage.from(supabaseBucket).upload(pdf.key, outBytes, { contentType: 'application/pdf', upsert: true })
-        if (uploadErr) throw uploadErr
-        // refresh public URL
-        const publicRes = supabase.storage.from(supabaseBucket).getPublicUrl(pdf.key) as any
-        const newUrl = publicRes?.data?.publicUrl || pdf.url
-        // update attachments[0] url and size
-        attachments[0] = { ...(attachments[0] || {}), url: newUrl, size: outBytes.length }
-        await query('UPDATE documents SET attachments = $1 WHERE id = $2', [JSON.stringify(attachments), doc.id])
-        return res.json({ url: newUrl, key: pdf.key, size: outBytes.length })
+      // If pdf.key not present, try to extract key and bucket from a Supabase public URL
+      let targetBucket = supabaseBucket || ''
+      let targetKey = pdf.key
+      if ((!targetKey || !targetBucket) && pdf.url && typeof pdf.url === 'string') {
+        try {
+          const u = new URL(pdf.url)
+          // match /storage/v1/object/public/{bucket}/{key...}
+          const m = u.pathname.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/)
+          if (m) {
+            targetBucket = m[1]
+            targetKey = decodeURIComponent(m[2])
+            // If this is a Supabase public URL but the server lacks a service role key, refuse to silently localize
+            if ((!!m) && !(supabaseUrl && supabaseKey)) {
+              console.error('Stamp: Supabase public URL detected but SUPABASE_SERVICE_ROLE_KEY not configured on server')
+              return res.status(500).json({ error: 'Cannot overwrite Supabase object: server is not configured with SUPABASE_SERVICE_ROLE_KEY. Configure the Service Role key to allow overwriting files in storage.' })
+            }
+          }
+        } catch (e) {
+          // ignore URL parsing errors
+        }
       }
 
+      // If we have a Supabase key/bucket, attempt to overwrite the same object
+      if (targetKey && targetBucket && supabaseUrl && supabaseKey) {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
+        const { error: uploadErr } = await supabase.storage.from(targetBucket).upload(targetKey, outBytes, { contentType: 'application/pdf', upsert: true })
+        if (uploadErr) throw uploadErr
+        // refresh public URL
+        const publicRes = supabase.storage.from(targetBucket).getPublicUrl(targetKey) as any
+        const newUrl = publicRes?.data?.publicUrl || pdf.url
+        // update attachments[0] url, size and key
+        attachments[0] = { ...(attachments[0] || {}), url: newUrl, size: outBytes.length, key: targetKey, bucket: targetBucket }
+        const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
+        const updatedDoc = upd.rows[0]
+        // attach pdfFile convenience property
+        const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
+        const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
+        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
+      }
+
+      // If original was local uploads path, overwrite it
       if (pdf.url && String(pdf.url).startsWith('/uploads/')) {
         const uploadsDir = path.resolve(process.cwd(), 'uploads')
         const fp = path.join(uploadsDir, pdf.url.replace('/uploads/', ''))
         fs.writeFileSync(fp, outBytes)
         // update size
         attachments[0] = { ...(attachments[0] || {}), size: outBytes.length }
-        await query('UPDATE documents SET attachments = $1 WHERE id = $2', [JSON.stringify(attachments), doc.id])
-        return res.json({ url: pdf.url, size: outBytes.length })
+        const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
+        const updatedDoc = upd.rows[0]
+        const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
+        const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
+        return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
       }
 
       // fallback: create new local file and replace first attachment
@@ -142,8 +172,11 @@ router.post('/:barcode/stamp', async (req, res) => {
       fs.writeFileSync(outPath, outBytes)
       const url = `/uploads/${filename}`
       attachments[0] = { name: filename, url, size: outBytes.length }
-      await query('UPDATE documents SET attachments = $1 WHERE id = $2', [JSON.stringify(attachments), doc.id])
-      return res.json({ url, name: filename, size: outBytes.length })
+      const upd = await query('UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *', [JSON.stringify(attachments), doc.id])
+      const updatedDoc = upd.rows[0]
+      const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
+      const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
+      return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile })
     } catch (e: any) {
       console.error('Failed to save stamped file:', e)
       return res.status(500).json({ error: 'Failed to save stamped file' })

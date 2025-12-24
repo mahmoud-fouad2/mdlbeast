@@ -47,7 +47,16 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     queryParams.push(limit, offset)
 
     const result = await query(queryText, queryParams)
-    res.json(result.rows)
+    // attach pdfFile convenience property for UI convenience
+    const rows = result.rows.map((r: any) => {
+      let attachments = r.attachments
+      try {
+        if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]')
+      } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
+      const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
+      return { ...r, attachments, pdfFile }
+    })
+    res.json(rows)
   } catch (error) {
     console.error("Get documents error:", error)
     res.status(500).json({ error: "Failed to fetch documents" })
@@ -77,7 +86,14 @@ router.get("/:barcode", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Document not found" })
     }
 
-    res.json(result.rows[0])
+    const row = result.rows[0]
+    let attachments = row.attachments
+    try {
+      if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]')
+    } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
+    const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
+
+    res.json({ ...row, attachments, pdfFile })
   } catch (error) {
     console.error("Get document error:", error)
     res.status(500).json({ error: "Failed to fetch document" })
@@ -269,7 +285,14 @@ router.put("/:barcode", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Document not found" })
     }
 
-    res.json(result.rows[0])
+    const row = result.rows[0]
+    let attachments = row.attachments
+    try {
+      if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]')
+    } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
+    const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
+
+    res.json({ ...row, attachments, pdfFile })
   } catch (error) {
     console.error("Update document error:", error)
     res.status(500).json({ error: "Failed to update document" })
