@@ -196,7 +196,16 @@ router.post(
       // Normalize aliases sent by the client
       const finalReceiver = receiver || recipient || ''
       const finalSubject = subject || title || ''
-      const finalDate = date || documentDate || new Date().toISOString().split('T')[0]
+      // Ensure date includes a timestamp (avoid midnight-only dates). If client sent only YYYY-MM-DD, append current time portion.
+      let finalDate: string
+      if (date) finalDate = date
+      else if (documentDate) {
+        finalDate = typeof documentDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(documentDate)
+          ? `${documentDate}T${new Date().toISOString().split('T')[1]}`
+          : documentDate
+      } else {
+        finalDate = new Date().toISOString()
+      }
 
       // Determine direction from provided 'type' or barcode prefix (flexible)
       let direction: 'INCOMING' | 'OUTGOING' | null = null

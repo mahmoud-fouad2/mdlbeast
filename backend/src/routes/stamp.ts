@@ -179,6 +179,27 @@ router.post('/:barcode/stamp', async (req, res) => {
           console.warn('Failed to create signed URL for stamped object:', e)
         }
 
+        // verify uploaded content by downloading it back and comparing SHA-256 (safety check)
+        try {
+          const { data: downloadedData, error: downloadErr } = await supabase.storage.from(targetBucket).download(targetKey)
+          if (downloadErr) {
+            console.error('Stamp: verification download failed:', downloadErr)
+            throw downloadErr
+          }
+          const downloadedBuf = Buffer.from(await (downloadedData as any).arrayBuffer())
+          const crypto = require('crypto')
+          const outHash = crypto.createHash('sha256').update(outBytes).digest('hex')
+          const downHash = crypto.createHash('sha256').update(downloadedBuf).digest('hex')
+          if (outHash !== downHash) {
+            console.error('Stamp: verification mismatch after upload', { outHash, downHash })
+            throw new Error('Uploaded file verification failed (hash mismatch)')
+          }
+        } catch (verErr) {
+          console.error('Stamp: verification error:', verErr)
+          // Do not silently continue; report failure so client knows stamp didn't actually persist
+          return res.status(500).json({ error: 'Stamped file failed verification after upload. Try again or contact support.' })
+        }
+
         // update attachments[0] url, size, key and mark stamp time
         const stampedAt = new Date().toISOString()
         attachments[0] = { ...(attachments[0] || {}), url: newUrl, size: outBytes.length, key: targetKey, bucket: targetBucket, stampedAt }
