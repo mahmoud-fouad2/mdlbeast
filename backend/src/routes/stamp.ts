@@ -87,10 +87,16 @@ router.post('/:barcode/stamp', async (req, res) => {
       }
 
       const fontDirs = [
+        // dev repo layout
         path.resolve(process.cwd(), 'backend', 'assets', 'fonts'),
         path.resolve(process.cwd(), 'assets', 'fonts'),
         path.resolve(process.cwd(), 'assets'),
         path.resolve(process.cwd(), 'fonts'),
+        // paths relative to compiled code (dist) on production
+        path.resolve(__dirname, '..', '..', 'assets', 'fonts'),
+        path.resolve(__dirname, '..', '..', 'assets'),
+        path.resolve(__dirname, '..', '..', '..', 'assets', 'fonts'),
+        path.resolve(__dirname, '..', '..', '..', 'backend', 'assets', 'fonts'),
       ]
       let fontFiles: string[] = []
       for (const d of fontDirs) {
@@ -139,13 +145,21 @@ router.post('/:barcode/stamp', async (req, res) => {
           const notoBoldUrl = 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'
           const regResp = await fetch(notoRegUrl)
           const boldResp = await fetch(notoBoldUrl)
-          if (regResp.ok && fontkitRegistered) {
+          const ctReg = String(regResp.headers.get('content-type') || '')
+          const ctBold = String(boldResp.headers.get('content-type') || '')
+          const isFontReg = regResp.ok && /font|octet|application\//i.test(ctReg)
+          const isFontBold = boldResp.ok && /font|octet|application\//i.test(ctBold)
+          if (isFontReg && fontkitRegistered) {
             const buf = Buffer.from(await regResp.arrayBuffer())
             helv = await pdfDoc.embedFont(buf)
+          } else {
+            console.warn('Stamp: runtime font download did not return a valid font for regular (content-type=' + ctReg + ')')
           }
-          if (boldResp.ok && fontkitRegistered) {
+          if (isFontBold && fontkitRegistered) {
             const buf2 = Buffer.from(await boldResp.arrayBuffer())
             helvBold = await pdfDoc.embedFont(buf2)
+          } else {
+            console.warn('Stamp: runtime font download did not return a valid font for bold (content-type=' + ctBold + ')')
           }
           // if download didn't produce fonts, fall back
           if (!helv) {
