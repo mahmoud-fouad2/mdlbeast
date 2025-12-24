@@ -496,6 +496,13 @@ app.get("/debug/test-supabase-upload", async (req, res) => {
     return res.status(500).json({ error: 'Missing SUPABASE env vars', SUPABASE_URL: !!SUPABASE_URL, SUPABASE_KEY: !!SUPABASE_KEY, BUCKET })
   }
 
+  // Basic sanity check: service role keys from Supabase are JWT-like (3 parts separated by '.')
+  const looksLikeJwt = typeof SUPABASE_SERVICE_ROLE_KEY === 'string' && (SUPABASE_SERVICE_ROLE_KEY.split('.').length === 3)
+  if (!looksLikeJwt) {
+    const snippet = String(SUPABASE_SERVICE_ROLE_KEY).slice(0, 4) + '…' + String(SUPABASE_SERVICE_ROLE_KEY).slice(-4)
+    return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a valid Service Role JWT. Please confirm you copied the Service Role Key (Settings → API → Service Role Key) for the same Supabase project.', keySnippet: snippet })
+  }
+
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } })

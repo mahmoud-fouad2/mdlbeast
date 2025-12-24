@@ -33,27 +33,34 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const supabaseBucket = process.env.SUPABASE_BUCKET || process.env.S3_BUCKET || ''
 
     if (supabaseUrl && supabaseKey && supabaseBucket) {
-      try {
-        const { createClient } = await import('@supabase/supabase-js')
-        const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
-        const body = fs.readFileSync(f.path)
-        const key = `uploads/${Date.now()}-${f.filename}`
-        const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype })
-        if (uploadError) throw uploadError
+      // Quick validation: the Service Role Key should look like a JWT (3 segments)
+      const looksLikeJwt = typeof supabaseKey === 'string' && (supabaseKey.split('.').length === 3)
+      if (!looksLikeJwt) {
+        const snippet = String(supabaseKey).slice(0, 4) + '…' + String(supabaseKey).slice(-4)
+        console.error('Supabase service key looks invalid; skipping Supabase upload. keySnippet=', snippet)
+      } else {
+        try {
+          const { createClient } = await import('@supabase/supabase-js')
+          const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
+          const body = fs.readFileSync(f.path)
+          const key = `uploads/${Date.now()}-${f.filename}`
+          const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype })
+          if (uploadError) throw uploadError
 
-        // Try public URL first, otherwise create a signed URL
-        const { data: publicUrlData } = supabase.storage.from(supabaseBucket).getPublicUrl(key)
-        let url = (publicUrlData as any)?.publicUrl
-        if (!url) {
-          const { data: signedData, error: signedErr } = await supabase.storage.from(supabaseBucket).createSignedUrl(key, 60 * 60)
-          if (signedErr) throw signedErr
-          url = (signedData as any)?.signedUrl || (signedData as any)?.signedURL || ''
+          // Try public URL first, otherwise create a signed URL
+          const { data: publicUrlData } = supabase.storage.from(supabaseBucket).getPublicUrl(key)
+          let url = (publicUrlData as any)?.publicUrl
+          if (!url) {
+            const { data: signedData, error: signedErr } = await supabase.storage.from(supabaseBucket).createSignedUrl(key, 60 * 60)
+            if (signedErr) throw signedErr
+            url = (signedData as any)?.signedUrl || (signedData as any)?.signedURL || ''
+          }
+
+          try { fs.unlinkSync(f.path) } catch (e) {}
+          return res.json({ url, name: f.originalname, size: f.size, storage: 'supabase' })
+        } catch (e: any) {
+          console.error('Supabase upload failed, falling back to S3/local:', e?.message || e)
         }
-
-        try { fs.unlinkSync(f.path) } catch (e) {}
-        return res.json({ url, name: f.originalname, size: f.size, storage: 'supabase' })
-      } catch (e: any) {
-        console.error('Supabase upload failed, falling back to S3/local', e)
       }
     }
 
