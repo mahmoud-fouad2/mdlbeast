@@ -423,9 +423,6 @@ async function runAllowedMigrationsOnStartup() {
 // Kick off startup migration runner (non-blocking)
 runAllowedMigrationsOnStartup().catch(err => console.error('Startup migrations error:', err))
 
-  }
-})
-
 // Debug: stream a pg_dump of the database for backup (protected)
 app.get("/debug/backup-db", async (req, res) => {
   const secret = req.query.secret
