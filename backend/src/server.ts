@@ -637,27 +637,27 @@ app.get('/debug/list-fonts', async (req, res) => {
 
   try {
     const fontDirs = [
-      path.resolve(process.cwd(), 'backend', 'assets', 'fonts'),
-      path.resolve(process.cwd(), 'assets', 'fonts'),
-      path.resolve(process.cwd(), 'assets'),
-      path.resolve(process.cwd(), 'fonts'),
-      path.resolve(__dirname, '..', '..', 'assets', 'fonts'),
-      path.resolve(__dirname, '..', '..', 'assets'),
-      path.resolve(__dirname, '..', '..', '..', 'assets', 'fonts'),
-      path.resolve(__dirname, '..', '..', '..', 'backend', 'assets', 'fonts'),
+      pathModule.resolve(process.cwd(), 'backend', 'assets', 'fonts'),
+      pathModule.resolve(process.cwd(), 'assets', 'fonts'),
+      pathModule.resolve(process.cwd(), 'assets'),
+      pathModule.resolve(process.cwd(), 'fonts'),
+      pathModule.resolve(__dirname, '..', '..', 'assets', 'fonts'),
+      pathModule.resolve(__dirname, '..', '..', 'assets'),
+      pathModule.resolve(__dirname, '..', '..', '..', 'assets', 'fonts'),
+      pathModule.resolve(__dirname, '..', '..', '..', 'backend', 'assets', 'fonts'),
     ]
 
     const results: any = {}
     for (const d of fontDirs) {
       try {
-        if (fs.existsSync(d)) {
-          const files = fs.readdirSync(d).filter((f) => /(\.ttf|\.otf)$/i.test(f)).map((f) => {
+        if (fsModule.existsSync(d)) {
+          const files = fsModule.readdirSync(d).filter((f: string) => /(\.ttf|\.otf)$/i.test(f)).map((f: string) => {
             try {
-              const p = path.join(d, f)
-              const s = fs.statSync(p)
-              const head = fs.readFileSync(p, { encoding: null, start: 0, end: 15 })
+              const p = pathModule.join(d, f)
+              const s = fsModule.statSync(p)
+              const head = fsModule.readFileSync(p, { encoding: null, start: 0, end: 15 })
               const crypto = require('crypto')
-              const sha = crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
+              const sha = crypto.createHash('sha256').update(fsModule.readFileSync(p)).digest('hex')
               return { name: f, size: s.size, head: Buffer.from(head).toString('hex'), sha256: sha }
             } catch (e) { return { name: f, error: String(e) } }
           })
@@ -685,10 +685,10 @@ app.post('/debug/fix-fonts', async (req, res) => {
   }
   try {
     const targets = [
-      path.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf'),
-      path.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Bold.ttf'),
-      path.resolve(__dirname, '..', '..', 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf'),
-      path.resolve(__dirname, '..', '..', 'backend', 'assets', 'fonts', 'NotoSansArabic-Bold.ttf'),
+      pathModule.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf'),
+      pathModule.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Bold.ttf'),
+      pathModule.resolve(__dirname, '..', '..', 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf'),
+      pathModule.resolve(__dirname, '..', '..', 'backend', 'assets', 'fonts', 'NotoSansArabic-Bold.ttf'),
     ]
     const urls: any = {
       regular: 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf',
@@ -698,8 +698,8 @@ app.post('/debug/fix-fonts', async (req, res) => {
     const written: any = []
     for (const t of targets) {
       try {
-        const dir = path.dirname(t)
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+        const dir = pathModule.dirname(t)
+        if (!fsModule.existsSync(dir)) fsModule.mkdirSync(dir, { recursive: true })
         const which = t.toLowerCase().includes('bold') ? 'bold' : 'regular'
         const url = urls[which]
         const r = await fetch(url)
