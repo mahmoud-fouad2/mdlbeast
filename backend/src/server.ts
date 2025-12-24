@@ -524,42 +524,14 @@ app.get("/debug/test-supabase-upload", async (req, res) => {
   }
 })
 
-// Debug: test S3 upload using env vars (protected)
-app.get('/debug/test-s3-upload', async (req, res) => {
-  const secret = req.query.secret
-  if (!(process.env.DEBUG === 'true' || (typeof secret === 'string' && secret === DEBUG_SECRET && DEBUG_SECRET !== ''))) {
-    return res.status(404).send('Not found')
-  }
 
-  const s3Key = process.env.S3_ACCESS_KEY || ''
-  const s3Secret = process.env.S3_SECRET_KEY || ''
-  const s3Endpoint = process.env.S3_ENDPOINT || ''
-  const s3Region = process.env.S3_REGION || 'ap-southeast-1'
-  const s3Bucket = process.env.S3_BUCKET || ''
-
-  if (!s3Key || !s3Secret || !s3Endpoint || !s3Bucket) {
-    return res.status(500).json({ error: 'Missing S3 env vars', s3Key: !!s3Key, s3Secret: !!s3Secret, s3Endpoint: !!s3Endpoint, s3Bucket })
-  }
-
-  try {
-    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
-    const endpointBase = String(s3Endpoint).replace(/\/storage\/v1\/s3\/?$/i, '')
-    const client = new S3Client({ region: s3Region, endpoint: endpointBase || s3Endpoint, forcePathStyle: true, credentials: { accessKeyId: s3Key, secretAccessKey: s3Secret } })
-    const key = `debug/test-${Date.now()}.txt`
-    const body = Buffer.from('debug s3 upload')
-    const cmd = new PutObjectCommand({ Bucket: s3Bucket, Key: key, Body: body, ContentType: 'text/plain' })
-    const result = await client.send(cmd)
-    return res.json({ result, url: `${endpointBase || s3Endpoint}/${s3Bucket}/${key}` })
-  } catch (err: any) {
-    console.error('Debug S3 upload error:', err)
-    return res.status(500).json({ error: err.message || String(err), raw: String(err) })
-  }
-})
-})
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
   console.log(`DEPLOY_HEARTBEAT ${new Date().toISOString()}`)
 })
 
-export default app
+export default app;
+
+// noop: ensure file ends with a clean newline to avoid parser issues on CI
+
