@@ -123,13 +123,37 @@ router.post('/:barcode/stamp', async (req, res) => {
         else chosen = fontFiles[0]
       }
 
+      // debug: list discovered font files
+      console.debug('Stamp: discovered font files:', fontFiles)
+
       if (chosen) {
+        console.debug('Stamp: chosen font:', chosen)
         if (!fontkitRegistered) {
           console.error('Stamp: cannot embed custom font because fontkit is not registered')
           return res.status(500).json({ error: 'Server is missing the fontkit integration required to embed custom TTF/OTF fonts. Install and enable @pdf-lib/fontkit (or fontkit) on the server.' })
         }
-        const fontBuf = fs.readFileSync(chosen)
-        helv = await pdfDoc.embedFont(fontBuf)
+        try {
+          const fontBuf = fs.readFileSync(chosen)
+          helv = await pdfDoc.embedFont(fontBuf)
+        } catch (embedErr) {
+          console.error('Stamp: failed to embed chosen font file:', chosen, embedErr)
+          // attempt explicit known-file fallback (Noto files checked-in)
+          try {
+            const maybe1 = path.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf')
+            const maybe2 = path.resolve(__dirname, '..', '..', 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf')
+            const candidates = [maybe1, maybe2].filter((p) => fs.existsSync(p))
+            if (candidates.length) {
+              console.debug('Stamp: attempting embed of checked-in Noto font at', candidates[0])
+              helv = await pdfDoc.embedFont(fs.readFileSync(candidates[0]))
+            } else {
+              throw embedErr
+            }
+          } catch (fallbackErr) {
+            console.error('Stamp: fallback embed also failed:', fallbackErr)
+            return res.status(500).json({ error: 'Failed to embed chosen font for stamping. Ensure a UTF-8 TTF/OTF font (e.g., NotoSansArabic) is present in backend/assets/fonts and that fontkit is installed.' })
+          }
+        }
+
         // try to find a bold variant nearby
         const boldCandidate = fontFiles.find(f => boldRe.test(path.basename(f)))
         if (boldCandidate) {
