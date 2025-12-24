@@ -31,12 +31,17 @@ router.post('/:barcode/stamp', async (req, res) => {
     const supabaseKey = String(supabaseKeyRaw).trim()
     const supabaseBucket = process.env.SUPABASE_BUCKET || ''
 
+    console.debug('Stamp request start:', { barcode, pdfUrl: pdf?.url, pdfKey: pdf?.key, supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey, supabaseBucket })
+
     try {
       if (pdf.key && supabaseUrl && supabaseKey && supabaseBucket) {
         const { createClient } = await import('@supabase/supabase-js')
         const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
         const { data: downloadData, error: downloadErr } = await supabase.storage.from(supabaseBucket).download(pdf.key)
-        if (downloadErr) throw downloadErr
+        if (downloadErr) {
+          console.error('Stamp: failed to download object from Supabase:', downloadErr)
+          throw downloadErr
+        }
         pdfBytes = Buffer.from(await (downloadData as any).arrayBuffer())
       } else if (pdf.url && String(pdf.url).startsWith('/uploads/')) {
         const uploadsDir = path.resolve(process.cwd(), 'uploads')
@@ -136,7 +141,10 @@ router.post('/:barcode/stamp', async (req, res) => {
         const { createClient } = await import('@supabase/supabase-js')
         const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
         const { error: uploadErr } = await supabase.storage.from(targetBucket).upload(targetKey, outBytes, { contentType: 'application/pdf', upsert: true })
-        if (uploadErr) throw uploadErr
+        if (uploadErr) {
+          console.error('Stamp: supabase upload error:', { message: uploadErr.message || uploadErr, details: uploadErr })
+          throw uploadErr
+        }
         // refresh public URL
         const publicRes = supabase.storage.from(targetBucket).getPublicUrl(targetKey) as any
         const newUrl = publicRes?.data?.publicUrl || pdf.url

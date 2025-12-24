@@ -54,11 +54,21 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
       }
 
       const api = (await import("@/lib/api-client")).apiClient
-      await api.stampDocument(doc.barcode || doc.barcodeId, payload)
+      const res = await api.stampDocument(doc.barcode || doc.barcodeId, payload)
 
-      alert('تم دمغ الملصق بنجاح — تم تحديث الملف الأصلي.')
-      // Refresh to show updated attachment
-      window.location.reload()
+      // If server supplied a previewUrl (signed or cache-busted), open it immediately
+      if (res && (res.previewUrl || res.url)) {
+        const openUrl = res.previewUrl || res.url
+        window.open(openUrl, '_blank')
+        alert('تم دمغ الملصق بنجاح — تم فتح نسخة العرض المدموغة في تبويب جديد.')
+      } else {
+        alert('تم دمغ الملصق بنجاح — يُرجى تحديث الصفحة لمشاهدة الملف.')
+      }
+
+      // Refresh document list to pick up updated attachments (some caches may delay immediate visibility)
+      setTimeout(() => {
+        window.location.reload()
+      }, 1200)
     } catch (e: any) {
       console.error('Stamp failed', e)
       alert('فشل دمغ الملصق: ' + (e?.message || e))
