@@ -15,6 +15,13 @@ import { query } from "./config/database"
 
 dotenv.config()
 
+// Debug: print basic info about SUPABASE_SERVICE_ROLE_KEY for runtime troubleshooting (do NOT print full secret)
+const _SUPABASE_KEY_RAW = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const _SUPABASE_KEY = String(_SUPABASE_KEY_RAW).trim()
+if (_SUPABASE_KEY_RAW) {
+  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY rawLen=', _SUPABASE_KEY_RAW.length, 'trimmedLen=', _SUPABASE_KEY.length, 'startsWith=', _SUPABASE_KEY.slice(0,6), 'endsWith=', _SUPABASE_KEY.slice(-6), 'containsSpaces=', /\s/.test(_SUPABASE_KEY_RAW))
+}
+
 const app = express()
 const PORT = process.env.PORT || 3001
 
@@ -489,18 +496,22 @@ app.get("/debug/test-supabase-upload", async (req, res) => {
   }
 
   const SUPABASE_URL = process.env.SUPABASE_URL || ''
-  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const SUPABASE_KEY_RAW = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const SUPABASE_KEY = String(SUPABASE_KEY_RAW).trim()
   const BUCKET = process.env.SUPABASE_BUCKET || process.env.S3_BUCKET || ''
+
+  console.log('DEBUG: /debug/test-supabase-upload supabase key rawLen=', SUPABASE_KEY_RAW.length, 'trimmedLen=', SUPABASE_KEY.length, 'containsSpaces=', /\s/.test(SUPABASE_KEY_RAW), 'startsWith=', SUPABASE_KEY.slice(0,8))
 
   if (!SUPABASE_URL || !SUPABASE_KEY || !BUCKET) {
     return res.status(500).json({ error: 'Missing SUPABASE env vars', SUPABASE_URL: !!SUPABASE_URL, SUPABASE_KEY: !!SUPABASE_KEY, BUCKET })
   }
 
-  // Basic sanity check: service role keys from Supabase are JWT-like (3 parts separated by '.')
-  const looksLikeJwt = typeof SUPABASE_KEY === 'string' && (SUPABASE_KEY.split('.').length === 3)
-  if (!looksLikeJwt) {
-    const snippet = String(SUPABASE_KEY).slice(0, 4) + '…' + String(SUPABASE_KEY).slice(-4)
-    return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a valid Service Role JWT. Please confirm you copied the Service Role Key (Settings → API → Service Role Key) for the same Supabase project.', keySnippet: snippet })
+  // Basic sanity check: service role keys from Supabase are JWT-like (three dot-separated parts)
+  const jwtLike = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(SUPABASE_KEY)
+  if (!jwtLike) {
+    const snippet = String(SUPABASE_KEY).slice(0, 6) + '…' + String(SUPABASE_KEY).slice(-6)
+    const extra = SUPABASE_KEY.startsWith('sb_secret_') ? 'Detected prefix "sb_secret_" — that is not a Service Role JWT.' : undefined
+    return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a valid Service Role JWT. Please confirm you copied the Service Role Key (Settings → API → Service Role Key) for the same Supabase project.', keySnippet: snippet, note: extra })
   }
 
   try {

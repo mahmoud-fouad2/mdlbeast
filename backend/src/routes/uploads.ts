@@ -29,11 +29,15 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     // Use Supabase Storage exclusively (preferred). In production fail fast if misconfigured.
     const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseKeyRaw = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabaseKey = String(supabaseKeyRaw).trim()
     const supabaseBucket = process.env.SUPABASE_BUCKET || ''
 
     // If in production, require Supabase configuration to be present
     const inProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+
+    console.log('DEBUG: /api/uploads supabase key rawLen=', supabaseKeyRaw.length, 'trimmedLen=', supabaseKey.length, 'startsWith=', supabaseKey.slice(0,8))
+
     if (!supabaseUrl || !supabaseKey || !supabaseBucket) {
       const msg = 'Supabase storage not configured. Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET.'
       console.error(msg, { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey, supabaseBucket: !!supabaseBucket })
@@ -43,12 +47,15 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
     }
 
-    // Validate service role key format quickly
-    const looksLikeJwt = typeof supabaseKey === 'string' && supabaseKey.split('.').length === 3
-    if (!looksLikeJwt) {
-      const snippet = String(supabaseKey).slice(0, 4) + '…' + String(supabaseKey).slice(-4)
-      console.error('Supabase service key invalid format; aborting upload. keySnippet=', snippet)
-      if (inProd) return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a Service Role JWT. Replace with the Service Role Key from Supabase settings.' })
+    // Validate service role key format quickly (trimmed)
+    const jwtLike = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(supabaseKey)
+    if (!jwtLike) {
+      const snippet = String(supabaseKey).slice(0, 6) + '…' + String(supabaseKey).slice(-6)
+      console.error('Supabase service key invalid format; aborting upload. keySnippet=', snippet, 'rawLen=', supabaseKeyRaw.length)
+      if (supabaseKey.startsWith('sb_secret_')) {
+        console.error('Detected key starting with sb_secret_ — this appears to be a different Supabase secret (not a Service Role JWT).')
+      }
+      if (inProd) return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a Service Role JWT. Replace with the Service Role Key from Supabase settings.', keySnippet: snippet })
       const url = `/uploads/${f.filename}`
       return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
     }
