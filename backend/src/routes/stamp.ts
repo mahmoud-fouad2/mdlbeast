@@ -112,10 +112,32 @@ router.post('/:barcode/stamp', async (req, res) => {
           helvBold = helv
         }
       } else {
-        // no local font found, fall back to standard fonts (may not support Arabic)
-        console.warn('Stamp: no local TTF/OTF font found in assets; Arabic characters may not be renderable.')
-        helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
-        helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+        // no local font found: attempt runtime download of Noto Sans Arabic as a fallback
+        console.warn('Stamp: no local TTF/OTF font found in assets; attempting runtime download of Noto Sans Arabic')
+        try {
+          const notoRegUrl = 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf'
+          const notoBoldUrl = 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'
+          const regResp = await fetch(notoRegUrl)
+          const boldResp = await fetch(notoBoldUrl)
+          if (regResp.ok) {
+            const buf = Buffer.from(await regResp.arrayBuffer())
+            helv = await pdfDoc.embedFont(buf)
+          }
+          if (boldResp.ok) {
+            const buf2 = Buffer.from(await boldResp.arrayBuffer())
+            helvBold = await pdfDoc.embedFont(buf2)
+          }
+          // if download didn't produce fonts, fall back
+          if (!helv) {
+            console.warn('Stamp: runtime download failed or fonts not embedable; falling back to standard fonts')
+            helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
+            helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+          }
+        } catch (e) {
+          console.warn('Stamp: runtime font download failed:', e)
+          helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
+          helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+        }
       }
     } catch (e) {
       console.error('Stamp: failed to embed custom font:', e)
