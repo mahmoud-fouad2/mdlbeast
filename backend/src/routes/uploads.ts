@@ -27,67 +27,60 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const f: any = (req as any).file
     if (!f) return res.status(400).json({ error: 'No file' })
 
-    // Prefer Supabase Storage when SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY are present
+    // Use Supabase Storage exclusively (preferred). In production fail fast if misconfigured.
     const supabaseUrl = process.env.SUPABASE_URL
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const supabaseBucket = process.env.SUPABASE_BUCKET || process.env.S3_BUCKET || ''
+    const supabaseBucket = process.env.SUPABASE_BUCKET || ''
 
-    if (supabaseUrl && supabaseKey && supabaseBucket) {
-      // Quick validation: the Service Role Key should look like a JWT (3 segments)
-      const looksLikeJwt = typeof supabaseKey === 'string' && (supabaseKey.split('.').length === 3)
-      if (!looksLikeJwt) {
-        const snippet = String(supabaseKey).slice(0, 4) + '…' + String(supabaseKey).slice(-4)
-        console.error('Supabase service key looks invalid; skipping Supabase upload. keySnippet=', snippet)
-      } else {
-        try {
-          const { createClient } = await import('@supabase/supabase-js')
-          const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
-          const body = fs.readFileSync(f.path)
-          const key = `uploads/${Date.now()}-${f.filename}`
-          const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype })
-          if (uploadError) throw uploadError
-
-          // Try public URL first, otherwise create a signed URL
-          const { data: publicUrlData } = supabase.storage.from(supabaseBucket).getPublicUrl(key)
-          let url = (publicUrlData as any)?.publicUrl
-          if (!url) {
-            const { data: signedData, error: signedErr } = await supabase.storage.from(supabaseBucket).createSignedUrl(key, 60 * 60)
-            if (signedErr) throw signedErr
-            url = (signedData as any)?.signedUrl || (signedData as any)?.signedURL || ''
-          }
-
-          try { fs.unlinkSync(f.path) } catch (e) {}
-          return res.json({ url, name: f.originalname, size: f.size, storage: 'supabase' })
-        } catch (e: any) {
-          console.error('Supabase upload failed, falling back to S3/local:', e?.message || e)
-        }
-      }
+    // If in production, require Supabase configuration to be present
+    const inProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (!supabaseUrl || !supabaseKey || !supabaseBucket) {
+      const msg = 'Supabase storage not configured. Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET.'
+      console.error(msg, { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey, supabaseBucket: !!supabaseBucket })
+      if (inProd) return res.status(500).json({ error: msg })
+      // in non-prod, fall back to local (useful for CI/dev)
+      const url = `/uploads/${f.filename}`
+      return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
     }
 
-    // If S3 env vars are present, upload to S3-compatible storage (legacy/compat fallback)
-    const s3Key = process.env.S3_ACCESS_KEY
-    const s3Secret = process.env.S3_SECRET_KEY
-    const s3Endpoint = process.env.S3_ENDPOINT
-    const s3Region = process.env.S3_REGION || 'ap-southeast-1'
-    const s3Bucket = process.env.S3_BUCKET || ''
-
-    if (s3Key && s3Secret && s3Endpoint && s3Bucket) {
-      try {
-        const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
-        // Normalize Supabase S3 style endpoints by stripping trailing /storage/v1/s3
-        const endpointBase = String(s3Endpoint).replace(/\/storage\/v1\/s3\/?$/i, '')
-        const client = new S3Client({ region: s3Region, endpoint: endpointBase || s3Endpoint, forcePathStyle: true, credentials: { accessKeyId: s3Key, secretAccessKey: s3Secret } })
-        const body = fs.readFileSync(f.path)
-        const key = `uploads/${Date.now()}-${f.filename}`
-        await client.send(new PutObjectCommand({ Bucket: s3Bucket, Key: key, Body: body, ContentType: f.mimetype }))
-        const url = `${endpointBase || s3Endpoint}/${s3Bucket}/${key}`
-        // remove local file
-        try { fs.unlinkSync(f.path) } catch (e) {}
-        return res.json({ url, name: f.originalname, size: f.size, storage: 's3' })
-      } catch (e: any) {
-        console.error('S3 upload failed, falling back to local:', e?.message || e)
-      }
+    // Validate service role key format quickly
+    const looksLikeJwt = typeof supabaseKey === 'string' && supabaseKey.split('.').length === 3
+    if (!looksLikeJwt) {
+      const snippet = String(supabaseKey).slice(0, 4) + '…' + String(supabaseKey).slice(-4)
+      console.error('Supabase service key invalid format; aborting upload. keySnippet=', snippet)
+      if (inProd) return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a Service Role JWT. Replace with the Service Role Key from Supabase settings.' })
+      const url = `/uploads/${f.filename}`
+      return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
     }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
+      const body = fs.readFileSync(f.path)
+      const key = `uploads/${Date.now()}-${f.filename}`
+      // use upsert=true so re-runs are idempotent
+      const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype, upsert: true })
+      if (uploadError) throw uploadError
+
+      // Prefer public URL if available, otherwise use signed URL
+      const publicRes = supabase.storage.from(supabaseBucket).getPublicUrl(key) as any
+      let url = publicRes?.data?.publicUrl
+      if (!url) {
+        const { data: signedData, error: signedErr } = await supabase.storage.from(supabaseBucket).createSignedUrl(key, 60 * 60)
+        if (signedErr) throw signedErr
+        url = (signedData as any)?.signedUrl || ''
+      }
+
+      // Clean up local temporary file
+      try { fs.unlinkSync(f.path) } catch (e) {}
+      return res.json({ url, name: f.originalname, size: f.size, storage: 'supabase', key })
+    } catch (e: any) {
+      console.error('Supabase upload failed:', e)
+      if (inProd) return res.status(500).json({ error: 'Supabase upload failed; check SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET settings.' })
+      const url = `/uploads/${f.filename}`
+      return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
+    }
+
 
     // default local behavior
     const url = `/uploads/${f.filename}`
