@@ -27,7 +27,37 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const f: any = (req as any).file
     if (!f) return res.status(400).json({ error: 'No file' })
 
-    // If S3 env vars are present, upload to S3-compatible storage (like Supabase Storage S3 endpoint)
+    // Prefer Supabase Storage when SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY are present
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseBucket = process.env.SUPABASE_BUCKET || process.env.S3_BUCKET || ''
+
+    if (supabaseUrl && supabaseKey && supabaseBucket) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
+        const body = fs.readFileSync(f.path)
+        const key = `uploads/${Date.now()}-${f.filename}`
+        const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype })
+        if (uploadError) throw uploadError
+
+        // Try public URL first, otherwise create a signed URL
+        const { data: publicUrlData } = supabase.storage.from(supabaseBucket).getPublicUrl(key)
+        let url = (publicUrlData as any)?.publicUrl
+        if (!url) {
+          const { data: signedData, error: signedErr } = await supabase.storage.from(supabaseBucket).createSignedUrl(key, 60 * 60)
+          if (signedErr) throw signedErr
+          url = (signedData as any)?.signedUrl || (signedData as any)?.signedURL || ''
+        }
+
+        try { fs.unlinkSync(f.path) } catch (e) {}
+        return res.json({ url, name: f.originalname, size: f.size })
+      } catch (e: any) {
+        console.error('Supabase upload failed, falling back to S3/local', e)
+      }
+    }
+
+    // If S3 env vars are present, upload to S3-compatible storage (legacy/compat fallback)
     const s3Key = process.env.S3_ACCESS_KEY
     const s3Secret = process.env.S3_SECRET_KEY
     const s3Endpoint = process.env.S3_ENDPOINT
