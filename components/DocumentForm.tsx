@@ -45,6 +45,7 @@ interface DocumentFormProps {
 export default function DocumentForm({ type, onSave }: DocumentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<any>(undefined)
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
   const [formData, setFormData] = useState<any>({
     title: "",
     sender: "",
@@ -73,18 +74,32 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile && selectedFile.type === "application/pdf") {
-      setFile({
-        name: selectedFile.name,
-        size: (selectedFile.size / 1024 / 1024).toFixed(2) + " MB",
-        url: URL.createObjectURL(selectedFile),
-      })
+      setFile(selectedFile)
+      const preview = URL.createObjectURL(selectedFile)
+      setFilePreviewUrl(preview)
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const barcode = generateBusinessBarcode(type === "INCOMING" ? "IN" : "OUT")
-    onSave({ ...formData, type, pdfFile: file, barcodeId: barcode })
+
+    let pdfFile = undefined
+    try {
+      if (file) {
+        // upload file to backend and get URL
+        // import apiClient dynamically to avoid circular import issues in some builds
+        const { apiClient } = await import("../lib/api-client")
+        const uploaded = await apiClient.uploadFile(file as File)
+        pdfFile = { name: uploaded.name, size: uploaded.size, url: uploaded.url }
+      }
+    } catch (err) {
+      console.error('Upload failed', err)
+      alert('فشل رفع الملف. حاول لاحقاً.')
+      return
+    }
+
+    onSave({ ...formData, type, pdfFile, barcodeId: barcode })
   }
 
   return (
@@ -245,12 +260,13 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
                   </div>
                   <div>
                     <div className="font-black text-slate-900 text-sm">{file.name}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase">{file.size}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase">{(file.size/1024/1024).toFixed(2)} MB</div>
+                    {filePreviewUrl && <a href={filePreviewUrl} target="_blank" className="text-xs text-blue-600 underline">عرض المعاينة</a>}
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFile(undefined)}
+                  onClick={() => { setFile(undefined); setFilePreviewUrl(null); }}
                   className="text-red-400 p-3 hover:bg-red-50 hover:text-red-600 rounded-full transition-all"
                 >
                   <X size={24} />

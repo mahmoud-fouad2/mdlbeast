@@ -18,7 +18,12 @@ const BarcodeScanner: React.FC = () => {
   const detectorRef = useRef<any | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  const fetchByBarcode = async (barcode: string) => {
+  const fetchByBarcode = async (rawBarcode: string) => {
+    const barcode = String(rawBarcode || '').trim().toUpperCase()
+    if (!barcode) {
+      setStatusMessage('قيمة الباركود فارغة');
+      return;
+    }
     setIsLoadingBarcode(true);
     setStatusMessage(null);
     try {
@@ -28,11 +33,21 @@ const BarcodeScanner: React.FC = () => {
         const tl = await apiClient.getBarcodeTimeline(barcode).catch(() => []);
         setTimeline(tl || []);
         setStatusMessage('تم العثور على المعاملة');
-      } else {
-        setFoundDoc(null);
-        setTimeline([]);
-        setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
+        return;
       }
+      // fallback: search endpoint
+      const search = await apiClient.searchBarcodes(barcode).catch(() => [])
+      if (Array.isArray(search) && search.length === 1) {
+        const b = search[0]
+        setFoundDoc(b)
+        const tl = await apiClient.getBarcodeTimeline(b.barcode).catch(() => [])
+        setTimeline(tl || [])
+        setStatusMessage('تم العثور على المعاملة عبر البحث')
+        return
+      }
+      setFoundDoc(null);
+      setTimeline([]);
+      setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
     } catch (err: any) {
       console.error('API error', err);
       if (err && String(err).toLowerCase().includes('not found')) setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');

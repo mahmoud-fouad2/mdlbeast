@@ -40,6 +40,15 @@ app.use('/api/reports', reportRoutes)
 app.use('/api/tenants', tenantRoutes)
 app.use('/api/snapshots', snapshotRoutes)
 
+// Uploads route (accepts PDF via multipart/form-data)
+import uploadRoutes from './routes/uploads'
+import * as pathModule from 'path'
+import * as fsModule from 'fs'
+const uploadsDirStartup = pathModule.resolve(process.cwd(), 'uploads')
+if (!fsModule.existsSync(uploadsDirStartup)) fsModule.mkdirSync(uploadsDirStartup, { recursive: true })
+app.use('/api/uploads', uploadRoutes)
+app.use('/uploads', express.static(uploadsDirStartup))
+
 // Health check
 app.get("/", (req, res) => {
   res.status(200).json({

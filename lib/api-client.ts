@@ -142,6 +142,23 @@ class ApiClient {
     })
   }
 
+  // File upload (multipart/form-data)
+  async uploadFile(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    const headers: any = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+    try {
+      const res = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form, headers, signal: controller.signal })
+      if (!res.ok) throw new Error('Upload failed')
+      return res.json()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
   // Tenants
   async getTenants() {
     return this.request<any[]>(`/tenants`)
