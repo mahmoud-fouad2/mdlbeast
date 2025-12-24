@@ -74,11 +74,13 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     if (s3Key && s3Secret && s3Endpoint && s3Bucket) {
       try {
         const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
-        const client = new S3Client({ region: s3Region, endpoint: s3Endpoint, credentials: { accessKeyId: s3Key, secretAccessKey: s3Secret } })
+        // Normalize Supabase S3 style endpoints by stripping trailing /storage/v1/s3
+        const endpointBase = String(s3Endpoint).replace(/\/storage\/v1\/s3\/?$/i, '')
+        const client = new S3Client({ region: s3Region, endpoint: endpointBase || s3Endpoint, forcePathStyle: true, credentials: { accessKeyId: s3Key, secretAccessKey: s3Secret } })
         const body = fs.readFileSync(f.path)
         const key = `uploads/${Date.now()}-${f.filename}`
         await client.send(new PutObjectCommand({ Bucket: s3Bucket, Key: key, Body: body, ContentType: f.mimetype }))
-        const url = `${s3Endpoint}/${s3Bucket}/${key}`
+        const url = `${endpointBase || s3Endpoint}/${s3Bucket}/${key}`
         // remove local file
         try { fs.unlinkSync(f.path) } catch (e) {}
         return res.json({ url, name: f.originalname, size: f.size, storage: 's3' })
