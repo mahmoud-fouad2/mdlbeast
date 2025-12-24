@@ -258,7 +258,7 @@ router.post(
 router.put("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const { type, sender, receiver, date, subject, priority, status, classification, notes, attachments } = req.body
+    const { type, sender, receiver, date, subject, priority, status, classification, notes, attachments: incomingAttachments } = req.body
 
     const result = await query(
       `UPDATE documents 
@@ -276,7 +276,7 @@ router.put("/:barcode", async (req: Request, res: Response) => {
         status,
         classification,
         notes,
-        JSON.stringify(attachments),
+        JSON.stringify(incomingAttachments),
         barcode,
       ],
     )
