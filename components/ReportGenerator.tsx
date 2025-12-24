@@ -44,7 +44,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
     const tableRows = filteredDocs.map(doc => {
       const barcode = doc.barcode || doc.barcodeId || (doc.referenceNumber || '')
       const title = doc.subject || doc.title || doc.description || '—'
-      const typeStr = (String(doc.type) === DocType.INCOMING) ? 'وارد' : 'صادر'
+      const typeStr = (doc.type === DocType.INCOMING || String(doc.status) === 'وارد' || String(barcode).toUpperCase().startsWith('IN')) ? 'وارد' : 'صادر'
       const sender = doc.sender || doc.from || doc.createdBy || doc.user_id || '—'
       const receiver = doc.receiver || doc.recipient || doc.to || '—'
       const dateStr = doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '—')
@@ -65,13 +65,14 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
           <title>تقرير المعاملات - ${startDate} إلى ${endDate}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
-            @page { size: A4; margin: 20mm; }
+            @page { size: A4 landscape; margin: 15mm; }
             body { 
               font-family: 'Tajawal', sans-serif; 
               direction: rtl; 
-              padding: 20mm 18mm; 
+              padding: 12mm 12mm; 
               color: #0f172a;
-              line-height: 1.6;
+              line-height: 1.45;
+              font-size: 12px;
             }
             .header { 
               display: flex; 
@@ -108,9 +109,13 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
             .stat-value { font-size: 20px; font-weight: 900; display: block; }
             .stat-label { font-size: 12px; color: #64748b; font-weight: 700; }
 
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-            th { background: #f1f5f9; padding: 12px; border: 1px solid #e2e8f0; font-weight: 900; }
-            td { padding: 10px; border: 1px solid #e2e8f0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; table-layout: fixed; }
+            th { background: #f1f5f9; padding: 8px; border: 1px solid #e2e8f0; font-weight: 900; }
+            td { padding: 8px; border: 1px solid #e2e8f0; word-break: break-word; }
+            td.barcode { width: 140px; font-family: monospace; font-weight: 900; }
+            td.title { width: 40%; }
+            td.type { width: 80px; text-align:center }
+            td.sender { width: 160px }
 
             .footer { 
               position: fixed; 
@@ -130,18 +135,18 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
           </style>
         </head>
         <body>
-          <div style="position: absolute; top: 8px; left: 40px; font-size: 12px; color: #64748b;">تاريخ الطباعة: ${new Date().toLocaleString('ar-SA')}</div>
-          <div style="position: absolute; top: 8px; right: 40px; font-size: 12px; color: #64748b;">نطاق: ${startDate} إلى ${endDate}</div>
+          <div style="position: absolute; top: 8px; left: 40px; font-size: 12px; color: #64748b;">نطاق: ${startDate} إلى ${endDate}</div>
+          <div style="position: absolute; top: 8px; right: 40px; font-size: 12px; color: #64748b;">تاريخ الطباعة: ${new Date().toLocaleString('ar-SA')}</div>
 
-          <div class="header">
-             <div style="width: 120px; text-align:left;">
+          <div class="header" style="direction: rtl;">
+             <div style="width: 120px; text-align:right;">
                <img src="${logoUrl}" style="height: 70px; object-fit: contain;" />
              </div>
-             <div class="header-info" style="text-align: center;">
-                <h1>${orgName}</h1>
-                <p>نظام ArchivX Enterprise - مركز التقارير</p>
+             <div class="header-info" style="text-align: center; width: 100%;">
+                <h1 style="font-size:20px; margin:0;">${orgName}</h1>
+                <p style="margin:0; font-size:12px; color:#64748b;">نظام ArchivX Enterprise - مركز التقارير</p>
              </div>
-             <div style="width: 120px; text-align:center;"></div>
+             <div style="width: 120px; text-align:center;">&nbsp;</div>
           </div>
 
           <div class="report-title">

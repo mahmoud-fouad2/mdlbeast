@@ -286,8 +286,8 @@ router.get("/stats/summary", async (req: Request, res: Response) => {
     const result = await query(`
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'وارد' OR type ILIKE '%IN%' OR barcode ILIKE 'IN-%') as incoming,
-        COUNT(*) FILTER (WHERE status = 'صادر' OR type ILIKE '%OUT%' OR barcode ILIKE 'OUT-%') as outgoing,
+        COUNT(*) FILTER (WHERE status = 'وارد' OR type ILIKE 'IN%' OR barcode ILIKE 'IN-%') as incoming,
+        COUNT(*) FILTER (WHERE status = 'صادر' OR type ILIKE 'OUT%' OR barcode ILIKE 'OUT-%') as outgoing,
         COUNT(*) FILTER (WHERE status = 'محفوظ') as archived,
         COUNT(*) FILTER (WHERE priority = 'عاجل جداً') as urgent
       FROM documents

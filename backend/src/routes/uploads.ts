@@ -66,7 +66,11 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
       const body = fs.readFileSync(f.path)
-      const key = `uploads/${Date.now()}-${f.filename}`
+      // Generate an ASCII-safe storage key: keep original name in response but avoid non-ASCII in object key
+      const ext = path.extname(f.originalname || f.filename || '') || ''
+      const safeBase = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`
+      const key = `uploads/${safeBase}${ext}`
+      console.log('Uploading to supabase with key=', key, 'originalName=', f.originalname)
       // use upsert=true so re-runs are idempotent
       const { error: uploadError } = await supabase.storage.from(supabaseBucket).upload(key, body, { contentType: f.mimetype, upsert: true })
       if (uploadError) throw uploadError
@@ -85,7 +89,21 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       return res.json({ url, name: f.originalname, size: f.size, storage: 'supabase', key })
     } catch (e: any) {
       console.error('Supabase upload failed:', e)
-      if (inProd) return res.status(500).json({ error: 'Supabase upload failed; check SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET settings.' })
+      // If the storage API flagged an invalid key (filename), return a clear 400 for client to retry with sanitized name
+      const msg = String(e?.message || e)
+      if (msg.includes('Invalid key')) {
+        // Provide a helpful but non-sensitive message
+        return res.status(400).json({ error: 'Invalid file name for storage. Try renaming file to use basic Latin characters (a-z, 0-9, - and _). The server will attempt to sanitize next upload.' })
+      }
+
+      // In production return a generic message unless DEBUG=true (safe for staging)
+      if (inProd) {
+        if (process.env.DEBUG === 'true') {
+          return res.status(500).json({ error: 'Supabase upload failed; check SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET settings.', details: String(e?.message || e) })
+        }
+        return res.status(500).json({ error: 'Supabase upload failed; check SUPABASE_SERVICE_ROLE_KEY and SUPABASE_BUCKET settings.' })
+      }
+
       const url = `/uploads/${f.filename}`
       return res.json({ url, name: f.originalname, size: f.size, storage: 'local' })
     }
