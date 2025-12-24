@@ -143,6 +143,14 @@ class ApiClient {
     })
   }
 
+  // Stamp a document PDF by placing a barcode image at provided coordinates (server overwrites original file)
+  async stampDocument(barcode: string, payload: { x: number; y: number; containerWidth?: number; containerHeight?: number; stampWidth?: number }) {
+    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/stamp`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
   async getStatistics() {
     return this.request<any>("/documents/stats/summary")
   }

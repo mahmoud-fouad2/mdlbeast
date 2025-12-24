@@ -58,7 +58,20 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 router.get("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const result = await query("SELECT * FROM documents WHERE barcode = $1", [barcode])
+    // case-insensitive lookup for barcode
+    let result = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+
+    // Fallback: try normalized prefixes (In-/Out-) if not found
+    if (result.rows.length === 0) {
+      const candidateIn = String(barcode).replace(/^IN-/i, 'In-')
+      const candidateOut = String(barcode).replace(/^OUT-/i, 'Out-')
+      const try1 = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [candidateIn])
+      if (try1.rows.length > 0) result = try1
+      else {
+        const try2 = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [candidateOut])
+        if (try2.rows.length > 0) result = try2
+      }
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Document not found" })

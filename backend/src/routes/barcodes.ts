@@ -8,7 +8,19 @@ router.get("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
     // Use case-insensitive match for barcode lookups
-    const q = await query("SELECT * FROM barcodes WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    let q = await query("SELECT * FROM barcodes WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    // Fallback: try normalized forms (In-/Out-) if not found
+    if (q.rows.length === 0) {
+      const candidateIn = String(barcode).replace(/^IN-/i, 'In-')
+      const candidateOut = String(barcode).replace(/^OUT-/i, 'Out-')
+      const try1 = await query("SELECT * FROM barcodes WHERE lower(barcode) = lower($1) LIMIT 1", [candidateIn])
+      if (try1.rows.length > 0) q = try1
+      else {
+        const try2 = await query("SELECT * FROM barcodes WHERE lower(barcode) = lower($1) LIMIT 1", [candidateOut])
+        if (try2.rows.length > 0) q = try2
+      }
+    }
+
     if (q.rows.length === 0) {
       // fallback: check documents (existing older entries) and synthesize a response
       const d = await query('SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1', [barcode])
@@ -44,6 +56,19 @@ router.get("/:barcode", async (req: Request, res: Response) => {
       row.pdfFile = attachments.length ? attachments[0] : null
     } catch (e) {
       row.pdfFile = null
+    }
+
+    // Enrich with sender/receiver from documents table if available (helps when barcodes table lacks these fields)
+    try {
+      const docRes = await query('SELECT sender, receiver, date FROM documents WHERE lower(barcode) = lower($1) LIMIT 1', [barcode])
+      if (docRes.rows.length > 0) {
+        const d = docRes.rows[0]
+        row.sender = row.sender || d.sender || null
+        row.receiver = row.receiver || d.receiver || null
+        row.date = row.date || d.date || null
+      }
+    } catch (e) {
+      // ignore enrichment errors
     }
 
     res.json(row)

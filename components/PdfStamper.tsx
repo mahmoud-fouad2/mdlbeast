@@ -38,12 +38,33 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
   const handleMouseUp = () => setIsDragging(false)
 
-  const handleFinalize = () => {
+  const handleFinalize = async () => {
     setIsSaving(true)
-    setTimeout(() => {
-      alert(`تم دمج ملصق الباركود بنجاح في الموقع المختار على المستند.`)
-      onClose()
-    }, 1200)
+    try {
+      const container = containerRef.current
+      const rect = container?.getBoundingClientRect()
+      const containerWidth = rect?.width || 800
+      const containerHeight = rect?.height || 1131
+      const payload = {
+        x: Math.round(pos.x),
+        y: Math.round(pos.y),
+        containerWidth: Math.round(containerWidth),
+        containerHeight: Math.round(containerHeight),
+        stampWidth: 180,
+      }
+
+      const api = (await import("@/lib/api-client")).apiClient
+      await api.stampDocument(doc.barcode || doc.barcodeId, payload)
+
+      alert('تم دمغ الملصق بنجاح — تم تحديث الملف الأصلي.')
+      // Refresh to show updated attachment
+      window.location.reload()
+    } catch (e: any) {
+      console.error('Stamp failed', e)
+      alert('فشل دمغ الملصق: ' + (e?.message || e))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
