@@ -63,6 +63,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Ensure triggers are idempotent
+DROP TRIGGER IF EXISTS update_barcodes_updated_at ON barcodes;
+DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
+
 CREATE TRIGGER update_barcodes_updated_at BEFORE UPDATE ON barcodes
 FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
