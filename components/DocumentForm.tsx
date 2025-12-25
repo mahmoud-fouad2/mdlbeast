@@ -18,6 +18,7 @@ import {
   Calendar,
 } from "lucide-react"
 import { generateBusinessBarcode } from "@/lib/barcode-service"
+import AsyncButton from './ui/async-button'
 
 const FormInput = memo(({ label, icon: Icon, name, value, type = "text", required = false, onChange }: any) => (
   <div className="space-y-1.5">
@@ -80,8 +81,8 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault()
 
     let pdfFile = undefined
     try {
@@ -98,7 +99,7 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
       return
     }
 
-    // Do not pre-generate barcode on client; backend will assign numeric sequence (In/0/0000001 or out/1/0000001)
+    // Do not pre-generate barcode on client; backend will assign numeric sequence
     onSave({ ...formData, type, pdfFile })
   }
 
@@ -276,13 +277,14 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
             )}
           </div>
 
-          <button
-            type="submit"
+          <AsyncButton
+            showOverlay
+            onClickAsync={async () => { await handleSubmit() }}
             className="w-full bg-slate-900 text-white py-6 rounded-[1.5rem] font-black text-xl shadow-2xl hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center gap-4 font-heading group"
           >
             توليد الباركود الرقمي الموحد
             <Shield size={24} className="text-blue-500 group-hover:scale-110 transition-transform" />
-          </button>
+          </AsyncButton>
         </form>
       </div>
     </div>
