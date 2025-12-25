@@ -134,7 +134,11 @@ export default function DocumentList({ docs, settings }: DocumentListProps) {
                           <span className="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded uppercase">
                             إلى: {doc.receiver || doc.recipient}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400">📅 القيد: {doc.date}</span>
+                          <span className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
+                            <span>📅 القيد:</span>
+                            <span className="font-black">{doc.dateHijri || doc.date}</span>
+                            <span className="text-[11px] text-slate-500">({doc.dateGregorian || doc.date})</span>
+                          </span>
                           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                             📂 أرشفة: {doc.archiveDate || doc.date}
                           </span>

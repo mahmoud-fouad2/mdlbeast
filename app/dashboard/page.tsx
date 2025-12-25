@@ -79,25 +79,43 @@ export default function DashboardPage() {
 
       if (docsRes.status === 'fulfilled') {
         const documents = docsRes.value
-        const mappedDocs = (documents || []).map((doc: any) => ({
-          ...doc,
-          id: doc.id,
-          barcode: doc.barcode || doc.barcodeId || '' ,
-          barcodeId: doc.barcode || doc.barcodeId || '' ,
-          title: doc.subject || doc.title || '',
-          subject: doc.subject || doc.title || '',
-          sender: doc.sender || doc.from || '',
-          receiver: doc.receiver || doc.recipient || '',
-          recipient: doc.receiver || doc.recipient || '',
-          // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
-          documentDate: doc.date || doc.documentDate || '',
-          date: (() => {
-            const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
-            try { return iso ? new Date(iso).toLocaleString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' } catch(e) { return iso ? String(iso) : '' }
-          })(),
-          type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
-          companyId: doc.companyId || doc.tenant_id || null,
-        }))
+        const mappedDocs = (documents || []).map((doc: any) => {
+          const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
+          let date = ''
+          let dateHijri = ''
+          let dateGregorian = ''
+          if (iso) {
+            try {
+              const dt = new Date(iso)
+              dateHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt)
+              dateGregorian = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(dt)
+              date = `${dateHijri} • ${dateGregorian}`
+            } catch(e) {
+              date = iso ? String(iso) : ''
+              dateHijri = date
+              dateGregorian = date
+            }
+          }
+
+          return {
+            ...doc,
+            id: doc.id,
+            barcode: doc.barcode || doc.barcodeId || '' ,
+            barcodeId: doc.barcode || doc.barcodeId || '' ,
+            title: doc.subject || doc.title || '',
+            subject: doc.subject || doc.title || '',
+            sender: doc.sender || doc.from || '',
+            receiver: doc.receiver || doc.recipient || '',
+            recipient: doc.receiver || doc.recipient || '',
+            // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
+            documentDate: doc.date || doc.documentDate || '',
+            date,
+            dateHijri,
+            dateGregorian,
+            type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+            companyId: doc.companyId || doc.tenant_id || null,
+          }
+        })
         setDocs(mappedDocs)
       } else {
         console.warn('Documents load failed or timed out:', docsRes.reason || docsRes)
@@ -134,25 +152,43 @@ export default function DashboardPage() {
     const refetch = async () => {
       try {
         const documents = await apiClient.getDocuments(selectedTenantId ? { tenant_id: selectedTenantId } : undefined)
-        const mappedDocs = (documents || []).map((doc: any) => ({
-          ...doc,
-          id: doc.id,
-          barcode: doc.barcode || doc.barcodeId || '' ,
-          barcodeId: doc.barcode || doc.barcodeId || '' ,
-          title: doc.subject || doc.title || '',
-          subject: doc.subject || doc.title || '',
-          sender: doc.sender || doc.from || '',
-          receiver: doc.receiver || doc.recipient || '',
-          recipient: doc.receiver || doc.recipient || '',
-          // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
-          documentDate: doc.date || doc.documentDate || '',
-          date: (() => {
-            const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
-            try { return iso ? new Date(iso).toLocaleString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' } catch(e) { return iso ? String(iso) : '' }
-          })(),
-          type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
-          companyId: doc.companyId || doc.tenant_id || null,
-        }))
+        const mappedDocs = (documents || []).map((doc: any) => {
+          const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
+          let date = ''
+          let dateHijri = ''
+          let dateGregorian = ''
+          if (iso) {
+            try {
+              const dt = new Date(iso)
+              dateHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt)
+              dateGregorian = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(dt)
+              date = `${dateHijri} • ${dateGregorian}`
+            } catch(e) {
+              date = iso ? String(iso) : ''
+              dateHijri = date
+              dateGregorian = date
+            }
+          }
+
+          return {
+            ...doc,
+            id: doc.id,
+            barcode: doc.barcode || doc.barcodeId || '' ,
+            barcodeId: doc.barcode || doc.barcodeId || '' ,
+            title: doc.subject || doc.title || '',
+            subject: doc.subject || doc.title || '',
+            sender: doc.sender || doc.from || '',
+            receiver: doc.receiver || doc.recipient || '',
+            recipient: doc.receiver || doc.recipient || '',
+            // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
+            documentDate: doc.date || doc.documentDate || '',
+            date,
+            dateHijri,
+            dateGregorian,
+            type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+            companyId: doc.companyId || doc.tenant_id || null,
+          }
+        })
         setDocs(mappedDocs)
       } catch (e) {
         console.warn('Failed to refetch documents for tenant', e)

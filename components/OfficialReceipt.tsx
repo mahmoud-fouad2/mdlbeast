@@ -151,7 +151,7 @@ export default function OfficialReceipt({ doc, settings }: OfficialReceiptProps)
 
               <div class="metadata-strip">
                 <div>رقم المرجع: ${doc.barcodeId || doc.barcode}</div>
-                <div>تاريخ القيد: ${doc.date}</div>
+                <div>تاريخ القيد: ${doc.dateHijri || doc.date} (${doc.dateGregorian || doc.date})</div>
                 <div>نوع المعاملة: ${doc.type === "INCOMING" ? "وارد" : "صادر"}</div>
               </div>
 
@@ -162,9 +162,7 @@ export default function OfficialReceipt({ doc, settings }: OfficialReceiptProps)
                 <div class="info-row"><div class="label">مرسل إلى:</div><div class="value">${
                   doc.recipient || doc.receiver
                 }</div></div>
-                <div class="info-row"><div class="label">تاريخ الخطاب:</div><div class="value">${
-                  doc.documentDate || doc.date
-                }</div></div>
+                <div class="info-row"><div class="label">تاريخ الخطاب:</div><div class="value">${(doc.dateHijri || doc.date) + ' (' + (doc.dateGregorian || doc.date) + ')'}</div></div>
                 <div class="info-row"><div class="label">الأولوية:</div><div class="value">${doc.priority}</div></div>
                 <div class="info-row"><div class="label">درجة السرية:</div><div class="value">${
                   doc.security || "عام"

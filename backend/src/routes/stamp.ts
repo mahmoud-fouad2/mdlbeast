@@ -441,20 +441,38 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Convert digits for display to Arabic-Indic numerals
     const arabicIndicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩']
     const displayBarcode = String(barcode || '').replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
-    const displayDate = String(dateStr).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+    // Recompute date object to format both Gregorian and Hijri representations
+    let dateObjForLabel: Date
+    try { dateObjForLabel = new Date(String(dateSource)) } catch (e) { dateObjForLabel = new Date() }
+
+    // If date was stored as date-only at midnight, attempt to merge created_at time (same as earlier logic)
+    if (dateObjForLabel.getHours() === 0 && dateObjForLabel.getMinutes() === 0 && dateObjForLabel.getSeconds() === 0 && doc.created_at) {
+      const c = new Date(String(doc.created_at))
+      if (!isNaN(c.getTime())) dateObjForLabel.setHours(c.getHours(), c.getMinutes(), c.getSeconds())
+    }
+
+    const gregFmt = new Intl.DateTimeFormat('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(dateObjForLabel)
+    const hijriFmt = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: '2-digit', month: 'short', year: 'numeric' }).format(dateObjForLabel)
+
+    const displayGregorian = String(gregFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+    const displayHijri = String(hijriFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+
     const displayCompany = shapeArabicText(companyName)
 
     const companyWidth = helvBold.widthOfTextAtSize(displayCompany, companySize)
     const barcodeWidth = helv.widthOfTextAtSize(displayBarcode, barcodeSize)
-    const dateWidth = helv.widthOfTextAtSize(displayDate, dateSize)
+    const hijriWidth = helv.widthOfTextAtSize(displayHijri, dateSize)
+    const gregWidth = helv.widthOfTextAtSize(displayGregorian, dateSize)
 
     const companyX = centerX - (companyWidth / 2)
     const barcodeX = centerX - (barcodeWidth / 2)
-    const dateX = centerX - (dateWidth / 2)
+    const hijriX = centerX - (hijriWidth / 2)
+    const gregX = centerX - (gregWidth / 2)
 
     const companyY = yPdf - gap
     const barcodeY = companyY - companySize - 4
-    const dateY = barcodeY - barcodeSize - 2
+    const gregY = barcodeY - barcodeSize - 2
+    const hijriY = gregY - dateSize - 2
 
     if (companyName) {
       page.drawText(displayCompany, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
@@ -463,8 +481,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // barcode identifier centered below company
     page.drawText(displayBarcode, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
 
-    // timestamp centered below
-    page.drawText(displayDate, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
+    // Draw Hijri (above) and Gregorian (below) dates centered
+    page.drawText(displayHijri, { x: hijriX, y: hijriY, size: dateSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayGregorian, { x: gregX, y: gregY, size: dateSize, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying
