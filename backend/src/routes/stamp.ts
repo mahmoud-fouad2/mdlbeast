@@ -321,11 +321,38 @@ router.post('/:barcode/stamp', async (req, res) => {
     // draw centered, styled annotation (company name + barcode text + date)
     const centerX = xPdf + widthPdf / 2
     const gap = 6
-    const companyName = String(doc.company || doc.sender || doc.user || '')
+    // Normalize and attempt to repair possible mojibake/mis-encoding for Arabic fields
+    const rawCompany = String(doc.company || doc.sender || doc.user || '')
+    function repairArabicEncoding(s: string) {
+      if (!s) return s
+      try {
+        // If it already contains Arabic chars, assume it's OK
+        const hasArabic = (s.match(/[\u0600-\u06FF]/g) || []).length > 0
+        if (hasArabic) return s.normalize('NFC')
+        const iconv = require('iconv-lite')
+        const decoded = iconv.decode(Buffer.from(String(s), 'binary'), 'windows-1256')
+        const decodedArabicCount = (decoded.match(/[\u0600-\u06FF]/g) || []).length
+        if (decodedArabicCount > 0) return decoded.normalize('NFC')
+      } catch (e) {
+        // ignore
+      }
+      return s.normalize('NFC')
+    }
+
+    const companyName = repairArabicEncoding(rawCompany)
+
+    // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
     const dateSource = doc.date || doc.created_at || new Date().toISOString()
     let dateStr = ''
     try {
-      dateStr = new Date(dateSource).toLocaleString('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      const ds = String(dateSource)
+      let dateObj = new Date(ds)
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(ds) || (!ds.includes('T') && dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && dateObj.getSeconds() === 0)
+      if (isDateOnly && doc.created_at) {
+        const c = new Date(String(doc.created_at))
+        if (!isNaN(c.getTime())) dateObj.setHours(c.getHours(), c.getMinutes(), c.getSeconds())
+      }
+      dateStr = dateObj.toLocaleString('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     } catch (e) {
       dateStr = String(dateSource)
     }
