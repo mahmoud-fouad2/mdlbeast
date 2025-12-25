@@ -38,7 +38,7 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  role: 'ADMIN' | 'USER';
+  role: 'admin' | 'manager' | 'supervisor' | 'member' | 'admin';
   created_at: Date;
   companyId?: string;
 }

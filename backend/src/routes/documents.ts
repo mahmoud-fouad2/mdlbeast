@@ -159,14 +159,28 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     queryParams.push(limit, offset)
 
     const result = await query(queryText, queryParams)
-    // attach pdfFile convenience property for UI convenience
+    // attach pdfFile convenience property for UI convenience and compute a displayDate that merges date with creation time when date has midnight only
     const rows = result.rows.map((r: any) => {
       let attachments = r.attachments
       try {
         if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]')
       } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
       const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
-      return { ...r, attachments, pdfFile }
+
+      // Compute displayDate: if date has time 00:00:00, combine date portion with created_at's time (safe, non-destructive)
+      let displayDate = r.date
+      try {
+        if (r.date && r.created_at) {
+          const d = new Date(r.date)
+          if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+            const c = new Date(r.created_at)
+            const combined = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), c.getUTCHours(), c.getUTCMinutes(), c.getUTCSeconds(), c.getUTCMilliseconds()))
+            displayDate = combined.toISOString()
+          }
+        }
+      } catch (e) { /* ignore and leave original date */ }
+
+      return { ...r, attachments, pdfFile, displayDate }
     })
     res.json(rows)
   } catch (error) {
@@ -182,15 +196,32 @@ router.get("/:barcode", async (req: Request, res: Response) => {
     // case-insensitive lookup for barcode
     let result = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
 
-    // Fallback: try normalized prefixes (In-/Out-) if not found
+    // Fallback: try normalized prefixes and legacy numeric forms if not found
     if (result.rows.length === 0) {
-      const candidateIn = String(barcode).replace(/^IN-/i, 'In-')
-      const candidateOut = String(barcode).replace(/^OUT-/i, 'Out-')
-      const try1 = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [candidateIn])
-      if (try1.rows.length > 0) result = try1
-      else {
-        const try2 = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [candidateOut])
-        if (try2.rows.length > 0) result = try2
+      const b = String(barcode || '')
+
+      // If barcode looks like "1-00000001" or "2-00000001", try mapping to IN-/OUT- legacy prefix
+      if (/^[12]-/.test(b)) {
+        const mapped = b.replace(/^1-/, 'IN-').replace(/^2-/, 'OUT-')
+        const tryMapped = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [mapped])
+        if (tryMapped.rows.length > 0) result = tryMapped
+      }
+
+      // If barcode is numeric-only (legacy), try padded and prefixed variants
+      if (result.rows.length === 0 && /^\d+$/.test(b)) {
+        const padded8 = String(b).padStart(8, '0')
+        // try without prefix
+        const tryPlain = await query("SELECT * FROM documents WHERE barcode = $1 LIMIT 1", [padded8])
+        if (tryPlain.rows.length > 0) result = tryPlain
+        // try with both prefixes
+        if (result.rows.length === 0) {
+          const tryIn = await query("SELECT * FROM documents WHERE barcode = $1 LIMIT 1", [`1-${padded8}`])
+          if (tryIn.rows.length > 0) result = tryIn
+        }
+        if (result.rows.length === 0) {
+          const tryOut = await query("SELECT * FROM documents WHERE barcode = $1 LIMIT 1", [`2-${padded8}`])
+          if (tryOut.rows.length > 0) result = tryOut
+        }
       }
     }
 
@@ -211,7 +242,20 @@ router.get("/:barcode", async (req: Request, res: Response) => {
     } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
 
-    res.json({ ...row, attachments, pdfFile })
+    // Compute displayDate: if stored date is midnight-only, combine date's day with created_at's time
+    let displayDate = row.date
+    try {
+      if (row.date && row.created_at) {
+        const d = new Date(row.date)
+        if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+          const c = new Date(row.created_at)
+          const combined = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), c.getUTCHours(), c.getUTCMinutes(), c.getUTCSeconds(), c.getUTCMilliseconds()))
+          displayDate = combined.toISOString()
+        }
+      }
+    } catch (e) {}
+
+    res.json({ ...row, attachments, pdfFile, displayDate })
   } catch (error) {
     console.error("Get document error:", error)
     res.status(500).json({ error: "Failed to fetch document" })
@@ -325,7 +369,9 @@ router.post(
           }
         }
 
-        barcode = String(n).padStart(7, '0')
+        const padded = String(n).padStart(8, '0')
+        const prefix = direction === 'INCOMING' ? '1' : '2'
+        barcode = `${prefix}-${padded}`
       }
 
       // Enforce tenant/user scoping for created document: assign tenant_id and user_id from authenticated user

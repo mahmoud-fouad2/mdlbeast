@@ -31,7 +31,9 @@ export async function uploadBuffer(key: string, buf: Buffer, contentType = "appl
 
 export function getPublicUrl(key: string) {
   if (!ENDPOINT) throw new Error('CF_R2_ENDPOINT not configured')
-  return `${ENDPOINT}/${BUCKET}/${encodeURIComponent(key)}`;
+  // encode each segment but keep slashes intact to avoid "%2F" in the path
+  const parts = String(key || '').split('/').map(encodeURIComponent).join('/')
+  return `${ENDPOINT}/${BUCKET}/${parts}`;
 }
 
 export async function getSignedDownloadUrl(key: string, expiresSeconds = 300) {

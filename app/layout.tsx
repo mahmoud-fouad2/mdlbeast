@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   },
 }
 
+import { LoadingProvider } from "../components/ui/loading-context"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -42,7 +44,9 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
       <body className={`${tajawal.className} antialiased`}>
-        {children}
+        <LoadingProvider>
+          {children}
+        </LoadingProvider>
         <script dangerouslySetInnerHTML={{__html: `if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'development') { console.log = function(){}; }`}} />
         <Analytics />
       </body>

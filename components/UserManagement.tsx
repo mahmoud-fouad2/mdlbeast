@@ -10,10 +10,10 @@ interface UserManagementProps {
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, currentUserEmail }) => {
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'USER' as 'ADMIN' | 'USER' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'member' as 'member' | 'supervisor' | 'manager' | 'admin' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editUser, setEditUser] = useState<Partial<User>>({});
+  const [editUser, setEditUser] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -26,10 +26,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
     }
     try {
       setIsSaving(true);
-      await apiClient.createUser({ username: newUser.email, password: newUser.password, full_name: newUser.name, role: newUser.role === 'ADMIN' ? 'admin' : 'user' })
+      await apiClient.createUser({ username: newUser.email, password: newUser.password, full_name: newUser.name, role: newUser.role })
       setMessage('تم إنشاء المستخدم بنجاح')
       onUpdateUsers(await apiClient.getUsers().catch(()=>[]))
-      setNewUser({ name: '', email: '', password: '', role: 'USER' });
+      setNewUser({ name: '', email: '', password: '', role: 'member' });
       setShowAddForm(false);
     } catch (err: any) {
       console.error(err)
@@ -45,11 +45,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
     if (!editingUserId) return;
     try {
       setIsSaving(true);
-      await apiClient.updateUser(editingUserId, { full_name: editUser.name, role: editUser.role === 'ADMIN' ? 'admin' : 'user', password: editUser.password || undefined })
+      await apiClient.updateUser(editingUserId, { full_name: (editUser as any).name, role: (editUser as any).role as any, password: (editUser as any).password || undefined })
       setMessage('تم تحديث المستخدم')
       onUpdateUsers(await apiClient.getUsers().catch(()=>[]))
       setEditingUserId(null);
-      setEditUser({});
+      setEditUser({} as any);
     } catch (err: any) {
       console.error(err)
       setMessage(err.message || 'فشل تحديث المستخدم')
@@ -107,7 +107,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
               <div className="relative">
                 <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                 <input required type="text" className="w-full pr-12 p-4 bg-slate-50 rounded-2xl outline-none focus:bg-white focus:border-slate-900 font-bold" 
-                  value={editingUserId ? editUser.name : newUser.name} 
+                  value={editingUserId ? (editUser as any).name : newUser.name} 
                   onChange={e => editingUserId ? setEditUser({...editUser, name: e.target.value}) : setNewUser({...newUser, name: e.target.value})} />
               </div>
            </div>
@@ -143,11 +143,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
               <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" 
                 value={editingUserId ? editUser.role : newUser.role} 
                 onChange={e => {
-                  const val = e.target.value as 'ADMIN' | 'USER';
+                  const val = e.target.value as 'member' | 'supervisor' | 'manager' | 'admin';
                   editingUserId ? setEditUser({...editUser, role: val}) : setNewUser({...newUser, role: val});
                 }}>
-                <option value="USER">مستخدم عادي (إدخال وبحث)</option>
-                <option value="ADMIN">مدير نظام (تحكم كامل)</option>
+                <option value="member">مستخدم عادي (إدخال وبحث)</option>
+                <option value="supervisor">مشرف</option>
+                <option value="manager">مدير (تحكم محدود)</option>
+                <option value="admin">مدير نظام (تحكم كامل)</option>
               </select>
            </div>
            <button type="submit" disabled={isSaving} className={`md:col-span-2 ${isSaving ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-700'} bg-blue-600 text-white py-5 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2`}>
@@ -178,8 +180,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
                   </div>
                 </td>
                 <td className="px-8 py-6">
-                  <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${u.role === "ADMIN" ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                    {u.role === "ADMIN" ? 'مدير نظام' : 'مستخدم'}
+                  <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${u.role === 'admin' || u.role === 'manager' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                    {u.role === 'admin' ? 'مدير نظام (تحكم كامل)' : u.role === 'manager' ? 'مدير (تحكم محدود)' : u.role === 'supervisor' ? 'مشرف' : 'مستخدم عادي'}
                   </span>
                 </td>
                 <td className="px-8 py-6">

@@ -254,7 +254,7 @@ const App: React.FC = () => {
              <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center font-black text-sm">{currentUser.name?.substring(0, 1) || 'U'}</div>
              <div className="overflow-hidden">
                <div className="text-[11px] font-black truncate leading-tight">{currentUser.name}</div>
-               <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === "ADMIN" ? 'مدير نظام' : 'محرر'}</div>
+               <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير' : 'محرر'}</div>
              </div>
           </div>
         </div>
