@@ -183,15 +183,22 @@ router.post('/:barcode/stamp', async (req, res) => {
         }
       }
 
-      // Prefer named Arabic-support fonts if present
+      // Prefer named Arabic-support fonts if present; prefer TTF/OTF (Noto Sans Arabic) when available
       let chosen: string | null = null
       const preferRe = /(noto|arab|dejavu|arial|amiri|tajawal|uthman|scheherazade|sukar)/i
       const boldRe = /(bold|bld|-b|bd)/i
+
       if (fontFiles.length) {
-        // try to find an Arabic-looking font first
-        const prefer = fontFiles.find(f => preferRe.test(path.basename(f)))
-        if (prefer) chosen = prefer
-        else chosen = fontFiles[0]
+        // Prefer explicit NotoSansArabic TTF first
+        const notoTtf = fontFiles.find(f => /NotoSansArabic.*\.ttf$/i.test(path.basename(f)))
+        if (notoTtf) {
+          chosen = notoTtf
+        } else {
+          // try to find an Arabic-looking font first
+          const prefer = fontFiles.find(f => preferRe.test(path.basename(f)))
+          if (prefer) chosen = prefer
+          else chosen = fontFiles[0]
+        }
       }
 
       // debug: list discovered font files
@@ -205,18 +212,51 @@ router.post('/:barcode/stamp', async (req, res) => {
         }
         try {
           const fontBuf = fs.readFileSync(chosen)
-          // basic sanity: check font magic bytes (TTF/OTF/ttcf)
+          // basic sanity: check font magic bytes (TTF/OTF/ttcf/WOFF/WOFF2)
           const head = Buffer.from(fontBuf.slice(0,4))
           const isTTF = head.equals(Buffer.from([0x00,0x01,0x00,0x00]))
           const isOTF = head.toString('ascii') === 'OTTO'
           const isTTC = head.toString('ascii') === 'ttcf'
-          const isWOFF = head.toString('ascii') === 'wOFF'
-          const isWOFF2 = head.toString('ascii') === 'wOF2'
+          const isWOFF = head.toString('ascii').toLowerCase().startsWith('wof') || head.toString('hex').startsWith('774f4630')
+          const isWOFF2 = head.toString('hex').startsWith('774f4632') // 'wOF2'
           if (!isTTF && !isOTF && !isTTC && !isWOFF && !isWOFF2) {
             console.error('Stamp: chosen font file failed magic-byte check:', chosen, 'head=', head.toString('hex'))
             throw new Error('Unknown font format')
           }
+
+          // Prefer embedding TTF/OTF; if chosen is woff/woff2, still attempt but log a warning
+          if (isWOFF || isWOFF2) console.warn('Stamp: chosen font is WOFF/WOFF2; TTF/OTF preferred for reliable Arabic shaping')
           helv = await pdfDoc.embedFont(fontBuf)
+
+          // If we embedded a WOFF/WOFF2, attempt to fetch a TTF Noto Sans Arabic as a better fallback
+          if ((isWOFF || isWOFF2) && fontkitRegistered) {
+            try {
+              const ttfUrl = 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf'
+              const boldUrl = 'https://github.com/googlefonts/noto-fonts/raw/main/phaseIII_only/unhinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'
+              const r1 = await fetch(ttfUrl)
+              if (r1.ok) {
+                const buf1 = Buffer.from(await r1.arrayBuffer())
+                try {
+                  helv = await pdfDoc.embedFont(buf1)
+                  console.debug('Stamp: replaced WOFF font with runtime downloaded NotoSansArabic-Regular.ttf')
+                } catch (e) {
+                  // ignore
+                }
+              }
+              const r2 = await fetch(boldUrl)
+              if (r2.ok) {
+                const buf2 = Buffer.from(await r2.arrayBuffer())
+                try {
+                  helvBold = await pdfDoc.embedFont(buf2)
+                  console.debug('Stamp: replaced WOFF bold with runtime downloaded NotoSansArabic-Bold.ttf')
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } catch (e) {
+              console.warn('Stamp: runtime TTF replacement attempt failed', e)
+            }
+          }
         } catch (embedErr) {
           console.error('Stamp: failed to embed chosen font file:', chosen, embedErr)
           // attempt explicit known-file fallback (Noto files checked-in)
@@ -260,8 +300,9 @@ router.post('/:barcode/stamp', async (req, res) => {
           }
         }
 
-        // try to find a bold variant nearby
-        const boldCandidate = fontFiles.find(f => boldRe.test(path.basename(f)))
+        // try to find a bold TTF/OTF variant nearby (prefer TTF/OTF over WOFF)
+        const boldTtf = fontFiles.find(f => boldRe.test(path.basename(f)) && /\.(ttf|otf|ttcf)$/i.test(f))
+        const boldCandidate = boldTtf || fontFiles.find(f => boldRe.test(path.basename(f)))
         if (boldCandidate) {
           try { helvBold = await pdfDoc.embedFont(fs.readFileSync(boldCandidate)) } catch(e) { helvBold = helv }
         } else {
@@ -460,13 +501,10 @@ router.post('/:barcode/stamp', async (req, res) => {
       }
     }
 
-    const companySize = 11
-    const barcodeSize = 9
-    const dateSize = 9
-
     // Convert digits for display to Arabic-Indic numerals
     const arabicIndicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩']
     const displayBarcode = String(barcode || '').replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+
     // Recompute date object to format both Gregorian and Hijri representations
     let dateObjForLabel: Date
     try { dateObjForLabel = new Date(String(dateSource)) } catch (e) { dateObjForLabel = new Date() }
@@ -483,52 +521,84 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayGregorian = String(gregFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     const displayHijri = String(hijriFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
 
-    // Use the English company name for sticker (avoid Arabic shaping issues)
-    const displayCompany = String(companyNameEnglish || companyName || '').toUpperCase()
-
-    const companyWidth = helvBold.widthOfTextAtSize(displayCompany, companySize)
-    // Ensure barcode is shown using Latin digits (no Arabic-Indic, no reordering)
-    const displayBarcodeLatin = String(barcode || '')
-    const barcodeWidth = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize)
-
-    // Use English Gregorian date for the sticker (easier to read and avoids shaping/encoding issues)
+    // Ensure there is an English date string for the sticker as well
     const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(dateObjForLabel)
     const displayEnglishDate = String(engFmt)
-    const dateWidthEng = helv.widthOfTextAtSize(displayEnglishDate, dateSize)
+    // Ensure we have a Latin-digit barcode for machine-readability
+    const displayBarcodeLatin = String(barcode || '')
 
-    const companyX = centerX - (companyWidth / 2)
-    const barcodeX = centerX - (barcodeWidth / 2)
-    const dateX = centerX - (dateWidthEng / 2)
+    // Decide text language and content, prefer Arabic company name when available
+    const hasArabicInCompany = ((companyName || '').match(/[\u0600-\u06FF]/g) || []).length > 0
+    let displayCompanyText = ''
+    if (hasArabicInCompany) {
+      displayCompanyText = shapeArabicText(companyName)
+    } else {
+      displayCompanyText = String(companyNameEnglish || companyName || '').toUpperCase()
+    }
 
-    // Prefer rendering the company name above the barcode image to avoid clipping at the page bottom
-    const companyY = yPdf + heightPdf + gap
-    // Place the barcode identifier below the barcode image
-    let barcodeY = yPdf - barcodeSize - gap
-    let dateY = barcodeY - dateSize - 2
+    // Determine incoming/outgoing label
+    let docTypeText = ''
+    try {
+      const t = String((doc.type || doc.direction || doc.kind || '').toLowerCase())
+      if (t === 'incoming' || t === 'in' || t === 'وارد') docTypeText = shapeArabicText('وارد')
+      else if (t === 'outgoing' || t === 'out' || t === 'صادر') docTypeText = shapeArabicText('صادر')
+    } catch (e) {
+      docTypeText = ''
+    }
 
-    // If there's not enough space below the image, move barcode/date above the image (below company)
+    // sizes
+    const companySize = 11
+    const typeSize = 10
+    const barcodeSize2 = 9
+    const dateSize2 = 9
+
+    // Recompute widths with chosen fonts
+    const companyWidth = (hasArabicInCompany ? helvBold.widthOfTextAtSize(displayCompanyText, companySize) : helvBold.widthOfTextAtSize(displayCompanyText, companySize))
+    const typeWidth = helv.widthOfTextAtSize(docTypeText || '', typeSize)
+    const barcodeWidth2 = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize2)
+    const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDate, dateSize2)
+
+    const centerX2 = xPdf + widthPdf / 2
+
+    // Start stacking above the barcode image: company -> type (if any)
+    let companyX = centerX2 - (companyWidth / 2)
+    let companyY = yPdf + heightPdf + gap
+    let typeX = centerX2 - (typeWidth / 2)
+    let typeY = companyY - companySize - 2
+
+    // Barcode text and date below image (preferred), but if there's no room, place them above image
+    let barcodeX = centerX2 - (barcodeWidth2 / 2)
+    let barcodeY = yPdf - barcodeSize2 - gap
+    let dateX = centerX2 - (dateWidth2 / 2)
+    let dateY = barcodeY - dateSize2 - 2
+
+    // If text is off-canvas at bottom, move barcode texts above the image (between company and image)
     if (barcodeY < 0) {
-      // stack date and barcode between company and top of image
-      dateY = companyY - dateSize - 2
-      barcodeY = dateY - barcodeSize - 2
-      // clamp to be at least just above the image
-      if (barcodeY < (yPdf + heightPdf + gap)) {
-        barcodeY = yPdf + heightPdf + gap + 2
-        dateY = barcodeY + dateSize + 2
+      // place barcode text immediately above image
+      barcodeY = yPdf + heightPdf + gap + 2
+      dateY = barcodeY + dateSize2 + 2
+      // if company or type would collide, push company up
+      if (typeY <= barcodeY) {
+        companyY = barcodeY + companySize + typeSize + gap + 4
+        typeY = companyY - companySize - 2
       }
     }
 
-    console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, barcodeX, barcodeY, dateX, dateY })
+    console.debug('Stamp: computed_text', { displayCompanyText, docTypeText, displayBarcodeLatin, displayEnglishDate })
+    console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
 
-    if (displayCompany) {
-      page.drawText(displayCompany, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
+    if (displayCompanyText) {
+      page.drawText(displayCompanyText, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
+    }
+    if (docTypeText) {
+      page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
     }
 
     // barcode identifier centered below (or near) the barcode image
-    page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize2, font: helv, color: rgb(0,0,0) })
 
     // Draw English Gregorian date centered near the barcode for readability
-    page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying

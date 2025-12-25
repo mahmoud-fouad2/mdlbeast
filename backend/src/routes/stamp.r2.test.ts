@@ -17,7 +17,7 @@ jest.mock('../lib/r2-storage', () => ({
 const mockQuery = jest.fn(async (q: string, params?: any[]) => {
   // initial documents SELECT
   if (/SELECT \* FROM documents/i.test(q)) {
-    return { rows: [{ id: 1, barcode: 'TEST123', attachments: [{ key: 'uploads/test.pdf', url: 'https://r2.example.com/uploads/test.pdf' }], tenant_id: null }] }
+    return { rows: [{ id: 1, barcode: 'TEST123', attachments: [{ key: 'uploads/test.pdf', url: 'https://r2.example.com/uploads/test.pdf' }], tenant_id: null, company: 'شركة الاختبار', company_en: 'Test Co', type: 'outgoing' }] }
   }
   // UPDATE documents
   if (/UPDATE documents SET attachments/i.test(q)) {
