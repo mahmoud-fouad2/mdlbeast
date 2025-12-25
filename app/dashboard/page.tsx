@@ -89,8 +89,12 @@ export default function DashboardPage() {
           sender: doc.sender || doc.from || '',
           receiver: doc.receiver || doc.recipient || '',
           recipient: doc.receiver || doc.recipient || '',
-          date: doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : ''),
+          // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
           documentDate: doc.date || doc.documentDate || '',
+          date: (() => {
+            const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
+            try { return iso ? new Date(iso).toLocaleString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' } catch(e) { return iso ? String(iso) : '' }
+          })(),
           type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
           companyId: doc.companyId || doc.tenant_id || null,
         }))
@@ -140,8 +144,12 @@ export default function DashboardPage() {
           sender: doc.sender || doc.from || '',
           receiver: doc.receiver || doc.recipient || '',
           recipient: doc.receiver || doc.recipient || '',
-          date: doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : ''),
+          // Prefer server-supplied displayDate (merges date with created_at time when necessary) and show localized date+time
           documentDate: doc.date || doc.documentDate || '',
+          date: (() => {
+            const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
+            try { return iso ? new Date(iso).toLocaleString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' } catch(e) { return iso ? String(iso) : '' }
+          })(),
           type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
           companyId: doc.companyId || doc.tenant_id || null,
         }))
