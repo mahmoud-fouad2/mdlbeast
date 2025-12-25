@@ -21,10 +21,7 @@ export const query = async (text: string, params?: any[]) => {
   try {
     const res = await pool.query(text, params)
     const duration = Date.now() - start
-    // Only log verbose query info when DEBUG=true or running in non-production
-    if (process.env.DEBUG === 'true' || process.env.NODE_ENV !== 'production') {
-      console.log("Executed query", { text, duration, rows: res.rowCount })
-    }
+    console.log("Executed query", { text, duration, rows: res.rowCount })
     return res
   } catch (error) {
     console.error("Database query error:", error)

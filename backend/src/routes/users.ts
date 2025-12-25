@@ -33,23 +33,16 @@ router.get("/", isManager, async (req: AuthRequest, res: Response) => {
 router.post("/", isManager, async (req: AuthRequest, res: Response) => {
   try {
     const { username, password, full_name, role } = req.body
-    if (!username || !password || !full_name) return res.status(400).json({ error: 'Missing fields' })
-
-    // Only admins may assign the 'admin' role
-    const creator = req.user
-    if (role === 'admin' && creator?.role !== 'admin') return res.status(403).json({ error: 'Only admins may create admin users' })
+    if (!username || !password || !full_name || !role) return res.status(400).json({ error: 'Missing fields' })
 
     const exists = await query('SELECT id FROM users WHERE username = $1 LIMIT 1', [username])
     if (exists.rows.length) return res.status(400).json({ error: 'Username exists' })
 
     const hashed = await import('bcrypt').then(b => b.hash(password, 10))
-    // Assign tenant to created user if creator is non-admin
-    const tenant_id = (creator && creator.role !== 'admin') ? creator.tenant_id : null
-    const assignedRole = role || 'member'
-    const ins = await query('INSERT INTO users (username, password, full_name, role, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, username, full_name, role, created_at', [username, hashed, full_name, assignedRole, tenant_id])
+    const ins = await query('INSERT INTO users (username, password, full_name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, full_name, role, created_at', [username, hashed, full_name, role])
     res.status(201).json(ins.rows[0])
   } catch (err: any) {
-    console.error('Create user error:', String(err?.message || err))
+    console.error('Create user error:', err)
     res.status(500).json({ error: 'Failed to create user' })
   }
 })
