@@ -388,6 +388,28 @@ router.post('/:barcode/stamp', async (req, res) => {
 
     const companyName = repairArabicEncoding(rawCompany)
 
+    // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues)
+    let companyNameEnglish = ''
+    try {
+      // first prefer explicit English fields if present
+      companyNameEnglish = String(doc.company_en || doc.companyEn || doc.companyNameEn || '').trim()
+      // if none, try to read tenant name (may be English)
+      if (!companyNameEnglish && doc.tenant_id) {
+        try {
+          const t = await query('SELECT name FROM tenants WHERE id = $1 LIMIT 1', [doc.tenant_id])
+          if (t.rows.length) companyNameEnglish = String(t.rows[0].name || '').trim()
+        } catch (e) {
+          // ignore
+        }
+      }
+      // fallback to configured org name or a sensible default
+      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
+      // match user's preference for lowercase/relaxed styling
+      companyNameEnglish = String(companyNameEnglish).toLowerCase()
+    } catch (e) {
+      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
+    }
+
     // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
     const dateSource = doc.date || doc.created_at || new Date().toISOString()
     let dateStr = ''
@@ -457,10 +479,13 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayGregorian = String(gregFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     const displayHijri = String(hijriFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
 
-    const displayCompany = shapeArabicText(companyName)
+    // Use the English company name for sticker (avoid Arabic shaping issues)
+    const displayCompany = String(companyNameEnglish || companyName || '').toUpperCase()
 
     const companyWidth = helvBold.widthOfTextAtSize(displayCompany, companySize)
-    const barcodeWidth = helv.widthOfTextAtSize(displayBarcode, barcodeSize)
+    // Ensure barcode is shown using Latin digits (no Arabic-Indic, no reordering)
+    const displayBarcodeLatin = String(barcode || '')
+    const barcodeWidth = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize)
 
     // Use English Gregorian date for the sticker (easier to read and avoids shaping/encoding issues)
     const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(dateObjForLabel)
@@ -475,12 +500,12 @@ router.post('/:barcode/stamp', async (req, res) => {
     const barcodeY = companyY - companySize - 4
     const dateY = barcodeY - barcodeSize - 2
 
-    if (companyName) {
+    if (displayCompany) {
       page.drawText(displayCompany, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
     }
 
     // barcode identifier centered below company
-    page.drawText(displayBarcode, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
 
     // Draw English Gregorian date centered below barcode for readability
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
