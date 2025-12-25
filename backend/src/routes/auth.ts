@@ -6,11 +6,17 @@ import { body, validationResult } from "express-validator"
 import { query } from "../config/database"
 
 const router = express.Router()
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this"
+const JWT_SECRET = process.env.JWT_SECRET
 
 // Login
+const loginLimiterMiddleware = (req: any, res: any, next: any) => {
+  try { const l = req.app && req.app.locals && req.app.locals.loginLimiter; if (l) return l(req, res, next) } catch (e) {}
+  next()
+}
+
 router.post(
   "/login",
+  loginLimiterMiddleware,
   [
     body("username").trim().notEmpty().withMessage("Username is required"),
     body("password").notEmpty().withMessage("Password is required"),
@@ -52,8 +58,9 @@ router.post(
         return res.status(401).json({ error: "Invalid credentials" })
       }
 
-      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET as string, {
         expiresIn: "24h",
+        algorithm: 'HS256'
       })
 
       res.json({
@@ -72,14 +79,18 @@ router.post(
   },
 )
 
-// Register (admin only)
+// Register (admin only) - protected
+import { authenticateToken, isAdmin } from "../middleware/auth"
+
 router.post(
   "/register",
+  authenticateToken,
+  isAdmin,
   [
     body("username").trim().notEmpty().withMessage("Username is required"),
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
     body("full_name").trim().notEmpty().withMessage("Full name is required"),
-    body("role").isIn(["admin", "user"]).withMessage("Invalid role"),
+    body("role").optional().isIn(["admin", "manager", "supervisor", "member"]).withMessage("Invalid role"),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req)
@@ -100,10 +111,11 @@ router.post(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10)
 
-      // Insert user
+      // Insert user (only admin can assign roles here)
+      const assignedRole = role || 'member'
       const result = await query(
         "INSERT INTO users (username, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, username, full_name, role",
-        [username, hashedPassword, full_name, role],
+        [username, hashedPassword, full_name, assignedRole],
       )
 
       res.status(201).json({
@@ -117,4 +129,15 @@ router.post(
   },
 )
 
+// Apply login rate limiting on the login route (middleware-aware)
+const loginLimiter = (req: any, res: any, next: any) => {
+  try {
+    const limiter = req.app && req.app.locals && req.app.locals.loginLimiter
+    if (limiter) return limiter(req, res, next)
+  } catch (e) {}
+  next()
+}
+
+// Login route should apply loginLimiter at call site via router.post('/login', loginLimiter, ...), ensure it's used in server startup when mounting router.
+// If server doesn't mount it, the loginLimiter above will gracefully no-op.
 export default router

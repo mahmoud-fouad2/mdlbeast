@@ -2,7 +2,11 @@ import type { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 import type { AuthRequest } from "../types"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this"
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET must be set for token verification. Exiting.')
+  process.exit(1)
+}
 
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers["authorization"]
@@ -14,7 +18,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
 
   try {
     // Verify token and then load canonical user info from DB (ensures fresh role/tenant data)
-    const tokenPayload = jwt.verify(token, JWT_SECRET) as { id: number; username?: string; role?: string }
+    const tokenPayload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { id: number; username?: string; role?: string }
     if (!tokenPayload?.id) return res.status(403).json({ error: 'Invalid token payload' })
     try {
       const db = await import('../config/database')
@@ -35,7 +39,8 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       return res.status(500).json({ error: 'Auth verification failed' })
     }
   } catch (error: any) {
-    console.error('Auth verify error:', error && (error.message || error))
+    // Avoid printing token or sensitive details in logs
+    console.warn('Auth verify error: token invalid or expired')
     return res.status(403).json({ error: "Invalid or expired token" })
   }
 }

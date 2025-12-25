@@ -104,11 +104,40 @@ router.post('/:barcode/stamp', async (req, res) => {
       return res.status(500).json({ error: 'Failed to load PDF for stamping' })
     }
 
-    // fetch barcode image (PNG) via bwipjs public API
-    const bcUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcode)}&scale=2&includetext=false`
-    const imgResp = await fetch(bcUrl)
-    if (!imgResp.ok) return res.status(500).json({ error: 'Failed to generate barcode image' })
-    const imgBytes = Buffer.from(await imgResp.arrayBuffer())
+    // Enforce a maximum PDF size to avoid CPU/memory DoS during stamping
+    const MAX_STAMP_BYTES = Number(process.env.MAX_STAMP_BYTES || (15 * 1024 * 1024)) // default 15 MB
+    if (pdfBytes && pdfBytes.length > MAX_STAMP_BYTES) {
+      return res.status(413).json({ error: 'Original PDF too large to process' })
+    }
+
+    // fetch or generate barcode image (PNG). Prefer local bwip-js if available, otherwise fall back to remote service with timeout
+    let imgBytes: Buffer
+    try {
+      const bwip = await import('bwip-js')
+      imgBytes = await new Promise<Buffer>((resolve, reject) => {
+        try {
+          ;(bwip as any).toBuffer({ bcid: 'code128', text: String(barcode || ''), scale: 2, includetext: false }, (err: any, png: any) => {
+            if (err) return reject(err)
+            return resolve(Buffer.from(png))
+          })
+        } catch (e) { reject(e) }
+      })
+    } catch (e) {
+      // fallback to public bwipjs API (use a short timeout)
+      const bcUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcode)}&scale=2&includetext=false`
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
+      try {
+        const imgResp = await fetch(bcUrl, { signal: (controller as any).signal })
+        clearTimeout(timeout)
+        if (!imgResp.ok) return res.status(500).json({ error: 'Failed to generate barcode image' })
+        imgBytes = Buffer.from(await imgResp.arrayBuffer())
+      } catch (err) {
+        clearTimeout(timeout)
+        console.error('Barcode generation failed:', String(err))
+        return res.status(500).json({ error: 'Failed to generate barcode image' })
+      }
+    }
 
     // embed image and text into PDF
     const pdfDoc = await PDFDocument.load(pdfBytes)

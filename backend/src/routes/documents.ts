@@ -7,20 +7,24 @@ import type { AuthRequest } from "../types"
 
 const router = express.Router()
 
-// Public JSON preview URL endpoint (no auth) - returns { previewUrl }
-router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
+// Protected JSON preview URL endpoint — requires authentication and access checks
+router.get('/:barcode/preview-url', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    const r = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
-    let attachments: any = r.rows[0].attachments
+    const doc = r.rows[0]
+    const user = (req as any).user
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
+
+    let attachments: any = doc.attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).json({ error: 'No attachment' })
     const pdf = attachments[0]
 
     const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseKeyRaw = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    const supabaseKey = String(supabaseKeyRaw).trim()
+    const supabaseKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 
     // Prefer signed URL when possible
     const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
@@ -32,7 +36,6 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
           const signed = await getSignedDownloadUrl(pdf.key, 60 * 5)
           return res.json({ previewUrl: signed })
         } catch (e) {
-          // fallback to public URL
           try { return res.json({ previewUrl: getPublicUrl(pdf.key) }) } catch (err) {}
         }
       } catch (e) {
@@ -64,20 +67,24 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
   }
 })
 
-// Public preview route (no auth) so browser can open attachment previews directly
-router.get('/:barcode/preview', async (req: Request, res: Response) => {
+// Protected preview route — requires authentication and access checks
+router.get('/:barcode/preview', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    const r = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).send('Not found')
-    let attachments: any = r.rows[0].attachments
+    const doc = r.rows[0]
+    const user = (req as any).user
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, doc)) return res.status(403).send('Forbidden')
+
+    let attachments: any = doc.attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).send('No attachment')
     const pdf = attachments[0]
 
     const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseKeyRaw = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    const supabaseKey = String(supabaseKeyRaw).trim()
+    const supabaseKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 
     // Prefer Cloudflare R2 signed URLs when using R2
     const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
@@ -156,7 +163,13 @@ router.use(authenticateToken)
 // Get all documents
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { status, type, search, limit = 100, offset = 0 } = req.query
+    const { status, type, search } = req.query
+    let limit = Number(req.query.limit || 100)
+    let offset = Number(req.query.offset || 0)
+    // sanitize pagination
+    if (!Number.isFinite(limit) || limit < 1) limit = 100
+    limit = Math.min(limit, Number(process.env.MAX_LIST_LIMIT || 1000))
+    if (!Number.isFinite(offset) || offset < 0) offset = 0
 
     const user = (req as any).user
 
@@ -225,6 +238,44 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Get documents error:", error)
     res.status(500).json({ error: "Failed to fetch documents" })
+  }
+})
+
+// Get statistics (tenant-scoped for non-admin users)
+router.get("/stats/summary", async (req: AuthRequest, res: Response) => {
+  try {
+    const user = (req as any).user
+    if (!user) return res.status(401).json({ error: 'Not authenticated' })
+
+    // Base counts scoped to tenant for non-admins
+    if (user.role !== 'admin') {
+      const q = await query(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE tenant_id = $1 AND (status = 'وارد' OR type ILIKE 'IN%' OR barcode ILIKE 'IN-%')) as incoming,
+          COUNT(*) FILTER (WHERE tenant_id = $1 AND (status = 'صادر' OR type ILIKE 'OUT%' OR barcode ILIKE 'OUT-%')) as outgoing,
+          COUNT(*) FILTER (WHERE tenant_id = $1 AND status = 'محفوظ') as archived,
+          COUNT(*) FILTER (WHERE tenant_id = $1 AND priority = 'عاجل جداً') as urgent
+        FROM documents WHERE tenant_id = $1
+      `, [user.tenant_id])
+      return res.json(q.rows[0])
+    }
+
+    // Admin: global stats
+    const result = await query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'وارد' OR type ILIKE 'IN%' OR barcode ILIKE 'IN-%') as incoming,
+        COUNT(*) FILTER (WHERE status = 'صادر' OR type ILIKE 'OUT%' OR barcode ILIKE 'OUT-%') as outgoing,
+        COUNT(*) FILTER (WHERE status = 'محفوظ') as archived,
+        COUNT(*) FILTER (WHERE priority = 'عاجل جداً') as urgent
+      FROM documents
+    `)
+
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error("Get stats error:", error)
+    res.status(500).json({ error: "Failed to fetch statistics" })
   }
 })
 
@@ -563,24 +614,6 @@ router.delete("/:barcode", async (req: Request, res: Response) => {
   }
 })
 
-// Get statistics
-router.get("/stats/summary", async (req: Request, res: Response) => {
-  try {
-    const result = await query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'وارد' OR type ILIKE 'IN%' OR barcode ILIKE 'IN-%') as incoming,
-        COUNT(*) FILTER (WHERE status = 'صادر' OR type ILIKE 'OUT%' OR barcode ILIKE 'OUT-%') as outgoing,
-        COUNT(*) FILTER (WHERE status = 'محفوظ') as archived,
-        COUNT(*) FILTER (WHERE priority = 'عاجل جداً') as urgent
-      FROM documents
-    `)
 
-    res.json(result.rows[0])
-  } catch (error) {
-    console.error("Get stats error:", error)
-    res.status(500).json({ error: "Failed to fetch statistics" })
-  }
-})
 
 export default router

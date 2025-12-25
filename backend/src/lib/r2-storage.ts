@@ -7,6 +7,14 @@ const BUCKET = process.env.CF_R2_BUCKET || '';
 const ENDPOINT = (process.env.CF_R2_ENDPOINT || '').replace(/\/$/, '');
 const REGION = process.env.CF_R2_REGION || 'auto';
 
+// If R2/CF endpoint configured, ensure required credentials are present
+if (ENDPOINT) {
+  if (!process.env.CF_R2_ACCESS_KEY_ID || !process.env.CF_R2_SECRET_ACCESS_KEY || !BUCKET) {
+    console.error('FATAL: CF_R2_ENDPOINT is set but CF_R2_ACCESS_KEY_ID, CF_R2_SECRET_ACCESS_KEY or CF_R2_BUCKET is missing.')
+    throw new Error('R2 storage configuration missing required environment variables')
+  }
+}
+
 const s3 = new S3Client({
   region: REGION,
   endpoint: ENDPOINT || undefined,

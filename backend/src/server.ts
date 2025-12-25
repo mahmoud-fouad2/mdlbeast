@@ -15,11 +15,24 @@ import { query } from "./config/database"
 
 dotenv.config()
 
-// Debug: print basic info about SUPABASE_SERVICE_ROLE_KEY for runtime troubleshooting (do NOT print full secret)
-const _SUPABASE_KEY_RAW = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const _SUPABASE_KEY = String(_SUPABASE_KEY_RAW).trim()
-if (_SUPABASE_KEY_RAW) {
-  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY rawLen=', _SUPABASE_KEY_RAW.length, 'trimmedLen=', _SUPABASE_KEY.length, 'startsWith=', _SUPABASE_KEY.slice(0,6), 'endsWith=', _SUPABASE_KEY.slice(-6), 'containsSpaces=', /\s/.test(_SUPABASE_KEY_RAW))
+// Fail fast on critical secrets/config
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET || String(JWT_SECRET).trim().length < 16) {
+  console.error('FATAL: JWT_SECRET is not configured or too short. Set a strong JWT_SECRET and restart the server.')
+  process.exit(1)
+}
+
+// Validate storage configuration when a provider is selected
+const STORAGE_PROVIDER = String(process.env.STORAGE_PROVIDER || '').toLowerCase()
+if (STORAGE_PROVIDER === 'r2' || !!process.env.CF_R2_ENDPOINT) {
+  if (!process.env.CF_R2_ACCESS_KEY_ID || !process.env.CF_R2_SECRET_ACCESS_KEY || !process.env.CF_R2_BUCKET) {
+    console.error('FATAL: R2 storage selected but CF_R2_ACCESS_KEY_ID, CF_R2_SECRET_ACCESS_KEY or CF_R2_BUCKET is missing. Set them and restart.')
+    process.exit(1)
+  }
+}
+if (process.env.SUPABASE_URL && process.env.SUPABASE_BUCKET && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('FATAL: SUPABASE storage configured but SUPABASE_SERVICE_ROLE_KEY is missing. Set it and restart.')
+  process.exit(1)
 }
 
 const app = express()
@@ -37,7 +50,16 @@ app.use(morgan("dev"))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// Rate limiting utilities
+import rateLimit from 'express-rate-limit'
+
+// Apply some basic global rate limits for sensitive endpoints
+const loginLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, message: 'Too many login attempts, please try again later.' })
+const uploadLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: 'Too many uploads, slow down.' })
+const stampLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: 'Too many stamping requests, slow down.' })
+
 // Mount API routes
+// Note: login route gets a limiter applied inside authRoutes (loginLimiter passed via req.app.locals)
 app.use('/api/auth', authRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/users', userRoutes)
@@ -54,11 +76,17 @@ import * as pathModule from 'path'
 import * as fsModule from 'fs'
 const uploadsDirStartup = pathModule.resolve(process.cwd(), 'uploads')
 if (!fsModule.existsSync(uploadsDirStartup)) fsModule.mkdirSync(uploadsDirStartup, { recursive: true })
-app.use('/api/uploads', uploadRoutes)
+// apply upload limiter per route, uploadRoutes expects req.user via authenticateToken
+app.use('/api/uploads', uploadLimiter, uploadRoutes)
 app.use('/uploads', express.static(uploadsDirStartup))
 
-// Stamp endpoint
-app.use('/api/documents', stampRoutes)
+// Stamp endpoint (rate-limited)
+app.use('/api/documents', stampLimiter, stampRoutes)
+
+// Expose limiters to routers (so login route and others can use them)
+app.locals.loginLimiter = loginLimiter
+app.locals.uploadLimiter = uploadLimiter
+app.locals.stampLimiter = stampLimiter
 
 // Serve a small wp-emoji loader stub to avoid JS parse errors when clients request /wp-includes/js/wp-emoji-loader.min.js
 app.get('/wp-includes/js/wp-emoji-loader.min.js', (_req, res) => {
@@ -824,8 +852,7 @@ app.get("/debug/test-supabase-upload", async (req, res) => {
   const SUPABASE_KEY = String(SUPABASE_KEY_RAW).trim()
   const BUCKET = process.env.SUPABASE_BUCKET || process.env.S3_BUCKET || ''
 
-  console.log('DEBUG: /debug/test-supabase-upload supabase key rawLen=', SUPABASE_KEY_RAW.length, 'trimmedLen=', SUPABASE_KEY.length, 'containsSpaces=', /\s/.test(SUPABASE_KEY_RAW), 'startsWith=', SUPABASE_KEY.slice(0,8))
-
+  // Basic env sanity checks (do not log secrets)
   if (!SUPABASE_URL || !SUPABASE_KEY || !BUCKET) {
     return res.status(500).json({ error: 'Missing SUPABASE env vars', SUPABASE_URL: !!SUPABASE_URL, SUPABASE_KEY: !!SUPABASE_KEY, BUCKET })
   }
@@ -834,8 +861,7 @@ app.get("/debug/test-supabase-upload", async (req, res) => {
   const jwtLike = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(SUPABASE_KEY)
   const sbPrefixed = SUPABASE_KEY.startsWith('sb_secret_')
   if (!jwtLike && !sbPrefixed) {
-    const snippet = String(SUPABASE_KEY).slice(0, 6) + '…' + String(SUPABASE_KEY).slice(-6)
-    return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a valid Service Role JWT or sb_secret_ key. Please confirm you copied the Service Role Key (Settings → API → Service Role Key) for the same Supabase project.', keySnippet: snippet })
+    return res.status(400).json({ error: 'SUPABASE_SERVICE_ROLE_KEY does not look like a valid Service Role JWT or sb_secret_ key. Please confirm you copied the Service Role Key for the same Supabase project.' })
   }
 
   if (sbPrefixed && !jwtLike) {
