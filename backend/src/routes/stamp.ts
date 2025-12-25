@@ -347,23 +347,59 @@ router.post('/:barcode/stamp', async (req, res) => {
     try {
       const ds = String(dateSource)
       let dateObj = new Date(ds)
-      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(ds) || (!ds.includes('T') && dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && dateObj.getSeconds() === 0)
-      if (isDateOnly && doc.created_at) {
+      // treat midnight timestamps as date-only and merge with created_at time when available
+      const isMidnight = dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && dateObj.getSeconds() === 0
+      if (isMidnight && doc.created_at) {
         const c = new Date(String(doc.created_at))
         if (!isNaN(c.getTime())) dateObj.setHours(c.getHours(), c.getMinutes(), c.getSeconds())
       }
-      dateStr = dateObj.toLocaleString('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+      // Format in Arabic locale
+      let formatted = dateObj.toLocaleString('ar-EG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      // Convert European digits to Arabic-Indic digits (0-9 -> ٠-٩)
+      const arabicIndicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩']
+      formatted = formatted.replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+      dateStr = formatted
     } catch (e) {
       dateStr = String(dateSource)
+    }
+
+    // Attempt Arabic shaping/bi-di for proper glyph forms when possible
+    function shapeArabicText(s: string) {
+      try {
+        const reshaper = require('arabic-reshaper')
+        let r = reshaper.reshape(String(s))
+        try {
+          const bidi = require('bidi-js')
+          if (typeof bidi.get_display === 'function') {
+            r = bidi.get_display(r)
+          } else if (typeof bidi.getSorted === 'function') {
+            r = (bidi.getSorted(r) || []).join('')
+          } else {
+            r = r.split('').reverse().join('')
+          }
+        } catch (e) {
+          r = r.split('').reverse().join('')
+        }
+        return r
+      } catch (e) {
+        return String(s)
+      }
     }
 
     const companySize = 11
     const barcodeSize = 9
     const dateSize = 9
 
-    const companyWidth = helvBold.widthOfTextAtSize(companyName, companySize)
-    const barcodeWidth = helv.widthOfTextAtSize(barcode, barcodeSize)
-    const dateWidth = helv.widthOfTextAtSize(dateStr, dateSize)
+    // Convert digits for display to Arabic-Indic numerals
+    const arabicIndicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩']
+    const displayBarcode = String(barcode || '').replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+    const displayDate = String(dateStr).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
+    const displayCompany = shapeArabicText(companyName)
+
+    const companyWidth = helvBold.widthOfTextAtSize(displayCompany, companySize)
+    const barcodeWidth = helv.widthOfTextAtSize(displayBarcode, barcodeSize)
+    const dateWidth = helv.widthOfTextAtSize(displayDate, dateSize)
 
     const companyX = centerX - (companyWidth / 2)
     const barcodeX = centerX - (barcodeWidth / 2)
@@ -374,14 +410,14 @@ router.post('/:barcode/stamp', async (req, res) => {
     const dateY = barcodeY - barcodeSize - 2
 
     if (companyName) {
-      page.drawText(companyName, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
+      page.drawText(displayCompany, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
     }
 
     // barcode identifier centered below company
-    page.drawText(String(barcode || ''), { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayBarcode, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
 
     // timestamp centered below
-    page.drawText(dateStr, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
+    page.drawText(displayDate, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
 

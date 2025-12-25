@@ -271,28 +271,26 @@ router.post(
 
       // If no barcode provided, generate a numeric sequential barcode server-side
       if (!barcode) {
+        // Generate numeric-only barcode (new behavior). Keep direction required for status only.
         if (!direction) return res.status(400).json({ error: 'Direction (type) is required to generate barcode' })
-        const seqName = direction === 'INCOMING' ? 'doc_in_seq' : 'doc_out_seq'
-        // Try to get next value, if sequence is missing create it and retry
+        const seqName = 'doc_seq'
         let n: number
         try {
           const seqRes = await query(`SELECT nextval('${seqName}') as n`)
           n = seqRes.rows[0].n
         } catch (seqErr: any) {
-          console.warn('Sequence missing or nextval failed:', seqErr?.message || seqErr)
+          console.warn('Sequence missing or nextval failed for doc_seq, creating sequences:', seqErr?.message || seqErr)
           try {
-            await query("CREATE SEQUENCE IF NOT EXISTS doc_in_seq START 1")
-            await query("CREATE SEQUENCE IF NOT EXISTS doc_out_seq START 1")
+            await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
             const seqRes2 = await query(`SELECT nextval('${seqName}') as n`)
             n = seqRes2.rows[0].n
           } catch (seqErr2: any) {
-            console.error('Failed to create or get sequence value:', seqErr2)
+            console.error('Failed to create or get sequence value for doc_seq:', seqErr2)
             return res.status(500).json({ error: 'Failed to generate barcode sequence' })
           }
         }
 
-        const dirIndex = direction === 'INCOMING' ? 0 : 1
-        barcode = `${direction === 'INCOMING' ? 'In' : 'out'}-${dirIndex}-${String(n).padStart(7, '0')}`
+        barcode = String(n).padStart(7, '0')
       }
 
       // Check if barcode exists
