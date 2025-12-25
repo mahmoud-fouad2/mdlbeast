@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.ts",
     "build": "tsc",
+    "check:fonts": "node scripts/check-fonts.js",
     "start": "node dist/server.js",
     "test": "jest --config ./jest.config.cjs",
     "test:watch": "jest --config ./jest.config.cjs --watchAll"
