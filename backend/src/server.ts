@@ -547,6 +547,28 @@ app.get('/debug/list-sequences', async (req, res) => {
   }
 })
 
+// Debug: verify a JWT token (protected) - returns decoded payload or verification error
+app.post('/debug/verify-token', async (req, res) => {
+  const secret = req.query.secret
+  if (!(process.env.DEBUG === 'true' || (typeof secret === 'string' && secret === DEBUG_SECRET && DEBUG_SECRET !== ''))) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+
+  try {
+    const token = String(req.body?.token || req.query?.token || '')
+    if (!token) return res.status(400).json({ error: 'token is required in body.token or ?token' })
+    try {
+      const payload = jwt.verify(token, JWT_SECRET)
+      return res.json({ ok: true, verified: true, payload })
+    } catch (e: any) {
+      return res.json({ ok: false, verified: false, error: String(e.message || e) })
+    }
+  } catch (err: any) {
+    console.error('verify-token error:', err)
+    res.status(500).json({ error: err.message || String(err) })
+  }
+})
+
 // Optional: run allowed migrations automatically on startup when AUTO_RUN_MIGRATIONS=true
 async function runAllowedMigrationsOnStartup() {
   try {
