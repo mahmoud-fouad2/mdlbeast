@@ -697,7 +697,7 @@ router.post('/:barcode/stamp', async (req, res) => {
         const parsedAttachments = Array.isArray(updatedDoc.attachments) ? updatedDoc.attachments : JSON.parse(String(updatedDoc.attachments || '[]'))
         const pdfFile = parsedAttachments && parsedAttachments.length ? parsedAttachments[0] : null
         // provide signedUrl and a short-lived preview URL to the client so they can open the fresh copy immediately
-        const previewUrl = signedUrl || `${newUrl}?t=${Date.now()}`}]}']
+        const previewUrl = signedUrl || `${newUrl}?t=${Date.now()}`
         return res.json({ ...updatedDoc, attachments: parsedAttachments, pdfFile, previewUrl })
       }
 
