@@ -102,9 +102,29 @@ router.post('/:barcode/stamp', async (req, res) => {
       for (const d of fontDirs) {
         try {
           if (fs.existsSync(d)) {
+            // include TTF/OTF/WOFF/WOFF2 files but validate magic bytes so we skip corrupted (HTML) files
             const list = fs.readdirSync(d).filter((f) => /(\.ttf|\.otf|\.woff2?|\.woff)$/i.test(f)).map((f) => path.join(d, f))
-            if (list.length) {
-              fontFiles = fontFiles.concat(list)
+            const valid: string[] = []
+            for (const p of list) {
+              try {
+                const headBuf = fs.readFileSync(p)
+                const h = Buffer.from(headBuf.slice(0, 4))
+                const isTTF = h.equals(Buffer.from([0x00, 0x01, 0x00, 0x00]))
+                const isOTF = h.toString('ascii') === 'OTTO'
+                const isTTC = h.toString('ascii') === 'ttcf'
+                const isWOFF2 = h.toString('hex').startsWith('774f4632') // 'wOF2'
+                const isWOFF = h.toString('ascii').toLowerCase().startsWith('wof') || h.toString('hex').startsWith('774f4630')
+                if (isTTF || isOTF || isTTC || isWOFF || isWOFF2) {
+                  valid.push(p)
+                } else {
+                  console.warn('Stamp: skipping invalid/corrupted font file:', p, 'head=', h.toString('hex'))
+                }
+              } catch (e) {
+                // ignore read errors
+              }
+            }
+            if (valid.length) {
+              fontFiles = fontFiles.concat(valid)
             }
           }
         } catch (e) {
