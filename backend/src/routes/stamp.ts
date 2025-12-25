@@ -500,18 +500,34 @@ router.post('/:barcode/stamp', async (req, res) => {
     const barcodeX = centerX - (barcodeWidth / 2)
     const dateX = centerX - (dateWidthEng / 2)
 
-    const companyY = yPdf - gap
-    const barcodeY = companyY - companySize - 4
-    const dateY = barcodeY - barcodeSize - 2
+    // Prefer rendering the company name above the barcode image to avoid clipping at the page bottom
+    const companyY = yPdf + heightPdf + gap
+    // Place the barcode identifier below the barcode image
+    let barcodeY = yPdf - barcodeSize - gap
+    let dateY = barcodeY - dateSize - 2
+
+    // If there's not enough space below the image, move barcode/date above the image (below company)
+    if (barcodeY < 0) {
+      // stack date and barcode between company and top of image
+      dateY = companyY - dateSize - 2
+      barcodeY = dateY - barcodeSize - 2
+      // clamp to be at least just above the image
+      if (barcodeY < (yPdf + heightPdf + gap)) {
+        barcodeY = yPdf + heightPdf + gap + 2
+        dateY = barcodeY + dateSize + 2
+      }
+    }
+
+    console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, barcodeX, barcodeY, dateX, dateY })
 
     if (displayCompany) {
       page.drawText(displayCompany, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
     }
 
-    // barcode identifier centered below company
+    // barcode identifier centered below (or near) the barcode image
     page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize, font: helv, color: rgb(0,0,0) })
 
-    // Draw English Gregorian date centered below barcode for readability
+    // Draw English Gregorian date centered near the barcode for readability
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
