@@ -371,7 +371,7 @@ app.post("/debug/run-migration", async (req, res) => {
 
   try {
     const filename = String(req.query.file || req.body?.file || "").trim()
-    const allowed = new Set(["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "08_change_date_to_timestamp.sql"])
+    const allowed = new Set(["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "08_change_date_to_timestamp.sql", "09_create_doc_seq.sql"])
     if (!allowed.has(filename)) {
       return res.status(400).json({ error: "Invalid or unsupported migration file" })
     }
@@ -512,12 +512,29 @@ app.post('/debug/fix-zero-uuid', async (req, res) => {  const secret = req.query
   }
 })
 
+// Debug: ensure doc_seq exists (safe, idempotent)
+app.post('/debug/apply-doc-seq', async (req, res) => {
+  const secret = req.query.secret
+  if (!(process.env.DEBUG === 'true' || (typeof secret === 'string' && secret === DEBUG_SECRET && DEBUG_SECRET !== ''))) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+
+  try {
+    await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
+    const resSample = await query("SELECT seqname FROM pg_sequences WHERE seqname = 'doc_seq'")
+    res.json({ ok: true, created: resSample.rows.length > 0, seq: resSample.rows[0] || null })
+  } catch (err: any) {
+    console.error('apply-doc-seq error:', err)
+    res.status(500).json({ error: 'Failed to create doc_seq' })
+  }
+})
+
 // Optional: run allowed migrations automatically on startup when AUTO_RUN_MIGRATIONS=true
 async function runAllowedMigrationsOnStartup() {
   try {
     if (String(process.env.AUTO_RUN_MIGRATIONS || '').toLowerCase() !== 'true') return
 
-    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql"]
+    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "09_create_doc_seq.sql"]
 
     const fs = await import('fs')
     const path = await import('path')
@@ -579,6 +596,7 @@ async function runAllowedMigrationsOnStartup() {
     try {
       await query("CREATE SEQUENCE IF NOT EXISTS doc_in_seq START 1")
       await query("CREATE SEQUENCE IF NOT EXISTS doc_out_seq START 1")
+      await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
       console.log('Ensured document sequences exist on startup')
     } catch (errSeq: any) {
       console.warn('Failed to ensure document sequences on startup:', errSeq)
