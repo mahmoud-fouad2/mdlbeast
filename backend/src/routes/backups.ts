@@ -28,86 +28,33 @@ function mkTempDir(prefix = 'backup') {
 router.post('/', async (req: any, res: any) => {
   if (!await requireAdmin(req, res)) return
   try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const name = `project-backup-${timestamp}.tar.gz`
-    const tmp = mkTempDir('full-backup')
-
-    // 1) DB dump via pg_dump (custom format)
-    const dbUrl = process.env.DATABASE_URL
-    if (!dbUrl) return res.status(500).json({ error: 'DATABASE_URL not configured' })
-
-    const dbFile = path.join(tmp, 'db.dump')
-
-    await new Promise((resolve, reject) => {
-      const args = ['--format=custom', `--dbname=${dbUrl}`, `-f`, dbFile]
-      const child = spawn('pg_dump', args)
-      child.on('error', (e) => reject(e))
-      child.on('exit', (code) => code === 0 ? resolve(true) : reject(new Error('pg_dump failed with ' + code)))
-    })
-
-    // 2) Copy uploads
-    const uploadsSrc = path.resolve(process.cwd(), 'uploads')
-    const uploadsDest = path.join(tmp, 'uploads')
-    if (fs.existsSync(uploadsSrc)) {
-      // use simple copy (recursive)
-      fs.cpSync(uploadsSrc, uploadsDest, { recursive: true })
+    // Decide encryption options safely: if AES requested but key missing/invalid, skip AES and warn
+    const wantAES = String(process.env.BACKUP_ENCRYPTION || '').toLowerCase() === 'true'
+    let encryptAES = wantAES
+    if (wantAES) {
+      const encKey = String(process.env.BACKUP_ENC_KEY || '')
+      try {
+        const k = Buffer.from(encKey, 'base64')
+        if (k.length !== 32) {
+          console.warn('BACKUP_ENC_KEY is not valid base64 32 bytes; proceeding without AES encryption')
+          encryptAES = false
+        }
+      } catch (e) {
+        console.warn('Failed to parse BACKUP_ENC_KEY; proceeding without AES encryption')
+        encryptAES = false
+      }
     }
 
-    // 3) Write metadata (system settings snapshot)
-    let settings: any = {}
-    try {
-      const r = await query('SELECT name, value FROM system_settings')
-      if (r && r.rows) settings = r.rows.reduce((acc: any, row: any) => (acc[row.name] = row.value, acc), {})
-    } catch (e) {
-      // fallback to env-based settings
-      settings = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
-    }
-    fs.writeFileSync(path.join(tmp, 'settings.json'), JSON.stringify({ snapshotAt: new Date().toISOString(), settings }, null, 2))
+    const encGpg = String(process.env.BACKUP_ENCRYPTION_GPG || '').toLowerCase() === 'true'
+    const retention = Number(process.env.BACKUP_RETENTION_COUNT || 6)
 
-    // 4) Create the tar.gz archive
-    const archivePath = path.join(os.tmpdir(), name)
-    await new Promise((resolve, reject) => {
-      // tar -czf <archive> -C <tmp> .
-      const tar = spawn('tar', ['-czf', archivePath, '-C', tmp, '.'])
-      tar.on('error', (e) => reject(e))
-      tar.on('exit', (code) => code === 0 ? resolve(true) : reject(new Error('tar failed ' + code)))
-    })
+    const service = await import('../lib/backup-service')
+    const result = await service.createAndUploadBackup({ encryptAES, encryptGpg: encGpg, gpgRecipient: process.env.BACKUP_GPG_RECIPIENT, retentionCount: retention })
 
-    // 5) Optional encryption
-    const encKey = process.env.BACKUP_ENC_KEY || ''
-    let uploadBuf = fs.readFileSync(archivePath)
-    if (process.env.BACKUP_ENCRYPTION === 'true' && encKey) {
-      // simple AES-256-GCM encryption
-      const crypto = await import('crypto')
-      const key = Buffer.from(encKey, 'base64')
-      if (key.length !== 32) throw new Error('BACKUP_ENC_KEY must be base64-encoded 32 bytes')
-      const iv = crypto.randomBytes(12)
-      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
-      const enc = Buffer.concat([cipher.update(uploadBuf), cipher.final()])
-      const tag = cipher.getAuthTag()
-      uploadBuf = Buffer.concat([Buffer.from('GCMv1'), iv, tag, enc])
-    }
-
-    // 6) Upload to R2 (delegated to backup-service if available)
-    let key: string = `backups/${name}${process.env.BACKUP_ENCRYPTION === 'true' ? '.enc' : ''}`
-    try {
-      const service = await import('../lib/backup-service')
-      const encGpg = String(process.env.BACKUP_ENCRYPTION_GPG || '').toLowerCase() === 'true'
-      const res = await service.createAndUploadBackup({ encryptAES: String(process.env.BACKUP_ENCRYPTION || '').toLowerCase() === 'true', encryptGpg: encGpg, gpgRecipient: process.env.BACKUP_GPG_RECIPIENT, retentionCount: Number(process.env.BACKUP_RETENTION_COUNT || 6) })
-      key = res.key
-    } catch (e) {
-      // fallback to previous upload path
-      await uploadBuffer(key, uploadBuf, 'application/gzip', 'private, max-age=0')
-    }
-
-    // 7) cleanup
-    try { fs.rmSync(tmp, { recursive: true, force: true }) } catch (e) {}
-    try { fs.rmSync(archivePath) } catch (e) {}
-
-    res.json({ ok: true, key })
+    res.json({ ok: true, key: result.key })
   } catch (err: any) {
     console.error('Full backup failed:', err)
-    res.status(500).json({ error: String(err?.message || err) })
+    res.status(500).json({ error: 'Failed to create full backup: ' + String(err?.message || err) })
   }
 })
 
