@@ -517,14 +517,24 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayGregorian = String(gregFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     const displayHijri = String(hijriFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
 
-    // Ensure there is an English date string for the sticker as well
-    const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(dateObjForLabel)
-    const displayEnglishDate = String(engFmt)
+    // Ensure there is an English date string for the sticker as well (use 12-hour clock with am/pm)
+    const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).format(dateObjForLabel)
+    // Normalize to a lower-case am/pm token for user preference (e.g., "pm")
+    let displayEnglishDate = String(engFmt).replace(/\s?(AM|PM)$/, (m) => String(m).toLowerCase())
+
+    // append attachment count next to the time (use create-time value if available, fallback to attachments array length)
+    const attachmentCountDisplay = Number(doc.attachmentcount || doc.attachmentCount || (Array.isArray(attachments) ? attachments.length : 0) || 0)
+
+    // build combined label and use for drawing
+    const displayEnglishDateWithAttachments = `${displayEnglishDate}${attachmentCountDisplay > 0 ? ` • Attach: ${attachmentCountDisplay}` : ''}`
+
     // Ensure we have a Latin-digit barcode for machine-readability
     const displayBarcodeLatin = String(barcode || '')
 
-    // Force English company name (avoid Arabic font issues)
-    const displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zawaya Albina Engineering Consultancy').toUpperCase()
+    // Force English company name (avoid Arabic font issues) and ensure CONSULTANCY suffix
+    let displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zawaya Albina Engineering Consultancy')
+    if (!/consultancy/i.test(displayCompanyText)) displayCompanyText = `${displayCompanyText} Consultancy`
+    displayCompanyText = displayCompanyText.toUpperCase()
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
     let docTypeText = ''
@@ -537,8 +547,8 @@ router.post('/:barcode/stamp', async (req, res) => {
     //   docTypeText = ''
     // }
 
-    // sizes
-    const companySize = 11
+    // sizes (make company name slightly smaller per UX request)
+    const companySize = 9
     const typeSize = 10
     const barcodeSize2 = 9
     const dateSize2 = 9
@@ -547,7 +557,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     const companyWidth = helvBold.widthOfTextAtSize(displayCompanyText, companySize)
     const typeWidth = helv.widthOfTextAtSize(docTypeText || '', typeSize)
     const barcodeWidth2 = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize2)
-    const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDate, dateSize2)
+    const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDateWithAttachments, dateSize2)
 
     const centerX2 = xPdf + widthPdf / 2
 
@@ -588,8 +598,8 @@ router.post('/:barcode/stamp', async (req, res) => {
     // barcode identifier centered below (or near) the barcode image
     page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize2, font: helv, color: rgb(0,0,0) })
 
-    // Draw English Gregorian date centered near the barcode for readability
-    page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
+    // Draw English Gregorian date centered near the barcode for readability (include attachment count when present)
+    page.drawText(displayEnglishDateWithAttachments, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying
