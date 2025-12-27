@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "start": "next start",
     "build:backend": "npm ci --prefix backend && npm run build --prefix backend",
-    "start:backend": "npm start --prefix backend"
+    "start:backend": "npm start --prefix backend",
+    "backup:full": "bash ./scripts/full-backup.sh",
+    "restore:full": "bash ./scripts/restore-backup.sh"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
