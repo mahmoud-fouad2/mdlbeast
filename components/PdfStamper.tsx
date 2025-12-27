@@ -123,7 +123,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className="w-[800px] min-h-[1131px] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl min-h-[60vh] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
           >
             {doc.pdfFile ? (
               // Use signed preview URL from server (avoid opening raw storage URL which may be private)
@@ -137,7 +137,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
             <div
               onMouseDown={handleMouseDown}
-              style={{ left: pos.x, top: pos.y, width: stampWidth }}
+              style={{ left: pos.x, top: pos.y, width: stampWidth, maxWidth: 'calc(100% - 40px)' }}
               className={`absolute p-4 bg-white border-2 ${
                 isDragging
                   ? "border-blue-600 ring-4 ring-blue-500/10 scale-105 rotate-1 cursor-grabbing"

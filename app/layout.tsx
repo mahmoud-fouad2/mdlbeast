@@ -36,6 +36,13 @@ export const metadata: Metadata = {
   },
 }
 
+// Use dedicated viewport export for Next.js app router
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
+
+
 import { LoadingProvider } from "../components/ui/loading-context"
 import SessionExpiredModal from '@/components/SessionExpiredModal'
 
