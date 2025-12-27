@@ -159,6 +159,99 @@ router.delete('/', async (req: any, res: any) => {
   }
 })
 
+// JSON backup (DB export as JSON) - returns single JSON file with selected tables and uploads list
+router.post('/json', async (req: any, res: any) => {
+  if (!await requireAdmin(req, res)) return
+  try {
+    const docs = (await query("SELECT id, barcode, type, sender, receiver, date, subject, statement, priority, status, classification, notes, attachments, tenant_id, created_at, updated_at FROM documents")).rows
+    const barcodes = (await query("SELECT id, barcode, type, created_at FROM barcodes")).rows
+    const tenants = (await query("SELECT id, name, slug FROM tenants")).rows
+    let settings: any = {}
+    try {
+      const r = await query('SELECT name, value FROM system_settings')
+      settings = r.rows.reduce((acc: any, row: any) => (acc[row.name] = row.value, acc), {})
+    } catch (e) {
+      settings = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
+    }
+
+    // uploads list (filenames only)
+    const uploadsDir = path.resolve(process.cwd(), 'uploads')
+    const uploads: string[] = []
+    function walk(dir: string) {
+      if (!fs.existsSync(dir)) return
+      for (const f of fs.readdirSync(dir)) {
+        const p = path.join(dir, f)
+        const st = fs.statSync(p)
+        if (st.isDirectory()) walk(p)
+        else uploads.push(path.relative(uploadsDir, p).replace('\\', '/'))
+      }
+    }
+    walk(uploadsDir)
+
+    const payload = { generatedAt: new Date().toISOString(), tables: { docs, barcodes, tenants, settings }, uploads }
+
+    const filename = `backup-json-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    return res.send(JSON.stringify(payload, null, 2))
+  } catch (err: any) {
+    console.error('JSON backup failed:', err)
+    return res.status(500).json({ error: String(err?.message || err) })
+  }
+})
+
+// Restore from JSON backup (non-destructive upsert) - body: full JSON or multipart file 'file'
+const multer2 = require('multer')
+const uploadJson = multer2({ dest: os.tmpdir(), limits: { fileSize: 200 * 1024 * 1024 } })
+router.post('/json/restore', uploadJson.single('file'), async (req: any, res: any) => {
+  if (!await requireAdmin(req, res)) return
+  try {
+    let data: any = null
+    if (req.file && req.file.path) {
+      const buf = fs.readFileSync(req.file.path)
+      data = JSON.parse(buf.toString('utf8'))
+    } else {
+      // application/json body
+      data = req.body
+    }
+    if (!data || !data.tables) return res.status(400).json({ error: 'Invalid JSON backup format' })
+
+    const { docs = [], tenants = [] } = data.tables
+
+    await query('BEGIN')
+    try {
+      // Upsert tenants by slug
+      const tenantMap: Record<string, number> = {}
+      for (const t of tenants) {
+        if (!t.slug) continue
+        const r = await query("INSERT INTO tenants (name, slug) VALUES ($1,$2) ON CONFLICT (slug) DO UPDATE SET name=EXCLUDED.name RETURNING id", [t.name, t.slug])
+        tenantMap[t.slug] = r.rows[0].id
+      }
+
+      // Upsert documents by barcode
+      for (const d of docs) {
+        if (!d.barcode) continue
+        const q = await query("SELECT id FROM documents WHERE lower(barcode)=lower($1) LIMIT 1", [d.barcode])
+        if (q.rows.length > 0) {
+          const id = q.rows[0].id
+          await query("UPDATE documents SET type=$1, sender=$2, receiver=$3, date=$4, subject=$5, statement=$6, priority=$7, status=$8, classification=$9, notes=$10, attachments=$11, tenant_id=$12, updated_at=NOW() WHERE id=$13", [d.type, d.sender, d.receiver, d.date, d.subject, d.statement, d.priority, d.status, d.classification, d.notes, JSON.stringify(d.attachments || []), d.tenant_id || null, id])
+        } else {
+          await query("INSERT INTO documents (barcode, type, sender, receiver, date, subject, statement, priority, status, classification, notes, attachments, tenant_id, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)", [d.barcode, d.type, d.sender, d.receiver, d.date, d.subject, d.statement, d.priority, d.status, d.classification, d.notes, JSON.stringify(d.attachments || []), d.tenant_id || null, d.created_at || new Date(), d.updated_at || new Date()])
+        }
+      }
+
+      await query('COMMIT')
+      return res.json({ ok: true, message: 'Restore JSON applied (non-destructive upsert). Note: attachments files are not restored; upload files must be restored separately.' })
+    } catch (e) {
+      await query('ROLLBACK')
+      throw e
+    }
+  } catch (err: any) {
+    console.error('JSON restore failed:', err)
+    return res.status(500).json({ error: String(err?.message || err) })
+  }
+})
+
 // Restore backup (destructive) - requires FEATURE flag
 // Body: { key }
 router.post('/restore', async (req: any, res: any) => {
@@ -227,6 +320,72 @@ router.post('/restore', async (req: any, res: any) => {
     res.json({ ok: true })
   } catch (err: any) {
     console.error('Restore failed:', err)
+    res.status(500).json({ error: String(err?.message || err) })
+  }
+})
+
+// Restore via uploaded file (multipart/form-data) - admin only
+const multer = require('multer')
+const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 500 * 1024 * 1024 } })
+router.post('/restore-upload', upload.single('file'), async (req: any, res: any) => {
+  if (!await requireAdmin(req, res)) return
+  if (String(process.env.BACKUP_RESTORE_ENABLED || '').toLowerCase() !== 'true') return res.status(403).json({ error: 'Restore not enabled' })
+  try {
+    if (!req.file || !req.file.path) return res.status(400).json({ error: 'File is required' })
+    const tmpFile = req.file.path
+
+    // optional decrypt if encrypted
+    let archiveBuf = fs.readFileSync(tmpFile)
+    if (String(process.env.BACKUP_ENCRYPTION || '').toLowerCase() === 'true') {
+      const encKey = process.env.BACKUP_ENC_KEY || ''
+      if (!encKey) return res.status(500).json({ error: 'Backup encryption key not configured' })
+      const crypto = await import('crypto')
+      const keyBuf = Buffer.from(encKey, 'base64')
+      const marker = archiveBuf.slice(0,5).toString()
+      if (marker !== 'GCMv1') return res.status(400).json({ error: 'Invalid encrypted backup format' })
+      const iv = archiveBuf.slice(5, 17)
+      const tag = archiveBuf.slice(17, 33)
+      const enc = archiveBuf.slice(33)
+      const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuf, iv)
+      decipher.setAuthTag(tag)
+      archiveBuf = Buffer.concat([decipher.update(enc), decipher.final()])
+    }
+
+    const extractDir = mkTempDir('restore-upload')
+    const extractPath = path.join(os.tmpdir(), `upload-${Date.now()}.tar.gz`)
+    fs.writeFileSync(extractPath, archiveBuf)
+
+    await new Promise((resolve, reject) => {
+      const tar = spawn('tar', ['-xzf', extractPath, '-C', extractDir])
+      tar.on('error', (e) => reject(e))
+      tar.on('exit', (code) => code === 0 ? resolve(true) : reject(new Error('tar extract failed ' + code)))
+    })
+
+    const dbDump = path.join(extractDir, 'db.dump')
+    if (!fs.existsSync(dbDump)) return res.status(400).json({ error: 'db.dump not found in archive' })
+
+    const dbUrl = process.env.DATABASE_URL
+    await new Promise((resolve, reject) => {
+      const args = ['--clean', '--if-exists', `--dbname=${dbUrl}`, dbDump]
+      const child = spawn('pg_restore', args)
+      child.on('error', (e) => reject(e))
+      child.on('exit', (code) => code === 0 ? resolve(true) : reject(new Error('pg_restore failed ' + code)))
+    })
+
+    // restore uploads
+    const uploadsDir = path.resolve(process.cwd(), 'uploads')
+    const uploadsSrc = path.join(extractDir, 'uploads')
+    if (fs.existsSync(uploadsSrc)) {
+      try { fs.rmSync(uploadsDir, { recursive: true, force: true }) } catch (e) {}
+      fs.cpSync(uploadsSrc, uploadsDir, { recursive: true })
+    }
+
+    // audit
+    try { await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [`upload-${Date.now()}`, (req as any).user?.id || null]) } catch (e) {}
+
+    res.json({ ok: true })
+  } catch (err: any) {
+    console.error('Restore upload failed:', err)
     res.status(500).json({ error: String(err?.message || err) })
   }
 })

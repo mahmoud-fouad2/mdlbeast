@@ -278,6 +278,41 @@ class ApiClient {
     return this.request<any>(`/admin/backups/restore`, { method: 'POST', body: JSON.stringify({ key }) })
   }
 
+  // JSON backup/restore helpers
+  async downloadJsonBackupBlob() {
+    const headers: any = { 'Content-Type': 'application/json' }
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/backups/json`, { method: 'POST', headers, signal: controller.signal })
+      if (!res.ok) {
+        let txt = await res.text().catch(() => '')
+        throw new Error(txt || 'JSON backup failed')
+      }
+      const blob = await res.blob()
+      return blob
+    } finally { clearTimeout(timeout) }
+  }
+
+  async restoreJsonBackup(data: any) {
+    // Accept either a JS object (sent as JSON) or a File (FormData)
+    if (data instanceof File) {
+      const form = new FormData()
+      form.append('file', data)
+      const headers: any = {}
+      if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+      const res = await fetch(`${API_BASE_URL}/admin/backups/json/restore`, { method: 'POST', body: form, headers })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || 'Restore failed')
+      }
+      return res.json()
+    } else {
+      return this.request<any>(`/admin/backups/json/restore`, { method: 'POST', body: JSON.stringify(data) })
+    }
+  }
+
   // Barcodes
   async searchBarcodes(q?: string) {
     const qp = q ? `?q=${encodeURIComponent(q)}` : ""

@@ -605,7 +605,7 @@ async function runAllowedMigrationsOnStartup() {
   try {
     if (String(process.env.AUTO_RUN_MIGRATIONS || '').toLowerCase() !== 'true') return
 
-    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "09_create_doc_seq.sql", "11_add_statement_column.sql"]
+    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "09_create_doc_seq.sql", "11_add_statement_column.sql", "12_create_backups_table.sql"]
 
     const fs = await import('fs')
     const path = await import('path')
@@ -680,6 +680,10 @@ async function runAllowedMigrationsOnStartup() {
 // Kick off startup migration runner (non-blocking)
 runAllowedMigrationsOnStartup().catch(err => console.error('Startup migrations error:', err))
 
+// Start backup scheduler (if enabled)
+import { startBackupScheduler } from './lib/backup-scheduler'
+startBackupScheduler()
+
 // Debug: stream a pg_dump of the database for backup (protected)
 app.get("/debug/backup-db", async (req, res) => {
   const { allowDebugAccess } = await import('./config/validateEnv')
@@ -716,6 +720,11 @@ app.get("/debug/backup-db", async (req, res) => {
     res.status(500).json({ error: err.message || String(err) })
   }
 })
+
+// Admin backups endpoints (protected)
+import backupsRouter from './routes/backups'
+// mount under /api to match client API_BASE_URL
+app.use('/api/admin/backups', backupsRouter)
 
 // Debug: list available font files on server (protected)
 app.get('/debug/list-fonts', async (req, res) => {

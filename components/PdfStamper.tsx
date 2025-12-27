@@ -17,12 +17,12 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [stampWidth, setStampWidth] = useState<number>(180)
+  const [stampWidth, setStampWidth] = useState<number>(160)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
     doc.barcodeId || doc.barcode
-  }&scale=1.6&rotate=N&includetext=true&textsize=12`
+  }&scale=1.2&height=12&rotate=N&includetext=true&textsize=10`
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -61,7 +61,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
         y: Math.round(pos.y),
         containerWidth: Math.round(containerWidth),
         containerHeight: Math.round(containerHeight),
-        stampWidth: 180,
+        stampWidth: Math.round(stampWidth),
       }
 
       const api = (await import("@/lib/api-client")).apiClient
@@ -144,14 +144,19 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
                   : "border-slate-300 shadow-2xl"
               } cursor-grab rounded-2xl flex flex-col items-center group z-50 transition-all duration-75`}
             >
-              <div className="w-12 h-1.5 bg-slate-100 rounded-full mb-3 opacity-50"></div>
+              <div className="w-10 h-1 bg-slate-100 rounded-full mb-3 opacity-50"></div>
               <img
                 src={barcodeUrl || "/placeholder.svg"}
+                style={{ maxHeight: `${Math.round(stampWidth * 0.45)}px`, objectFit: 'contain' }}
                 className="w-full pointer-events-none select-none"
                 alt="barcode"
               />
               <div className="text-[11px] font-extrabold font-mono mt-2.5 text-slate-900 select-none tracking-tight uppercase">
                 {doc.barcodeId || doc.barcode}
+              </div>
+
+              <div className="absolute -top-3 -left-3 w-8 h-8 bg-emerald-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white text-xs font-black">
+                {doc.attachmentCount ?? 0}
               </div>
 
               <div className="absolute -top-3 -right-3 w-7 h-7 bg-blue-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white">
@@ -188,8 +193,15 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-3">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">حجم الختم</label>
-              <input type="range" min={120} max={300} value={stampWidth} onChange={(e) => setStampWidth(Number(e.target.value))} className="w-44" />
+              <input type="range" min={120} max={260} value={stampWidth} onChange={(e) => setStampWidth(Number(e.target.value))} className="w-44" />
               <div className="text-sm font-black">{stampWidth}px</div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">عدد المرفقات</span>
+                <span className="text-2xl font-black text-slate-900 tabular-nums">{doc.attachmentCount ?? 0}</span>
+              </div>
             </div>
 
             <div className="flex gap-4">
