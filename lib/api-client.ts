@@ -185,6 +185,13 @@ class ApiClient {
     })
   }
 
+  async addAttachment(barcode: string, attachment: any) {
+    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify({ attachment }),
+    })
+  }
+
   async updateDocument(barcode: string, document: any) {
     return this.request<any>(`/documents/${barcode}`, {
       method: "PUT",

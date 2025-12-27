@@ -246,6 +246,8 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
           </div>
 
           <div className="p-12 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center hover:bg-slate-100/50 transition-all">
+            <div className="mb-4 text-sm font-black text-slate-700">عدد المرفقات: <span className="font-extrabold">{file ? 1 : 0}</span></div>
+
             {!file ? (
               <div className="flex flex-col items-center gap-4">
                 <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm">

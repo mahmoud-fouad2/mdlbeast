@@ -495,6 +495,59 @@ router.post(
   },
 )
 
+// Append attachment to an existing document (expects the file to have been uploaded via /uploads first)
+router.post('/:barcode/attachments', async (req: AuthRequest, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const { attachment } = req.body || {}
+    if (!attachment || !attachment.name || !attachment.url) return res.status(400).json({ error: 'Attachment metadata (name,url) is required' })
+
+    const r = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
+    const doc = r.rows[0]
+
+    const user = (req as any).user
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
+
+    // Validate attachment origin: allow only internal uploads or configured storage objects (R2/Supabase)
+    const url = String(attachment.url || '')
+    const allowLocal = url.startsWith('/uploads/')
+    const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
+    let ok = false
+    if (allowLocal) ok = true
+    if (useR2 && (attachment.key || (attachment.url && String(attachment.url).includes((process.env.CF_R2_ENDPOINT || ''))))) ok = true
+    const { USE_R2_ONLY } = await import('../config/storage')
+    const supabaseUrl = USE_R2_ONLY ? '' : (process.env.SUPABASE_URL || '')
+    if (!ok && attachment.bucket && attachment.key && supabaseUrl) ok = true
+
+    if (!ok) return res.status(400).json({ error: 'Attachment must be uploaded to a supported storage provider or the local uploads folder' })
+
+    // Parse existing attachments safely
+    let attachments: any = doc.attachments
+    try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
+
+    // Prevent abusive attachment counts
+    if (Array.isArray(attachments) && attachments.length >= 50) return res.status(400).json({ error: 'Attachment limit reached' })
+
+    attachments.push(attachment)
+
+    const updated = await query("UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *", [JSON.stringify(attachments || []), doc.id])
+
+    // Keep barcodes.attachments in sync when possible
+    try {
+      await query("UPDATE barcodes SET attachments = $1 WHERE barcode = $2", [JSON.stringify(attachments || []), barcode])
+    } catch (e) { console.warn('Failed to update barcode attachments:', e) }
+
+    const row = updated.rows[0]
+    const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
+    res.json({ ...row, attachments, pdfFile })
+  } catch (err: any) {
+    console.error('Add attachment error:', err)
+    res.status(500).json({ error: 'Failed to add attachment' })
+  }
+})
+
 // Update document
 router.put("/:barcode", async (req: Request, res: Response) => {
   try {
