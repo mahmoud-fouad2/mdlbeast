@@ -22,6 +22,32 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [stamperDoc, setStamperDoc] = useState<Correspondence | null>(null)
+  const [uploading, setUploading] = useState<string | null>(null)
+
+  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>, doc: Correspondence) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (!confirm('سيتم إضافة هذا الملف كمرفق للمستند. متابعة؟')) { e.target.value = ''; return }
+    const id = String(doc.barcode || doc.barcodeId || doc.id || '')
+    try {
+      setUploading(id)
+      // upload file to storage
+      const uploaded = await apiClient.uploadFile(f as File)
+      // fetch latest doc and append attachment
+      const latest = await apiClient.getDocumentByBarcode(doc.barcode || doc.barcodeId)
+      const attachments = Array.isArray(latest?.attachments) ? latest.attachments : (doc.attachments || [])
+      attachments.push({ name: uploaded.name, url: uploaded.url, size: uploaded.size, key: uploaded.key, bucket: uploaded.bucket, storage: uploaded.storage })
+      await apiClient.updateDocument(doc.barcode || doc.barcodeId, { attachments })
+      alert('تم إضافة المرفق بنجاح')
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to add attachment', err)
+      alert('فشل إضافة المرفق. حاول لاحقاً.')
+    } finally {
+      setUploading(null)
+      if (e && e.target) e.target.value = ''
+    }
+  }
 
   const filtered = docs.filter((doc) => {
     const title = doc.title || doc.subject || ""
@@ -168,8 +194,16 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                       </div>
                     </td>
                     <td className="px-8 py-7">
+                      <div className="flex gap-2 items-center">
+                      <div className="flex flex-col">
+                        <div className="text-[11px] font-black text-slate-500">مرفقات: {Array.isArray(doc.attachments) ? doc.attachments.length : (doc.pdfFile ? 1 : 0)}</div>
+                        {Array.isArray(doc.attachments) && doc.attachments.length > 0 && (
+                          <div className="text-xs text-slate-400">آخر مرفق: {doc.attachments[0].name || ''}</div>
+                        )}
+                      </div>
+
                       {doc.pdfFile ? (
-                        <div className="flex gap-2 items-center">
+                        <>
                           <AsyncButton
                             onClickAsync={async () => {
                               try {
@@ -188,38 +222,35 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                           >
                             <ScanText size={16} /> دمغ الملصق
                           </button>
-                          <AsyncButton
-                            variant="outline"
-                            size="sm"
-                            className="text-red-500 border-red-100"
-                            onClickAsync={async () => {
-                              if (!confirm('حذف المستند؟')) return
-                              await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
-                              window.location.reload()
-                            }}
-                          >
-                            حذف
-                          </AsyncButton>
-                        </div>
+                        </>
                       ) : (
-                        <div className="flex items-center gap-4">
-                          <span className="text-[11px] font-black text-slate-300 italic flex items-center gap-1.5">
-                            <AlertCircle size={14} /> لا يوجد مرفق
-                          </span>
-                          <AsyncButton
-                            variant="outline"
-                            size="sm"
-                            className="text-red-500 border-red-100"
-                            onClickAsync={async () => {
-                              if (!confirm('حذف المستند؟')) return
-                              await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
-                              window.location.reload()
-                            }}
-                          >
-                            حذف
-                          </AsyncButton>
-                        </div>
+                        <span className="text-[11px] font-black text-slate-300 italic flex items-center gap-1.5">
+                          <AlertCircle size={14} /> لا يوجد مرفق
+                        </span>
                       )}
+
+                      <input type="file" id={`addAttachment-${doc.barcode || doc.barcodeId || doc.id}`} className="hidden" accept=".pdf" onChange={(e) => handleAddAttachment(e, doc)} />
+                      <button
+                        onClick={() => (document.getElementById(`addAttachment-${doc.barcode || doc.barcodeId || doc.id}`) as HTMLInputElement)?.click()}
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black"
+                        disabled={uploading === String(doc.barcode || doc.barcodeId || doc.id)}
+                      >
+                        {uploading === String(doc.barcode || doc.barcodeId || doc.id) ? 'جارٍ الرفع…' : 'إضافة مرفق'}
+                      </button>
+
+                      <AsyncButton
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 border-red-100"
+                        onClickAsync={async () => {
+                          if (!confirm('حذف المستند؟')) return
+                          await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
+                          window.location.reload()
+                        }}
+                      >
+                        حذف
+                      </AsyncButton>
+                    </div>
                     </td>
                     <td className="px-8 py-7">
                       <div className="flex justify-end gap-3">
