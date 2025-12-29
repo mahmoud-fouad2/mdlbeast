@@ -21,8 +21,8 @@ export default function SessionExpiredModal() {
   const handleLogin = () => {
     setOpen(false)
     apiClient.clearToken()
-    // After session expiry, redirect user to the public archive root as requested
-    router.push('/archive')
+    // Redirect to root (will be served at /archive due to basePath config)
+    window.location.href = '/'
   }
 
   return (

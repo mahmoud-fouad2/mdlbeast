@@ -292,9 +292,11 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                           إضافة مرفق
                         </button>
 
+                        {currentUser?.role === 'admin' && (
                         <button onClick={async () => { if (!confirm('حذف المستند؟')) return; await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId); setLocalDocs((prev:any[]) => prev.filter((d:any) => d.barcode !== doc.barcode && d.barcodeId !== doc.barcodeId)) }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-red-500 border border-red-100 hover:bg-red-50 transition-all text-[11px] font-black">
                           حذف
                         </button>
+                        )}
 
                         {/* Button to open the statement for quick reading (fetches JSON and opens inline modal). Keep PDF download accessible via long-press or secondary action. */}
                         <button onClick={async () => {

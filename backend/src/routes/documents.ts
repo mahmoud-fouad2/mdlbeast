@@ -764,17 +764,20 @@ router.put("/:barcode", authenticateToken, async (req: Request, res: Response) =
   }
 })
 
-// Delete document
+// Delete document (ADMIN ONLY)
 router.delete("/:barcode", authenticateToken, async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const existing = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
-    if (existing.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
-    const doc = existing.rows[0]
     const authReq = req as any
     const user = authReq.user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
+    
+    // Admin-only access
+    if (!user || (user.role && String(user.role).toLowerCase() !== 'admin')) {
+      return res.status(403).json({ error: 'Only admins can delete documents' })
+    }
+    
+    const existing = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
 
     const result = await query("DELETE FROM documents WHERE lower(barcode) = lower($1) RETURNING *", [barcode])
 
