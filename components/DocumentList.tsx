@@ -15,6 +15,7 @@ interface DocumentListProps {
   settings: SystemSettings
   currentUser?: any
   users?: any[]
+  onRefresh?: () => Promise<void>
 }
 
 export default function DocumentList({ docs, settings, currentUser, users }: DocumentListProps) {
@@ -39,7 +40,8 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
       attachments.push({ name: uploaded.name, url: uploaded.url, size: uploaded.size, key: uploaded.key, bucket: uploaded.bucket, storage: uploaded.storage })
       await apiClient.updateDocument(doc.barcode || doc.barcodeId, { attachments })
       alert('تم إضافة المرفق بنجاح')
-      window.location.reload()
+      // Refresh list via callback if provided
+      if (typeof onRefresh === 'function') await onRefresh()
     } catch (err) {
       console.error('Failed to add attachment', err)
       alert('فشل إضافة المرفق. حاول لاحقاً.')
@@ -229,7 +231,7 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                         </span>
                       )}
 
-                      <input type="file" id={`addAttachment-${doc.barcode || doc.barcodeId || doc.id}`} className="hidden" accept=".pdf" onChange={(e) => handleAddAttachment(e, doc)} />
+                      <input type="file" id={`addAttachment-${doc.barcode || doc.barcodeId || doc.id}`} className="hidden" accept=".pdf" onChange={(e) => handleAddAttachment(e, doc)} multiple />
                       <button
                         onClick={() => (document.getElementById(`addAttachment-${doc.barcode || doc.barcodeId || doc.id}`) as HTMLInputElement)?.click()}
                         className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black"
@@ -237,7 +239,28 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                       >
                         {uploading === String(doc.barcode || doc.barcodeId || doc.id) ? 'جارٍ الرفع…' : 'إضافة مرفق'}
                       </button>
-
+                      {Array.isArray(doc.attachments) && doc.attachments.length > 0 && (
+                        <div className="ml-3 flex gap-2 items-center">
+                          {doc.attachments.map((att: any, idx: number) => (
+                            <div key={idx} className="text-xs bg-slate-50 px-2 py-1 rounded flex items-center gap-2">
+                              <a href={att.url} target="_blank" className="underline text-slate-700">{att.name || 'مرفق'}</a>
+                              <button className="text-red-500" onClick={async () => {
+                                if (!confirm('حذف هذا المرفق؟')) return
+                                try {
+                                  const latest = await apiClient.getDocumentByBarcode(doc.barcode || doc.barcodeId)
+                                  const atts = Array.isArray(latest?.attachments) ? latest.attachments : (doc.attachments || [])
+                                  const keep = atts.filter((a:any) => a.key !== att.key)
+                                  await apiClient.updateDocument(doc.barcode || doc.barcodeId, { attachments: keep })
+                                  if (typeof onRefresh === 'function') await onRefresh()
+                                } catch (err) {
+                                  console.error('Failed to delete attachment', err)
+                                  alert('فشل حذف المرفق')
+                                }
+                              }}>✖</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <AsyncButton
                         variant="outline"
                         size="sm"

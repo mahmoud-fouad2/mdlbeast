@@ -343,7 +343,48 @@ export default function DashboardPage() {
           {activeTab === "dashboard" && <Dashboard docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} />}
           {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} />}
           {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} />}
-          {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} />}
+          {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} onRefresh={async () => {
+            try {
+              const documents = await apiClient.getDocuments(selectedTenantId ? { tenant_id: selectedTenantId } : undefined)
+              const mappedDocs = (documents || []).map((doc: any) => {
+                const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
+                let date = ''
+                let dateHijri = ''
+                let dateGregorian = ''
+                if (iso) {
+                  try {
+                    const dt = new Date(iso)
+                    dateHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt)
+                    dateGregorian = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(dt)
+                    date = `${dateHijri} • ${dateGregorian}`
+                  } catch(e) {
+                    date = iso ? String(iso) : ''
+                    dateHijri = date
+                    dateGregorian = date
+                  }
+                }
+
+                return {
+                  ...doc,
+                  id: doc.id,
+                  barcode: doc.barcode || doc.barcodeId || '' ,
+                  barcodeId: doc.barcode || doc.barcodeId || '' ,
+                  title: doc.subject || doc.title || '',
+                  subject: doc.subject || doc.title || '',
+                  sender: doc.sender || doc.from || '',
+                  receiver: doc.receiver || doc.recipient || '',
+                  recipient: doc.receiver || doc.recipient || '',
+                  documentDate: doc.date || doc.documentDate || '',
+                  date,
+                  dateHijri,
+                  dateGregorian,
+                  type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+                  companyId: doc.companyId || doc.tenant_id || null,
+                }
+              })
+              setDocs(mappedDocs)
+            } catch (e) { console.warn('Failed to refresh docs', e) }
+          }} />}
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
           {activeTab === "change_password" && <ChangePassword />}
