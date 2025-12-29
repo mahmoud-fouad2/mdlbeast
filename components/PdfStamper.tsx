@@ -2,13 +2,11 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import type { Correspondence } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 import { useLoading } from './ui/loading-context'
 import SignedPdfPreview from './SignedPdfPreview'
-import { apiClient } from '@/lib/api-client'
-import { PDFDocument } from 'pdf-lib'
 
 interface PdfStamperProps {
   doc: Correspondence
@@ -20,46 +18,10 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [pagesCount, setPagesCount] = useState<number | null>(null)
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
     doc.barcodeId || doc.barcode
   }&scale=2&rotate=N&includetext=false`
-
-  // Fetch preview URL and load PDF to count pages for a better UX (show real number instead of 0)
-  useEffect(() => {
-    let mounted = true
-    setPagesCount(null)
-
-    const loadPages = async () => {
-      try {
-        if (!doc || !(doc.barcode || doc.barcodeId)) {
-          if (mounted) setPagesCount(0)
-          return
-        }
-        const previewUrl = await apiClient.getPreviewUrl(doc.barcode || doc.barcodeId)
-        if (!previewUrl) {
-          if (mounted) setPagesCount(0)
-          return
-        }
-        const resp = await fetch(previewUrl)
-        if (!resp.ok) {
-          if (mounted) setPagesCount(0)
-          return
-        }
-        const arr = await resp.arrayBuffer()
-        const pdfDoc = await PDFDocument.load(arr)
-        const pc = typeof (pdfDoc as any).getPageCount === 'function' ? (pdfDoc as any).getPageCount() : (pdfDoc.getPages ? pdfDoc.getPages().length : 0)
-        if (mounted) setPagesCount(pc)
-      } catch (e) {
-        console.warn('Failed to load PDF pages count', e)
-        if (mounted) setPagesCount(0)
-      }
-    }
-
-    loadPages()
-    return () => { mounted = false }
-  }, [doc])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -144,10 +106,6 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
           <div className="flex items-center gap-4">
             <div className="bg-blue-50 text-blue-700 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-blue-100 flex items-center gap-2">
               <Eye size={14} /> وضع المعاينة والدمغ
-            </div>
-            <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-100 flex items-center gap-2">
-              <span className="text-[11px] font-black">عدد صفحات المرفق:</span>
-              <span className="tabular-nums text-slate-900">{pagesCount === null ? 'جارٍ الحساب…' : pagesCount}</span>
             </div>
             <button
               onClick={onClose}
