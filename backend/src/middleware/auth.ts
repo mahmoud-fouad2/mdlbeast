@@ -40,7 +40,16 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       console.warn('Auth verify error: token expired')
       return res.status(401).json({ error: 'token_expired' })
     }
-    console.warn('Auth verify error: invalid token')
+
+    // Log details to aid debugging (do NOT log tokens)
+    console.warn('Auth verify error:', error?.name || 'UnknownError', '-', error?.message || '')
+
+    // If JWT secret is missing, return 500 so we can detect misconfiguration quickly
+    if (!JWT_SECRET) {
+      console.error('Auth verify failed: JWT_SECRET is not set')
+      return res.status(500).json({ error: 'Server misconfiguration' })
+    }
+
     return res.status(403).json({ error: "Invalid or expired token" })
   }
 }

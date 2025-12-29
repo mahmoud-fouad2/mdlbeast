@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, FilePlus, FileMinus, Search, Scan, FileText, 
-  Users, Briefcase, LogOut, Trash2, Building2, Plus, 
+  Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
   AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check 
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, Company, User } from './types';
 import { apiClient } from './lib/api-client';
 import Dashboard from './components/Dashboard';
 import DocumentForm from './components/DocumentForm';
+import ChangePassword from './components/ChangePassword';
 import DocumentList from './components/DocumentList';
 import BarcodeScanner from './components/BarcodeScanner';
 import ReportGenerator from './components/ReportGenerator';
@@ -244,6 +245,7 @@ const App: React.FC = () => {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
+          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
@@ -274,6 +276,7 @@ const App: React.FC = () => {
           {activeTab === 'scanner' && <BarcodeScanner />}
           {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: currentCompany?.nameAr || '', logoUrl: currentCompany?.logoUrl || ''}} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email} />}
+          {activeTab === 'change-password' && <ChangePassword />}
           
           {activeTab === 'companies' && (
              <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">

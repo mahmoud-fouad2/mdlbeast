@@ -15,6 +15,8 @@ class ApiClient {
   }
 
   setToken(token: string) {
+    // Defensive: strip accidental leading "Bearer " so we don't store "Bearer Bearer ..."
+    if (typeof token === 'string' && token.startsWith('Bearer ')) token = token.slice(7)
     this.token = token
     if (typeof window !== "undefined") {
       localStorage.setItem("auth_token", token)
@@ -60,6 +62,16 @@ class ApiClient {
     if (this.token) {
       (headers as any)["Authorization"] = `Bearer ${this.token}`
     }
+
+    // For GET requests to documents/barcodes, ensure we bypass browser/CDN caches to reduce stale results for managers/supervisors
+    try {
+      const method = ((options.method || 'GET') as string).toUpperCase()
+      if (method === 'GET' && (endpoint.startsWith('/documents') || endpoint.startsWith('/barcodes'))) {
+        (headers as any)['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        (headers as any)['Pragma'] = 'no-cache'
+        options = { ...options, cache: 'no-store' }
+      }
+    } catch (e) { /* ignore */ }
 
     // Timeout & abort support
     const controller = new AbortController()
@@ -248,9 +260,39 @@ class ApiClient {
     }
   }
 
-  async getPreviewUrl(barcode: string) {
-    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url`)
+  async getPreviewUrl(barcode: string, index?: number) {
+    const qs = typeof index === 'number' ? `?index=${index}` : ''
+    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url${qs}`)
     return res?.previewUrl || null
+  }
+
+  // Download server-generated statement PDF securely (includes Authorization header)
+  async downloadStatementPdf(barcode: string) {
+    const headers: any = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    try {
+      const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(barcode)}/statement.pdf`, { headers, signal: controller.signal, cache: 'no-store' })
+      if (!res.ok) {
+        let txt = await res.text().catch(() => '')
+        throw new Error(txt || 'Failed to fetch statement PDF')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const w = window.open(url, '_blank')
+      if (!w) {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${barcode}-statement.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      return true
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 
   async getStatistics() {
@@ -468,6 +510,22 @@ class ApiClient {
       // return null on 401/timeout/etc to allow UI to handle redirects
       return null
     }
+  }
+
+  // Change own password: requires current password and new password
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request<any>("/users/me/password", {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    })
+  }
+
+  // Admin/manager: set password for specific user
+  async adminSetUserPassword(id: string | number, newPassword: string) {
+    return this.request<any>(`/users/${id}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password: newPassword }),
+    })
   }
 }
 

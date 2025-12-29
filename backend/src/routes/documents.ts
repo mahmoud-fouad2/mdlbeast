@@ -10,13 +10,19 @@ const router = express.Router()
 // Public JSON preview URL endpoint (no auth) - returns { previewUrl }
 router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
   try {
+    // Prevent client-side caching of preview URLs (helps managers/supervisors get fresh resources)
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).json({ error: 'No attachment' })
-    const pdf = attachments[0]
+
+    // Support selecting a specific attachment by index via ?index=N
+    const idx = Math.max(0, parseInt(String(req.query?.index || '0'), 10) || 0)
+    if (idx < 0 || idx >= attachments.length) return res.status(400).json({ error: 'invalid_index' })
+    const pdf = attachments[idx]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -73,13 +79,19 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
 // Public preview route (no auth) so browser can open attachment previews directly
 router.get('/:barcode/preview', async (req: Request, res: Response) => {
   try {
+    // Prevent client-side caching of the preview redirect response
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).send('Not found')
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).send('No attachment')
-    const pdf = attachments[0]
+
+    // Support selecting a specific attachment by index via ?index=N
+    const idx = Math.max(0, parseInt(String(req.query?.index || '0'), 10) || 0)
+    if (idx < 0 || idx >= attachments.length) return res.status(400).send('invalid_index')
+    const pdf = attachments[idx]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -167,6 +179,8 @@ router.use(authenticateToken)
 // Get all documents
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
+    // Ensure document listing responses are not cached by browsers or intermediate caches
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { status, type, search, limit = 100, offset = 0 } = req.query
 
     const user = (req as any).user
@@ -242,6 +256,8 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 // Get document by barcode
 router.get("/:barcode", async (req: Request, res: Response) => {
   try {
+    // Avoid caching single document responses so UI reflects latest changes
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     // case-insensitive lookup for barcode
     let result = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
@@ -309,6 +325,94 @@ router.get("/:barcode", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Get document error:", error)
     res.status(500).json({ error: "Failed to fetch document" })
+  }
+})
+
+// Generate a downloadable A4 PDF of the statement for the document (requires auth)
+router.get("/:barcode/statement.pdf", async (req: AuthRequest, res: Response) => {
+  try {
+    // Ensure generated PDFs are not cached by clients
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
+    const { barcode } = req.params
+    const r = await query("SELECT barcode, sender, receiver, date, statement FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const row = r.rows[0]
+
+    const user = (req as any).user
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, row)) return res.status(403).json({ error: 'Forbidden' })
+
+    const statement = String(row.statement || '').trim()
+    if (!statement) return res.status(404).json({ error: 'No statement' })
+
+    const { PDFDocument, StandardFonts } = await import('pdf-lib')
+    const fontkit = (await import('@pdf-lib/fontkit')).default
+    const fs = await import('fs')
+    const path = await import('path')
+    const fontPath = path.join(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf')
+    let fontBytes: Buffer | null = null
+    try { fontBytes = fs.readFileSync(fontPath) } catch (e) { fontBytes = null }
+
+    const pdfDoc = await PDFDocument.create()
+    if (fontBytes) pdfDoc.registerFontkit(fontkit)
+    const font = fontBytes ? await pdfDoc.embedFont(fontBytes) : await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+    const pageWidth = 595.28
+    const pageHeight = 841.89
+    let page = pdfDoc.addPage([pageWidth, pageHeight])
+    const margin = 40
+    let y = pageHeight - margin
+    const headerFontSize = 16
+    const bodyFontSize = 12
+
+    // Draw header (right aligned for RTL)
+    const headerText = `بيان القيد - ${row.barcode}`
+    const headerTextWidth = font.widthOfTextAtSize(headerText, headerFontSize)
+    page.drawText(headerText, { x: pageWidth - margin - headerTextWidth, y, size: headerFontSize, font })
+    y -= headerFontSize + 10
+
+    const meta = `التاريخ: ${(row.date || '').split('T')?.[0] || ''}  |  الجهة: ${row.sender || ''}`
+    const metaWidth = font.widthOfTextAtSize(meta, 10)
+    page.drawText(meta, { x: pageWidth - margin - metaWidth, y, size: 10, font })
+    y -= 18
+
+    // Wrap statement into lines based on width
+    const maxWidth = pageWidth - margin * 2
+    const words = statement.split(/\s+/)
+    let line = ''
+    for (const w of words) {
+      const test = line ? (line + ' ' + w) : w
+      const testWidth = font.widthOfTextAtSize(test, bodyFontSize)
+      if (testWidth <= maxWidth) {
+        line = test
+      } else {
+        const lineWidth = font.widthOfTextAtSize(line, bodyFontSize)
+        if (y < margin + bodyFontSize) {
+          page = pdfDoc.addPage([pageWidth, pageHeight])
+          y = pageHeight - margin
+        }
+        page.drawText(line, { x: pageWidth - margin - lineWidth, y, size: bodyFontSize, font })
+        y -= bodyFontSize + 6
+        line = w
+      }
+    }
+    if (line) {
+      const lineWidth = font.widthOfTextAtSize(line, bodyFontSize)
+      if (y < margin + bodyFontSize) {
+        page = pdfDoc.addPage([pageWidth, pageHeight])
+        y = pageHeight - margin
+      }
+      page.drawText(line, { x: pageWidth - margin - lineWidth, y, size: bodyFontSize, font })
+      y -= bodyFontSize + 6
+    }
+
+    const pdfBytes = await pdfDoc.save()
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${row.barcode}-statement.pdf"`)
+    return res.send(Buffer.from(pdfBytes))
+  } catch (err: any) {
+    console.error('Statement PDF generation error:', err)
+    res.status(500).json({ error: 'PDF generation failed' })
   }
 })
 

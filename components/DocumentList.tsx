@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import type { Correspondence, SystemSettings } from "@/types"
 import { Search, ArrowRightLeft, FileSpreadsheet, AlertCircle, FileText, Calendar, ScanText } from "lucide-react"
 import AsyncButton from "./ui/async-button"
@@ -25,6 +25,9 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
   const [stamperDoc, setStamperDoc] = useState<Correspondence | null>(null)
 
   const addAttachmentInputRef = useRef<HTMLInputElement | null>(null)
+  const [localDocs, setLocalDocs] = useState(docs)
+
+  useEffect(() => { setLocalDocs(docs) }, [docs])
 
   const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -33,8 +36,11 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
     try {
       const uploaded = await apiClient.uploadFile(file)
       await apiClient.addAttachment(targetBarcode, uploaded)
-      // reload to pick up updated attachments safely (keeps change simple and robust across versions)
-      window.location.reload()
+      // Fetch updated document and update local state (avoid full page reload)
+      const updated = await apiClient.getDocumentByBarcode(targetBarcode)
+      if (updated) {
+        setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === targetBarcode || d.barcodeId === targetBarcode) ? updated : d)))
+      }
     } catch (err: any) {
       console.error('Add attachment failed', err)
       alert('فشل إضافة المرفق: ' + (err?.message || err))
@@ -43,7 +49,7 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
     }
   }
 
-  const filtered = docs.filter((doc) => {
+  const filtered = (localDocs || []).filter((doc) => {
     const title = doc.title || doc.subject || ""
     const barcode = doc.barcodeId || doc.barcode || ""
     const matchesSearch =
@@ -207,52 +213,51 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                       <div className="flex gap-3 items-center">
                         <div className="text-[11px] font-black px-3 py-1 rounded bg-slate-50 border border-slate-100">عدد المرفقات: <span className="font-extrabold ml-2">{(doc.attachments || []).length}</span></div>
 
-                        <AsyncButton
-                          onClickAsync={async () => {
-                            try {
-                              const url = await apiClient.getPreviewUrl(doc.barcode || doc.barcodeId)
-                              if (!url) { alert('لا يوجد ملف لعرضه'); return }
-                              window.open(url, '_blank')
-                            } catch (e) { console.error(e); alert('فشل فتح الملف') }
-                          }}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl border border-green-200 hover:bg-green-100 transition-all text-[11px] font-black group"
-                        >
-                          <FileText size={16} /> فتح المرفق
-                        </AsyncButton>
+                        {/* Numbered attachment buttons */}
+                        {(doc.attachments || []).length > 0 && (
+                          <div className="flex items-center gap-2">
+                            {(doc.attachments || []).map((a: any, idx: number) => (
+                              <button
+                                key={idx}
+                                title={`فتح المرفق ${idx + 1}`}
+                                onClick={async () => {
+                                  try {
+                                    const url = await apiClient.getPreviewUrl(doc.barcode || doc.barcodeId, idx)
+                                    if (!url) { alert('لا يوجد ملف لعرضه'); return }
+                                    window.open(url, '_blank')
+                                  } catch (e) { console.error(e); alert('فشل فتح المرفق') }
+                                }}
+                                className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-sm border border-slate-200"
+                              >
+                                {idx + 1}
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
-                        <button
-                          onClick={() => setStamperDoc(doc)}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl border border-slate-900 hover:bg-black transition-all text-[11px] font-black shadow-lg shadow-slate-200"
-                        >
+                        {/* Action buttons - standardized size */}
+                        <button onClick={() => setStamperDoc(doc)} className="h-9 px-3 flex items-center gap-2 rounded-md text-[11px] font-black bg-slate-900 text-white border border-slate-900 hover:bg-black transition-all shadow"> 
                           <ScanText size={16} /> ختم المستند
                         </button>
 
-                        <AsyncButton
-                          variant="outline"
-                          size="sm"
-                          className="text-blue-600 border-blue-100"
-                          onClickAsync={async () => {
-                            const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null
-                            if (!el) return
-                            ;(el as any)._targetBarcode = doc.barcode || doc.barcodeId
-                            el.click()
-                          }}
-                        >
+                        <button className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black" onClick={() => {
+                          const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null
+                          if (!el) return
+                          ;(el as any)._targetBarcode = doc.barcode || doc.barcodeId
+                          el.click()
+                        }}>
                           إضافة مرفق
-                        </AsyncButton>
+                        </button>
 
-                        <AsyncButton
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 border-red-100"
-                          onClickAsync={async () => {
-                            if (!confirm('حذف المستند؟')) return
-                            await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
-                            window.location.reload()
-                          }}
-                        >
+                        <button onClick={async () => { if (!confirm('حذف المستند؟')) return; await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId); setLocalDocs((prev:any[]) => prev.filter((d:any) => d.barcode !== doc.barcode && d.barcodeId !== doc.barcodeId)) }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-red-500 border border-red-100 hover:bg-red-50 transition-all text-[11px] font-black">
                           حذف
-                        </AsyncButton>
+                        </button>
+
+                        {/* Small button to download the statement as a PDF (server-generated, secure) */}
+                        <button onClick={async () => { try { await apiClient.downloadStatementPdf(doc.barcode || doc.barcodeId) } catch (e) { console.error(e); alert('فشل تنزيل البيان') } }} className="w-9 h-9 flex items-center justify-center rounded-md bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-all">
+                          عرض
+                        </button>
+
                       </div>
                     </td>
                     <td className="px-8 py-7">

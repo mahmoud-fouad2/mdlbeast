@@ -11,8 +11,9 @@ interface DashboardProps {
 export default function Dashboard({ docs }: DashboardProps) {
   const incoming = docs.filter((d) => d.type === "INCOMING").length
   const outgoing = docs.filter((d) => d.type === "OUTGOING").length
-  const urgent = docs.filter((d) => d.priority === "عاجله" || d.priority === "عاجل").length
   const total = docs.length
+  const urgent = docs.filter((d) => String(d.priority || '').includes('عاجل')).length
+  const normal = total - urgent
 
   const typeData = [
     { name: "الوارد", value: incoming, color: "#0f172a" },
@@ -20,9 +21,8 @@ export default function Dashboard({ docs }: DashboardProps) {
   ]
 
   const priorityData = [
-    { name: "عاديه", value: docs.filter((d) => d.priority === "عاديه").length },
-    { name: "عاجله", value: docs.filter((d) => d.priority === "عاجله").length },
-    { name: "عاجل", value: docs.filter((d) => d.priority === "عاجل").length },
+    { name: "عادي", value: normal },
+    { name: "عاجل", value: urgent },
   ]
 
   return (

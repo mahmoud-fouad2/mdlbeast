@@ -109,4 +109,48 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
   }
 })
 
+// Change own password
+router.post('/me/password', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id
+    const { current_password, new_password } = req.body
+    if (!userId) return res.status(401).json({ error: 'unauthorized' })
+    if (!new_password || typeof new_password !== 'string' || new_password.length < 6) return res.status(400).json({ error: 'invalid_new_password' })
+    if (!current_password || typeof current_password !== 'string') return res.status(400).json({ error: 'current_password_required' })
+
+    const r = await query('SELECT id, password FROM users WHERE id = $1 LIMIT 1', [userId])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' })
+    const user = r.rows[0]
+
+    const bcrypt = await import('bcrypt')
+    const ok = await bcrypt.compare(current_password, user.password)
+    if (!ok) return res.status(401).json({ error: 'invalid_current_password' })
+
+    const hashed = await bcrypt.hash(new_password, 10)
+    await query('UPDATE users SET password = $1 WHERE id = $2', [hashed, userId])
+    res.json({ ok: true })
+  } catch (err: any) {
+    console.error('Change password error:', err)
+    res.status(500).json({ error: 'Failed to change password' })
+  }
+})
+
+// Admin/manager: set another user's password without current password
+router.post('/:id/password', isManager, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params
+    const { new_password } = req.body
+    if (!new_password || typeof new_password !== 'string' || new_password.length < 6) return res.status(400).json({ error: 'invalid_new_password' })
+
+    const bcrypt = await import('bcrypt')
+    const hashed = await bcrypt.hash(new_password, 10)
+    const r = await query('UPDATE users SET password = $1 WHERE id = $2 RETURNING id, username', [hashed, id])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' })
+    res.json({ ok: true })
+  } catch (err: any) {
+    console.error('Admin set password error:', err)
+    res.status(500).json({ error: 'Failed to set password' })
+  }
+})
+
 export default router
