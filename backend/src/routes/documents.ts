@@ -10,19 +10,13 @@ const router = express.Router()
 // Public JSON preview URL endpoint (no auth) - returns { previewUrl }
 router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
   try {
-    // Prevent client-side caching of preview URLs (helps managers/supervisors get fresh resources)
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).json({ error: 'No attachment' })
-
-    // Support selecting a specific attachment by index via ?index=N
-    const idx = Math.max(0, parseInt(String(req.query?.index || '0'), 10) || 0)
-    if (idx < 0 || idx >= attachments.length) return res.status(400).json({ error: 'invalid_index' })
-    const pdf = attachments[idx]
+    const pdf = attachments[0]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -79,19 +73,13 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
 // Public preview route (no auth) so browser can open attachment previews directly
 router.get('/:barcode/preview', async (req: Request, res: Response) => {
   try {
-    // Prevent client-side caching of the preview redirect response
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).send('Not found')
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).send('No attachment')
-
-    // Support selecting a specific attachment by index via ?index=N
-    const idx = Math.max(0, parseInt(String(req.query?.index || '0'), 10) || 0)
-    if (idx < 0 || idx >= attachments.length) return res.status(400).send('invalid_index')
-    const pdf = attachments[idx]
+    const pdf = attachments[0]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -179,8 +167,6 @@ router.use(authenticateToken)
 // Get all documents
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    // Ensure document listing responses are not cached by browsers or intermediate caches
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { status, type, search, limit = 100, offset = 0 } = req.query
 
     const user = (req as any).user
@@ -256,8 +242,6 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 // Get document by barcode
 router.get("/:barcode", async (req: Request, res: Response) => {
   try {
-    // Avoid caching single document responses so UI reflects latest changes
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     const { barcode } = req.params
     // case-insensitive lookup for barcode
     let result = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
@@ -328,120 +312,6 @@ router.get("/:barcode", async (req: Request, res: Response) => {
   }
 })
 
-// Return the statement text as JSON (requires auth) - useful for quick in-app reading without PDF
-router.get("/:barcode/statement", authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    // Avoid caching the statement text
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
-    const { barcode } = req.params
-    const r = await query("SELECT barcode, statement FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
-    const row = r.rows[0]
-
-    const user = (req as any).user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, row)) return res.status(403).json({ error: 'Forbidden' })
-
-    const statement = String(row.statement || '')
-    return res.json({ statement })
-  } catch (err: any) {
-    console.error('Statement text error:', err)
-    res.status(500).json({ error: 'Failed to fetch statement' })
-  }
-})
-
-// Generate a downloadable A4 PDF of the statement for the document (requires auth)
-router.get("/:barcode/statement.pdf", async (req: AuthRequest, res: Response) => {
-  try {
-    // Ensure generated PDFs are not cached by clients
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate')
-    const { barcode } = req.params
-    const r = await query("SELECT barcode, sender, receiver, date, statement FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
-    const row = r.rows[0]
-
-    const user = (req as any).user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, row)) return res.status(403).json({ error: 'Forbidden' })
-
-    let statement = String(row.statement || '').trim()
-    // If there's no stored statement, generate a small placeholder PDF instead of returning an error so clients can always download a PDF
-    if (!statement) {
-      // Use an ASCII fallback when no statement exists so a PDF can be generated even if font files are unavailable in the environment
-      statement = 'No statement available for this document'
-    }
-
-    const { PDFDocument, StandardFonts } = await import('pdf-lib')
-    const fontkit = (await import('@pdf-lib/fontkit')).default
-    const fs = await import('fs')
-    const path = await import('path')
-    const fontPath = path.join(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf')
-    let fontBytes: Buffer | null = null
-    try { fontBytes = fs.readFileSync(fontPath) } catch (e) { fontBytes = null }
-
-    const pdfDoc = await PDFDocument.create()
-    if (fontBytes) pdfDoc.registerFontkit(fontkit)
-    const font = fontBytes ? await pdfDoc.embedFont(fontBytes) : await pdfDoc.embedFont(StandardFonts.Helvetica)
-
-    const pageWidth = 595.28
-    const pageHeight = 841.89
-    let page = pdfDoc.addPage([pageWidth, pageHeight])
-    const margin = 40
-    let y = pageHeight - margin
-    const headerFontSize = 16
-    const bodyFontSize = 12
-
-    // Draw header (right aligned for RTL). If we don't have an embedded Arabic font available, fall back to English headers
-    const headerText = fontBytes ? `بيان القيد - ${row.barcode}` : `Statement - ${row.barcode}`
-    const headerTextWidth = font.widthOfTextAtSize(headerText, headerFontSize)
-    page.drawText(headerText, { x: pageWidth - margin - headerTextWidth, y, size: headerFontSize, font })
-    y -= headerFontSize + 10
-
-    const meta = fontBytes ? `التاريخ: ${(row.date || '').split('T')?.[0] || ''}  |  الجهة: ${row.sender || ''}` : `Date: ${(row.date || '').split('T')?.[0] || ''}`
-    const metaWidth = font.widthOfTextAtSize(meta, 10)
-    page.drawText(meta, { x: pageWidth - margin - metaWidth, y, size: 10, font })
-    y -= 18
-
-    // Wrap statement into lines based on width
-    const maxWidth = pageWidth - margin * 2
-    const words = statement.split(/\s+/)
-    let line = ''
-    for (const w of words) {
-      const test = line ? (line + ' ' + w) : w
-      const testWidth = font.widthOfTextAtSize(test, bodyFontSize)
-      if (testWidth <= maxWidth) {
-        line = test
-      } else {
-        const lineWidth = font.widthOfTextAtSize(line, bodyFontSize)
-        if (y < margin + bodyFontSize) {
-          page = pdfDoc.addPage([pageWidth, pageHeight])
-          y = pageHeight - margin
-        }
-        page.drawText(line, { x: pageWidth - margin - lineWidth, y, size: bodyFontSize, font })
-        y -= bodyFontSize + 6
-        line = w
-      }
-    }
-    if (line) {
-      const lineWidth = font.widthOfTextAtSize(line, bodyFontSize)
-      if (y < margin + bodyFontSize) {
-        page = pdfDoc.addPage([pageWidth, pageHeight])
-        y = pageHeight - margin
-      }
-      page.drawText(line, { x: pageWidth - margin - lineWidth, y, size: bodyFontSize, font })
-      y -= bodyFontSize + 6
-    }
-
-    const pdfBytes = await pdfDoc.save()
-    res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Disposition', `attachment; filename="${row.barcode}-statement.pdf"`)
-    return res.send(Buffer.from(pdfBytes))
-  } catch (err: any) {
-    console.error('Statement PDF generation error:', err)
-    res.status(500).json({ error: 'PDF generation failed' })
-  }
-})
-
 
 
 // Create document
@@ -458,11 +328,8 @@ router.post(
     body("date").optional().isISO8601().withMessage("Valid date is required"),
     body("subject").optional().trim(),
     body("title").optional().trim(),
-    body("classification").optional().isIn(["عادي", "سري"]).withMessage("Invalid classification"),
-    // Accept both new UI labels (عاديه/عاجله) and legacy DB labels (عادي/عاجل/عاجل جداً) for compatibility
-    body("priority").optional().isIn(["عاديه", "عاجله", "عادي", "عاجل", "عاجل جداً"]).withMessage("Invalid priority"),
+    body("priority").optional().isIn(["عادي", "عاجل", "عاجل جداً"]).withMessage("Invalid priority"),
     body("status").optional().isIn(["وارد", "صادر", "محفوظ"]).withMessage("Invalid status"),
-    body("statement").optional().trim().isLength({ max: 2000 }).withMessage("Statement too long"),
   ],
   async (req: AuthRequest, res: Response) => {
     // Ensure only allowed roles can create
@@ -493,7 +360,6 @@ router.post(
         status,
         classification,
         notes,
-        statement,
         attachments = [],
         tenant_id = null,
       } = req.body
@@ -536,37 +402,23 @@ router.post(
       // Default status based on direction if not provided
       const finalStatus = status || (direction === 'INCOMING' ? 'وارد' : (direction === 'OUTGOING' ? 'صادر' : 'محفوظ'))
 
-      // Map frontend priority labels to DB-safe values
-      const dbPriority = (function(p: any) {
-        if (!p) return 'عادي' // default DB priority
-        if (p === 'عاديه' || p === 'عادي') return 'عادي'
-        if (p === 'عاجله' || p === 'عاجل') return 'عاجل'
-        if (p === 'عاجل جداً') return 'عاجل جداً'
-        return 'عادي'
-      })(priority)
-
-      // Ensure 'statement' column exists (helps older DBs without running migration manually)
-      try { await query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS statement TEXT") } catch (e) { /* ignore */ }
-      try { await query("ALTER TABLE barcodes ADD COLUMN IF NOT EXISTS statement TEXT") } catch (e) { /* ignore */ }
-
       // If no barcode provided, generate a numeric sequential barcode server-side
       if (!barcode) {
         // Generate numeric-only barcode (new behavior). Keep direction required for status only.
         if (!direction) return res.status(400).json({ error: 'Direction (type) is required to generate barcode' })
-        // Use per-direction sequences so incoming and outgoing numbering can be managed independently
-        const seqName = (String(direction || '').toUpperCase().startsWith('IN')) ? 'doc_in_seq' : 'doc_out_seq'
+        const seqName = 'doc_seq'
         let n: number
         try {
           const seqRes = await query(`SELECT nextval('${seqName}') as n`)
           n = seqRes.rows[0].n
         } catch (seqErr: any) {
-          console.warn(`Sequence missing or nextval failed for ${seqName}, attempting to create it:`, seqErr?.message || seqErr)
+          console.warn('Sequence missing or nextval failed for doc_seq, creating sequences:', seqErr?.message || seqErr)
           try {
-            await query(`CREATE SEQUENCE IF NOT EXISTS ${seqName} START 1`)
+            await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
             const seqRes2 = await query(`SELECT nextval('${seqName}') as n`)
             n = seqRes2.rows[0].n
           } catch (seqErr2: any) {
-            console.error(`Failed to create or get sequence value for ${seqName}:`, seqErr2)
+            console.error('Failed to create or get sequence value for doc_seq:', seqErr2)
             return res.status(500).json({ error: 'Failed to generate barcode sequence' })
           }
         }
@@ -595,8 +447,8 @@ router.post(
       // Insert document with optional tenant_id
       const dbType = (typeof type === 'string' && type) ? type : (direction || 'UNKNOWN')
       const result = await query(
-        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, statement, attachments, user_id, tenant_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id, tenant_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING *`,
         [
           barcode,
@@ -605,11 +457,10 @@ router.post(
           finalReceiver,
           finalDate,
           finalSubject,
-          dbPriority,
+          priority || 'عادي',
           finalStatus,
           classification,
           notes,
-          statement || null,
           JSON.stringify(attachments || []),
           creatorId,
           tenant_id,
@@ -621,9 +472,9 @@ router.post(
         const bc = await query("SELECT id FROM barcodes WHERE barcode = $1 LIMIT 1", [barcode])
         if (bc.rows.length === 0) {
           await query(
-            `INSERT INTO barcodes (barcode, type, status, priority, subject, statement, attachments, user_id, tenant_id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [barcode, dbType, finalStatus || null, dbPriority || null, finalSubject || null, statement || null, JSON.stringify(attachments || []), authReq.user?.id, tenant_id || null],
+            `INSERT INTO barcodes (barcode, type, status, priority, subject, attachments, user_id, tenant_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [barcode, dbType, finalStatus || null, priority || null, finalSubject || null, JSON.stringify(attachments || []), authReq.user?.id, tenant_id || null],
           )
         }
       } catch (e) {
@@ -643,64 +494,11 @@ router.post(
   },
 )
 
-// Append attachment to an existing document (expects the file to have been uploaded via /uploads first)
-router.post('/:barcode/attachments', async (req: AuthRequest, res: Response) => {
-  try {
-    const { barcode } = req.params
-    const { attachment } = req.body || {}
-    if (!attachment || !attachment.name || !attachment.url) return res.status(400).json({ error: 'Attachment metadata (name,url) is required' })
-
-    const r = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
-    const doc = r.rows[0]
-
-    const user = (req as any).user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
-
-    // Validate attachment origin: allow only internal uploads or configured storage objects (R2/Supabase)
-    const url = String(attachment.url || '')
-    const allowLocal = url.startsWith('/uploads/')
-    const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
-    let ok = false
-    if (allowLocal) ok = true
-    if (useR2 && (attachment.key || (attachment.url && String(attachment.url).includes((process.env.CF_R2_ENDPOINT || ''))))) ok = true
-    const { USE_R2_ONLY } = await import('../config/storage')
-    const supabaseUrl = USE_R2_ONLY ? '' : (process.env.SUPABASE_URL || '')
-    if (!ok && attachment.bucket && attachment.key && supabaseUrl) ok = true
-
-    if (!ok) return res.status(400).json({ error: 'Attachment must be uploaded to a supported storage provider or the local uploads folder' })
-
-    // Parse existing attachments safely
-    let attachments: any = doc.attachments
-    try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
-
-    // Prevent abusive attachment counts
-    if (Array.isArray(attachments) && attachments.length >= 50) return res.status(400).json({ error: 'Attachment limit reached' })
-
-    attachments.push(attachment)
-
-    const updated = await query("UPDATE documents SET attachments = $1 WHERE id = $2 RETURNING *", [JSON.stringify(attachments || []), doc.id])
-
-    // Keep barcodes.attachments in sync when possible
-    try {
-      await query("UPDATE barcodes SET attachments = $1 WHERE barcode = $2", [JSON.stringify(attachments || []), barcode])
-    } catch (e) { console.warn('Failed to update barcode attachments:', e) }
-
-    const row = updated.rows[0]
-    const pdfFile = Array.isArray(attachments) && attachments.length ? attachments[0] : null
-    res.json({ ...row, attachments, pdfFile })
-  } catch (err: any) {
-    console.error('Add attachment error:', err)
-    res.status(500).json({ error: 'Failed to add attachment' })
-  }
-})
-
 // Update document
-router.put("/:barcode", authenticateToken, async (req: Request, res: Response) => {
+router.put("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const { type, sender, receiver, date, subject, priority, status, classification, notes, statement, attachments: incomingAttachments } = req.body
+    const { type, sender, receiver, date, subject, priority, status, classification, notes, attachments: incomingAttachments } = req.body
 
     // Fetch existing to enforce access
     const existing = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
@@ -712,24 +510,11 @@ router.put("/:barcode", authenticateToken, async (req: Request, res: Response) =
     if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 
     // Prevent changing tenant via update
-
-    // If the client attempts to change the document type (incoming/outgoing), only allow admins to do so
-    try {
-      const requestedType = String(type || '').toUpperCase()
-      const existingType = String(doc.type || '').toUpperCase()
-      if (requestedType && requestedType !== existingType) {
-        const role = String((req as any).user?.role || '').toLowerCase()
-        if (role !== 'admin') {
-          return res.status(403).json({ error: 'Only administrators may change the document direction/type' })
-        }
-      }
-    } catch (e) { /* ignore */ }
-
     const result = await query(
       `UPDATE documents 
        SET type = $1, sender = $2, receiver = $3, date = $4, subject = $5, 
-           priority = $6, status = $7, classification = $8, notes = $9, statement = $10, attachments = $11
-       WHERE barcode = $12
+           priority = $6, status = $7, classification = $8, notes = $9, attachments = $10
+       WHERE barcode = $11
        RETURNING *`,
       [
         type,
@@ -741,10 +526,10 @@ router.put("/:barcode", authenticateToken, async (req: Request, res: Response) =
         status,
         classification,
         notes,
-        statement || null,
         JSON.stringify(incomingAttachments),
         barcode,
-      ] )
+      ],
+    )
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Document not found" })
@@ -764,20 +549,17 @@ router.put("/:barcode", authenticateToken, async (req: Request, res: Response) =
   }
 })
 
-// Delete document (ADMIN ONLY)
-router.delete("/:barcode", authenticateToken, async (req: Request, res: Response) => {
+// Delete document
+router.delete("/:barcode", async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
-    const authReq = req as any
-    const user = authReq.user
-    
-    // Admin-only access
-    if (!user || (user.role && String(user.role).toLowerCase() !== 'admin')) {
-      return res.status(403).json({ error: 'Only admins can delete documents' })
-    }
-    
     const existing = await query("SELECT * FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
+    const doc = existing.rows[0]
+    const authReq = req as any
+    const user = authReq.user
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 
     const result = await query("DELETE FROM documents WHERE lower(barcode) = lower($1) RETURNING *", [barcode])
 
@@ -801,7 +583,7 @@ router.get("/stats/summary", async (req: Request, res: Response) => {
         COUNT(*) FILTER (WHERE status = 'وارد' OR type ILIKE 'IN%' OR barcode ILIKE 'IN-%') as incoming,
         COUNT(*) FILTER (WHERE status = 'صادر' OR type ILIKE 'OUT%' OR barcode ILIKE 'OUT-%') as outgoing,
         COUNT(*) FILTER (WHERE status = 'محفوظ') as archived,
-        COUNT(*) FILTER (WHERE priority = 'عاجل') as urgent
+        COUNT(*) FILTER (WHERE priority = 'عاجل جداً') as urgent
       FROM documents
     `)
 

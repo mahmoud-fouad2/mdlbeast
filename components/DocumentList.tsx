@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import type { Correspondence, SystemSettings } from "@/types"
 import { Search, ArrowRightLeft, FileSpreadsheet, AlertCircle, FileText, Calendar, ScanText } from "lucide-react"
 import AsyncButton from "./ui/async-button"
-import StatementModal from "./StatementModal"
 import { exportToCSV } from "@/lib/barcode-service"
 import BarcodePrinter from "./BarcodePrinter"
 import OfficialReceipt from "./OfficialReceipt"
@@ -22,75 +21,24 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
   const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
-  const [directionFilter, setDirectionFilter] = useState<'ALL' | 'INCOMING' | 'OUTGOING'>('ALL')
   const [stamperDoc, setStamperDoc] = useState<Correspondence | null>(null)
-  const [statementOpenDoc, setStatementOpenDoc] = useState<Correspondence | null>(null)
-  const [statementText, setStatementText] = useState<string>('')
-  const [statementLoading, setStatementLoading] = useState(false)
-  const [editingDoc, setEditingDoc] = useState<Correspondence | null>(null)
-  const [editFormData, setEditFormData] = useState<any>({})
-  const [editPending, setEditPending] = useState(false)
 
-  const addAttachmentInputRef = useRef<HTMLInputElement | null>(null)
-  const [localDocs, setLocalDocs] = useState(docs)
-
-  useEffect(() => { setLocalDocs(docs) }, [docs])
-
-  // Listen for stamped document events and update local list entry when triggered
-  useEffect(() => {
-    const handler = async (e: any) => {
-      try {
-        const barcode = e?.detail?.barcode
-        if (!barcode) return
-        const updated = await apiClient.getDocumentByBarcode(barcode).catch(() => null)
-        if (updated) setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === barcode || d.barcodeId === barcode) ? updated : d)))
-      } catch (err) { console.warn('document:stamped handler failed', err) }
-    }
-    window.addEventListener('document:stamped', handler)
-    return () => window.removeEventListener('document:stamped', handler)
-  }, [])
-
-  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    const targetBarcode = (e.target as any)?._targetBarcode || ''
-    if (!file || !targetBarcode) return
-    try {
-      const uploaded = await apiClient.uploadFile(file)
-      await apiClient.addAttachment(targetBarcode, uploaded)
-      // Fetch updated document and update local state (avoid full page reload)
-      const updated = await apiClient.getDocumentByBarcode(targetBarcode)
-      if (updated) {
-        setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === targetBarcode || d.barcodeId === targetBarcode) ? updated : d)))
-      }
-    } catch (err: any) {
-      console.error('Add attachment failed', err)
-      alert('فشل إضافة المرفق: ' + (err?.message || err))
-    } finally {
-      if (e.target) (e.target as any).value = ''
-    }
-  }
-
-  const filtered = (localDocs || []).filter((doc) => {
+  const filtered = docs.filter((doc) => {
     const title = doc.title || doc.subject || ""
     const barcode = doc.barcodeId || doc.barcode || ""
     const matchesSearch =
       title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       barcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.sender || '').toLowerCase().includes(searchTerm.toLowerCase())
+      doc.sender.toLowerCase().includes(searchTerm.toLowerCase())
 
-    // Use documentDate as authoritative date for filtering
-    const docDate = (doc.documentDate || doc.date || '').split('T')?.[0]
-    const matchesStartDate = !startDate || docDate >= startDate
-    const matchesEndDate = !endDate || docDate <= endDate
+    const matchesStartDate = !startDate || doc.date >= startDate
+    const matchesEndDate = !endDate || doc.date <= endDate
 
-    const matchesDirection = directionFilter === 'ALL' || (directionFilter === 'INCOMING' && (doc.status === 'وارد' || (doc.type === 'INCOMING'))) || (directionFilter === 'OUTGOING' && (doc.status === 'صادر' || (doc.type === 'OUTGOING')))
-
-    return matchesSearch && matchesStartDate && matchesEndDate && matchesDirection
+    return matchesSearch && matchesStartDate && matchesEndDate
   })
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <input id="addAttachmentInput" ref={addAttachmentInputRef} type="file" accept=".pdf" className="hidden" onChange={handleAddAttachment} />
       {stamperDoc && <PdfStamper doc={stamperDoc} onClose={() => setStamperDoc(null)} />}
 
       <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
@@ -127,21 +75,6 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
-          </div>
-
-          <div className="space-y-2 min-w-[160px]">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
-              فلتر: وارد / صادر
-            </label>
-            <select
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
-              value={directionFilter}
-              onChange={(e) => setDirectionFilter(e.target.value as any)}
-            >
-              <option value="ALL">الكل</option>
-              <option value="INCOMING">وارد</option>
-              <option value="OUTGOING">صادر</option>
-            </select>
           </div>
           <button
             onClick={() => {
@@ -204,14 +137,13 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                             إلى: {doc.receiver || doc.recipient}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-                            <span>📅 تاريخ:</span>
-                            <span className="font-black">{(doc.documentDate || doc.date || '').split('T')?.[0]}</span>
+                            <span>📅 القيد:</span>
+                            <span className="font-black">{doc.dateHijri || doc.date}</span>
+                            <span className="text-[11px] text-slate-500">({doc.dateGregorian || doc.date})</span>
                           </span>
-
-                          {/* Badge when no statement exists */}
-                          {!(doc.statement || '').trim() && (
-                            <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded uppercase">بدون بيان</span>
-                          )}
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                            📂 أرشفة: {doc.archiveDate || doc.date}
+                          </span>
 
                           {/* Show creator to admin/supervisor */}
                           {(currentUser && (String(currentUser.role || '').toLowerCase() === 'admin' || String(currentUser.role || '').toLowerCase() === 'supervisor')) && (
@@ -227,7 +159,7 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                           )}
                           <span
                             className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                              doc.priority === "عاديه" ? "bg-slate-100 text-slate-500" : "bg-red-50 text-red-600"
+                              doc.priority === "عادي" ? "bg-slate-100 text-slate-500" : "bg-red-50 text-red-600"
                             }`}
                           >
                             {doc.priority}
@@ -236,85 +168,58 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                       </div>
                     </td>
                     <td className="px-8 py-7">
-                      <div className="flex gap-3 items-center">
-                        <div className="text-[11px] font-black px-3 py-1 rounded bg-slate-50 border border-slate-100">مرفقات: <span className="font-extrabold mr-2">{(doc.attachments || []).length}</span></div>
-
-                        {/* Numbered attachment buttons */}
-                        {(doc.attachments || []).length > 0 && (
-                          <div className="flex items-center gap-2">
-                            {(doc.attachments || []).map((a: any, idx: number) => (
-                              <button
-                                key={idx}
-                                title={`فتح المرفق ${idx + 1}`}
-                                onClick={async () => {
-                                  try {
-                                    const url = await apiClient.getPreviewUrl(doc.barcode || doc.barcodeId, idx)
-                                    if (!url) { alert('لا يوجد ملف لعرضه'); return }
-                                    window.open(url, '_blank')
-                                  } catch (e) { console.error(e); alert('فشل فتح المرفق') }
-                                }}
-                                className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-sm border border-slate-200"
-                              >
-                                {idx + 1}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Action buttons - standardized size */}
-                        <button onClick={() => setStamperDoc(doc)} className="h-9 px-3 flex items-center gap-2 rounded-md text-[11px] font-black bg-slate-900 text-white border border-slate-900 hover:bg-black transition-all shadow"> 
-                          <ScanText size={16} /> ختم المستند
-                        </button>
-
-                        {currentUser && String(currentUser.role || '').toLowerCase() === 'admin' && (
-                          <button onClick={() => {
-                            setEditingDoc(doc)
-                            setEditFormData({
-                              sender: doc.sender || '',
-                              receiver: doc.receiver || '',
-                              subject: doc.subject || doc.title || '',
-                              date: (doc.documentDate || doc.date || '').split('T')[0],
-                              priority: doc.priority || 'عاديه',
-                              notes: doc.notes || '',
-                              classification: doc.security || 'عادي',
-                            })
-                          }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 transition-all text-[11px] font-black">
-                            تعديل القيد
+                      {doc.pdfFile ? (
+                        <div className="flex gap-2 items-center">
+                          <AsyncButton
+                            onClickAsync={async () => {
+                              try {
+                                const url = await apiClient.getPreviewUrl(doc.barcode || doc.barcodeId)
+                                if (!url) { alert('لا يوجد ملف لعرضه'); return }
+                                window.open(url, '_blank')
+                              } catch (e) { console.error(e); alert('فشل فتح الملف') }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl border border-green-200 hover:bg-green-100 transition-all text-[11px] font-black group"
+                          >
+                            <FileText size={16} /> فتح المرفق
+                          </AsyncButton>
+                          <button
+                            onClick={() => setStamperDoc(doc)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl border border-slate-900 hover:bg-black transition-all text-[11px] font-black shadow-lg shadow-slate-200"
+                          >
+                            <ScanText size={16} /> دمغ الملصق
                           </button>
-                        )}
-
-                        <button className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black" onClick={() => {
-                          const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null
-                          if (!el) return
-                          ;(el as any)._targetBarcode = doc.barcode || doc.barcodeId
-                          el.click()
-                        }}>
-                          إضافة مرفق
-                        </button>
-
-                        {currentUser?.role === 'admin' && (
-                        <button onClick={async () => { if (!confirm('حذف المستند؟')) return; await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId); setLocalDocs((prev:any[]) => prev.filter((d:any) => d.barcode !== doc.barcode && d.barcodeId !== doc.barcodeId)) }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-red-500 border border-red-100 hover:bg-red-50 transition-all text-[11px] font-black">
-                          حذف
-                        </button>
-                        )}
-
-                        {/* Button to open the statement for quick reading (fetches JSON and opens inline modal). Keep PDF download accessible via long-press or secondary action. */}
-                        <button onClick={async () => {
-                          try {
-                            setStatementLoading(true)
-                            const res = await apiClient.getStatement(doc.barcode || doc.barcodeId)
-                            setStatementText(res?.statement || '')
-                            setStatementOpenDoc(doc)
-                          } catch (e:any) {
-                            console.error('Fetch statement failed', e)
-                            alert('فشل جلب البيان: ' + (e?.message || JSON.stringify(e)))
-                          } finally { setStatementLoading(false) }
-                        }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black">
-                          <FileText size={16} /> عرض ملخص
-                          {statementLoading && <span className="ml-1 text-xs text-slate-400">...</span>}
-                        </button>
-
-                      </div>
+                          <AsyncButton
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500 border-red-100"
+                            onClickAsync={async () => {
+                              if (!confirm('حذف المستند؟')) return
+                              await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
+                              window.location.reload()
+                            }}
+                          >
+                            حذف
+                          </AsyncButton>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-4">
+                          <span className="text-[11px] font-black text-slate-300 italic flex items-center gap-1.5">
+                            <AlertCircle size={14} /> لا يوجد مرفق
+                          </span>
+                          <AsyncButton
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500 border-red-100"
+                            onClickAsync={async () => {
+                              if (!confirm('حذف المستند؟')) return
+                              await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode || doc.barcodeId)
+                              window.location.reload()
+                            }}
+                          >
+                            حذف
+                          </AsyncButton>
+                        </div>
+                      )}
                     </td>
                     <td className="px-8 py-7">
                       <div className="flex justify-end gap-3">
@@ -341,161 +246,6 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
           </table>
         </div>
       </div>
-      <StatementModal open={Boolean(statementOpenDoc)} onClose={() => { setStatementOpenDoc(null); setStatementText('') }} statement={statementText} />
-      
-      {/* Edit Record Modal */}
-      {editingDoc && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900">تعديل القيد</h2>
-                <p className="text-sm text-slate-500 mt-1">الباركود: {editingDoc.barcode || editingDoc.barcodeId}</p>
-              </div>
-              <button 
-                onClick={() => setEditingDoc(null)} 
-                className="text-slate-400 hover:text-slate-700 transition-colors p-2"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form 
-              onSubmit={async (e) => {
-                e.preventDefault()
-                if (!editingDoc) return
-                try {
-                  setEditPending(true)
-                  const payload = {
-                    sender: editFormData.sender,
-                    receiver: editFormData.receiver,
-                    subject: editFormData.subject,
-                    date: editFormData.date,
-                    priority: editFormData.priority,
-                    notes: editFormData.notes,
-                    classification: editFormData.classification,
-                  }
-                  await apiClient.updateDocument(editingDoc.barcode || editingDoc.barcodeId, payload)
-                  const updated = await apiClient.getDocumentByBarcode(editingDoc.barcode || editingDoc.barcodeId)
-                  if (updated) {
-                    setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === editingDoc.barcode || d.barcodeId === editingDoc.barcodeId) ? updated : d)))
-                  }
-                  setEditingDoc(null)
-                  alert('تم حفظ التعديلات بنجاح')
-                } catch (err: any) {
-                  console.error('Failed to update document', err)
-                  alert('فشل حفظ التعديلات: ' + (err?.message || 'حدث خطأ'))
-                } finally {
-                  setEditPending(false)
-                }
-              }}
-              className="p-8 space-y-6"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-700 block">من (الجهة الأولى) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editFormData.sender}
-                    onChange={(e) => setEditFormData({...editFormData, sender: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold"
-                    placeholder="اسم الجهة الأولى"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-700 block">إلى (الجهة الثانية) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editFormData.receiver}
-                    onChange={(e) => setEditFormData({...editFormData, receiver: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold"
-                    placeholder="اسم الجهة الثانية"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 block">الموضوع/العنوان *</label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.subject}
-                  onChange={(e) => setEditFormData({...editFormData, subject: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold"
-                  placeholder="موضوع المعاملة"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-700 block">التاريخ *</label>
-                  <input
-                    type="date"
-                    required
-                    value={editFormData.date}
-                    onChange={(e) => setEditFormData({...editFormData, date: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-700 block">الأولوية</label>
-                  <select
-                    value={editFormData.priority}
-                    onChange={(e) => setEditFormData({...editFormData, priority: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold cursor-pointer"
-                  >
-                    <option value="عاديه">عادي</option>
-                    <option value="عاجله">عاجل</option>
-                    <option value="عاجل">أولوية عالية</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 block">التصنيف</label>
-                <select
-                  value={editFormData.classification}
-                  onChange={(e) => setEditFormData({...editFormData, classification: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold cursor-pointer"
-                >
-                  <option value="عادي">عادي</option>
-                  <option value="سري">سري</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 block">ملاحظات</label>
-                <textarea
-                  value={editFormData.notes}
-                  onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all font-bold min-h-[100px]"
-                  placeholder="ملاحظات إضافية"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={editPending}
-                  className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-600/20"
-                >
-                  {editPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingDoc(null)}
-                  disabled={editPending}
-                  className="flex-1 bg-slate-200 text-slate-700 py-4 rounded-xl font-black text-lg hover:bg-slate-300 disabled:opacity-60 transition-all"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

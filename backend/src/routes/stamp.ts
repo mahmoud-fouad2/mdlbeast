@@ -13,11 +13,7 @@ router.use(authenticateToken)
 router.post('/:barcode/stamp', async (req, res) => {
   try {
     const { barcode } = req.params
-    // Accept coordinates with higher precision (floats) and coerce safely
-    const { x: xRaw = 20, y: yRaw = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0 } = req.body || {}
-    const x = parseFloat(String(xRaw))
-    const y = parseFloat(String(yRaw))
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: 'invalid_coordinates' })
+    const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0 } = req.body || {}
 
     const d = await query('SELECT * FROM documents WHERE barcode = $1 LIMIT 1', [barcode])
     if (d.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
@@ -370,8 +366,6 @@ router.post('/:barcode/stamp', async (req, res) => {
     const page = pages[Math.max(0, Math.min(pageIndex, pages.length - 1))]
     const { width: pageWidth, height: pageHeight } = page.getSize()
 
-    const compactMode = !!req.body?.compact
-
     // compute image size in PDF units based on provided stampWidth (px) and container size
     let widthPdf: number
     let heightPdf: number
@@ -386,12 +380,6 @@ router.post('/:barcode/stamp', async (req, res) => {
       const scaled = pngImage.scale(0.6)
       widthPdf = scaled.width
       heightPdf = scaled.height
-    }
-
-    // compact mode squeezes the stamp to be more compact and precise
-    if (compactMode) {
-      widthPdf = Math.max(80, Math.min(widthPdf, 220))
-      heightPdf = Math.max(18, Math.min(heightPdf, 40))
     }
 
     // compute coordinates: x,y are in pixels from top-left of preview; convert to PDF coords
@@ -441,7 +429,7 @@ router.post('/:barcode/stamp', async (req, res) => {
 
     const companyName = repairArabicEncoding(rawCompany)
 
-    // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues). Use a strict default including 'Consultancy'.
+    // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues)
     let companyNameEnglish = ''
     try {
       // first prefer explicit English fields if present
@@ -455,11 +443,12 @@ router.post('/:barcode/stamp', async (req, res) => {
           // ignore
         }
       }
-      // fallback to configured org name or an explicit default that includes CONSULTANCY
-      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
-      companyNameEnglish = String(companyNameEnglish).trim()
+      // fallback to configured org name or a sensible default
+      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
+      // match user's preference for lowercase/relaxed styling
+      companyNameEnglish = String(companyNameEnglish).toLowerCase()
     } catch (e) {
-      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
+      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
     }
 
     // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
@@ -528,25 +517,14 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayGregorian = String(gregFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     const displayHijri = String(hijriFmt).replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
 
-    // Ensure there is an English date string for the sticker as well (use 12-hour clock with am/pm)
-    const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).format(dateObjForLabel)
-    // Normalize to a lower-case am/pm token for user preference (e.g., "pm")
-    let displayEnglishDate = String(engFmt).replace(/\s?(AM|PM)$/, (m) => String(m).toLowerCase())
-
-    // append attachment count next to the time (use create-time value if available, fallback to attachments array length)
-    const attachmentCountDisplay = Number(doc.attachmentcount || doc.attachmentCount || (Array.isArray(attachments) ? attachments.length : 0) || 0)
-
-    // build combined label and use for drawing
-    const displayEnglishDateWithAttachments = `${displayEnglishDate}${attachmentCountDisplay > 0 ? ` • Attach: ${attachmentCountDisplay}` : ''}`
-
+    // Ensure there is an English date string for the sticker as well
+    const engFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(dateObjForLabel)
+    const displayEnglishDate = String(engFmt)
     // Ensure we have a Latin-digit barcode for machine-readability
     const displayBarcodeLatin = String(barcode || '')
 
-    // Force English company name (avoid Arabic font issues) and ensure CONSULTANCY suffix
-    let displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY').trim()
-    if (!/consultancy/i.test(displayCompanyText)) displayCompanyText = `${displayCompanyText} Consultancy`
-    displayCompanyText = displayCompanyText.toUpperCase()
-    if (!displayCompanyText) displayCompanyText = 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
+    // Force English company name (avoid Arabic font issues)
+    const displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zawaya Albina Engineering Consultancy').toUpperCase()
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
     let docTypeText = ''
@@ -559,8 +537,8 @@ router.post('/:barcode/stamp', async (req, res) => {
     //   docTypeText = ''
     // }
 
-    // sizes (make company name slightly smaller per UX request)
-    const companySize = 7
+    // sizes
+    const companySize = 11
     const typeSize = 10
     const barcodeSize2 = 9
     const dateSize2 = 9
@@ -569,7 +547,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     const companyWidth = helvBold.widthOfTextAtSize(displayCompanyText, companySize)
     const typeWidth = helv.widthOfTextAtSize(docTypeText || '', typeSize)
     const barcodeWidth2 = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize2)
-    const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDateWithAttachments, dateSize2)
+    const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDate, dateSize2)
 
     const centerX2 = xPdf + widthPdf / 2
 
@@ -600,64 +578,18 @@ router.post('/:barcode/stamp', async (req, res) => {
     console.debug('Stamp: computed_text', { displayCompanyText, docTypeText, displayBarcodeLatin, displayEnglishDate })
     console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
 
-    if (compactMode) {
-      // Compact stamp: centered, no decorative rectangle — ensure barcode image is visible
-      // Center X based on image area
-      const centerXStamp = xPdf + widthPdf / 2
-
-      // Determine image display size (ensure minimum visible height)
-      // Reduce max height to keep barcode squat rather than tall
-      const imgDisplayWidth = Math.min(widthPdf, 180)
-      const imgAspect = (pngImage.height || 1) / (pngImage.width || 1)
-      const desiredHeight = imgDisplayWidth * imgAspect
-      const imgDisplayHeight = Math.max(20, Math.min(desiredHeight, 90))
-
-      // Draw barcode image centered at provided x/y (use yPdf as baseline)
-      const imgX = centerXStamp - imgDisplayWidth / 2
-      const imgY = yPdf
-      try {
-        page.drawImage(pngImage, { x: imgX, y: imgY, width: imgDisplayWidth, height: imgDisplayHeight })
-      } catch (e) {
-        console.warn('Stamp: drawImage failed for compact mode:', e)
-      }
-
-      // Company above image (smaller)
-      const compSizeCompact = 6
-      if (displayCompanyText) {
-        const compW = helvBold.widthOfTextAtSize(displayCompanyText, compSizeCompact)
-        const compX = centerXStamp - (compW / 2)
-        const compY = imgY + imgDisplayHeight + gap + 2
-        page.drawText(displayCompanyText, { x: compX, y: compY, size: compSizeCompact, font: helvBold, color: rgb(0,0,0) })
-      }
-
-      // Barcode text centered below image (moderate size)
-      const bcSizeCompact = 11
-      const bcW = helv.widthOfTextAtSize(displayBarcodeLatin, bcSizeCompact)
-      const bcX = centerXStamp - (bcW / 2)
-      const bcY = imgY - bcSizeCompact - gap
-      page.drawText(displayBarcodeLatin, { x: bcX, y: bcY, size: bcSizeCompact, font: helv, color: rgb(0,0,0) })
-
-      // Date centered under barcode text (smaller)
-      const dateSizeCompact = 7
-      const dateText = displayEnglishDate || new Date().toISOString().split('T')[0]
-      const dateW = helv.widthOfTextAtSize(dateText, dateSizeCompact)
-      const dateX = centerXStamp - (dateW / 2)
-      const dateY = bcY - dateSizeCompact - 2
-      page.drawText(dateText, { x: dateX, y: dateY, size: dateSizeCompact, font: helv, color: rgb(0,0,0) })
-    } else {
-      if (displayCompanyText) {
-        page.drawText(displayCompanyText, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
-      }
-      if (docTypeText) {
-        page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
-      }
-
-      // barcode identifier centered below (or near) the barcode image
-      page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize2, font: helv, color: rgb(0,0,0) })
-
-      // Draw English Gregorian date centered near the barcode for readability (include attachment count when present)
-      page.drawText(displayEnglishDateWithAttachments, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
+    if (displayCompanyText) {
+      page.drawText(displayCompanyText, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
     }
+    if (docTypeText) {
+      page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
+    }
+
+    // barcode identifier centered below (or near) the barcode image
+    page.drawText(displayBarcodeLatin, { x: barcodeX, y: barcodeY, size: barcodeSize2, font: helv, color: rgb(0,0,0) })
+
+    // Draw English Gregorian date centered near the barcode for readability
+    page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying

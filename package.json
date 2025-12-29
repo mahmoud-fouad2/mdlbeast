@@ -1,8 +1,11 @@
 {
   "name": "zaco-archive-frontend",
-  "version": "1.1.1",    
-
+  "version": "1.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mahmoud-fouad2/zacoback.git"
+  },
   "description": "نظام الأرشفة الموحد - زوايا البناء - Frontend",
   "scripts": {
     "build": "next build",
@@ -11,9 +14,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "start": "next start",
     "build:backend": "npm ci --prefix backend && npm run build --prefix backend",
-    "start:backend": "npm start --prefix backend",
-    "backup:full": "bash ./scripts/full-backup.sh",
-    "restore:full": "bash ./scripts/restore-backup.sh"
+    "start:backend": "npm start --prefix backend"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

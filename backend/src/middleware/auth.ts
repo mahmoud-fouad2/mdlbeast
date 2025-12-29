@@ -9,13 +9,13 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   const token = authHeader && authHeader.split(" ")[1]
 
   if (!token) {
-    return res.status(401).set('Cache-Control','no-store').json({ error: "Access token required" })
+    return res.status(401).json({ error: "Access token required" })
   }
 
   try {
     // Verify token with explicit algorithm requirement to avoid "none" or unexpected algorithms
     const tokenPayload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { id: number; username?: string; role?: string }
-    if (!tokenPayload?.id) return res.status(401).set('Cache-Control','no-store').json({ error: 'invalid_token' })
+    if (!tokenPayload?.id) return res.status(403).json({ error: 'Invalid token payload' })
     try {
       const db = await import('../config/database')
       // Try a permissive fetch of the user row and then map columns safely
@@ -35,33 +35,8 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       return res.status(500).json({ error: 'Auth verification failed' })
     }
   } catch (error: any) {
-    // Handle expired token explicitly so clients can attempt refresh
-    if (error && error.name === 'TokenExpiredError') {
-      console.warn('Auth verify error: token expired')
-      return res.status(401).set('Cache-Control', 'no-store').json({ error: 'token_expired' })
-    }
-
-    // Log details to aid debugging (do NOT log tokens)
-    console.warn('Auth verify error:', error?.name || 'UnknownError', '-', error?.message || '')
-
-    // If JWT secret is missing, return 500 so we can detect misconfiguration quickly
-    if (!JWT_SECRET) {
-      console.error('Auth verify failed: JWT_SECRET is not set')
-      return res.status(500).json({ error: 'Server misconfiguration' })
-    }
-
-    // For known JWT errors (invalid signature, malformed), return 401 with a clear error code
-    if (error && error.name === 'JsonWebTokenError') {
-      // Do not include the raw message in production, but include a short code and set WWW-Authenticate to help some clients
-      return res
-        .status(401)
-        .set('Cache-Control', 'no-store')
-        .set('WWW-Authenticate', 'Bearer error="invalid_token"')
-        .json({ error: 'invalid_token' })
-    }
-
-    // Fallback: treat as unauthorized and avoid caching
-    return res.status(401).set('Cache-Control', 'no-store').json({ error: 'invalid_or_expired_token' })
+    console.error('Auth verify error:', error && (error.message || error))
+    return res.status(403).json({ error: "Invalid or expired token" })
   }
 }
 

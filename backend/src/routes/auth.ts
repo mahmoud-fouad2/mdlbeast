@@ -6,12 +6,17 @@ import { body, validationResult } from "express-validator"
 import { query } from "../config/database"
 
 const router = express.Router()
-const JWT_SECRET = process.env.JWT_SECRET || ''
-const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || ''
+const JWT_SECRET = process.env.JWT_SECRET
 
 // Login
+const loginLimiterMiddleware = (req: any, res: any, next: any) => {
+  try { const l = req.app && req.app.locals && req.app.locals.loginLimiter; if (l) return l(req, res, next) } catch (e) {}
+  next()
+}
+
 router.post(
   "/login",
+  loginLimiterMiddleware,
   [
     body("username").trim().notEmpty().withMessage("Username is required"),
     body("password").notEmpty().withMessage("Password is required"),
@@ -53,25 +58,13 @@ router.post(
         return res.status(401).json({ error: "Invalid credentials" })
       }
 
-      const accessToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
-        expiresIn: "15m",
+      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET as string, {
+        expiresIn: "24h",
         algorithm: 'HS256'
       })
 
-      // create a refresh token (longer lived) and set as HttpOnly, Secure cookie
-      const refreshToken = jwt.sign({ id: user.id }, REFRESH_SECRET, { expiresIn: '30d', algorithm: 'HS256' })
-      const cookieOptions: any = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/api/auth',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      }
-
-      res.cookie('refreshToken', refreshToken, cookieOptions)
-
       res.json({
-        token: accessToken,
+        token,
         user: {
           id: user.id,
           username: user.email || user.name,
@@ -86,14 +79,18 @@ router.post(
   },
 )
 
-// Register (admin only)
+// Register (admin only) - protected
+import { authenticateToken, isAdmin } from "../middleware/auth"
+
 router.post(
   "/register",
+  authenticateToken,
+  isAdmin,
   [
     body("username").trim().notEmpty().withMessage("Username is required"),
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
     body("full_name").trim().notEmpty().withMessage("Full name is required"),
-    body("role").isIn(["admin", "user"]).withMessage("Invalid role"),
+    body("role").optional().isIn(["admin", "manager", "supervisor", "member"]).withMessage("Invalid role"),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req)
@@ -114,10 +111,11 @@ router.post(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10)
 
-      // Insert user
+      // Insert user (only admin can assign roles here)
+      const assignedRole = role || 'member'
       const result = await query(
         "INSERT INTO users (username, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, username, full_name, role",
-        [username, hashedPassword, full_name, role],
+        [username, hashedPassword, full_name, assignedRole],
       )
 
       res.status(201).json({
@@ -131,52 +129,15 @@ router.post(
   },
 )
 
-// Refresh access token
-router.post('/refresh', async (req: Request, res: Response) => {
+// Apply login rate limiting on the login route (middleware-aware)
+const loginLimiter = (req: any, res: any, next: any) => {
   try {
-    const refreshToken = (req as any).cookies?.refreshToken || ''
-    if (!refreshToken) return res.status(401).json({ error: 'no_refresh' })
+    const limiter = req.app && req.app.locals && req.app.locals.loginLimiter
+    if (limiter) return limiter(req, res, next)
+  } catch (e) {}
+  next()
+}
 
-    try {
-      const payload = jwt.verify(refreshToken, REFRESH_SECRET, { algorithms: ['HS256'] }) as { id: number }
-      const userId = payload.id
-      // Verify user still exists
-      const r = await query('SELECT id, username, role FROM users WHERE id = $1 LIMIT 1', [userId])
-      if (r.rows.length === 0) return res.status(401).json({ error: 'invalid_refresh' })
-      const user = r.rows[0]
-
-      const accessToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '15m', algorithm: 'HS256' })
-
-      // Optionally rotate refresh token: issue new cookie
-      const newRefresh = jwt.sign({ id: user.id }, REFRESH_SECRET, { expiresIn: '30d', algorithm: 'HS256' })
-      res.cookie('refreshToken', newRefresh, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/api/auth',
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      })
-
-      return res.json({ token: accessToken })
-    } catch (e: any) {
-      // token invalid or expired
-      return res.status(401).json({ error: 'invalid_refresh' })
-    }
-  } catch (err: any) {
-    console.error('Refresh token error:', err)
-    return res.status(500).json({ error: 'Refresh failed' })
-  }
-})
-
-// Logout: clear refresh cookie
-router.post('/logout', async (_req: Request, res: Response) => {
-  try {
-    res.clearCookie('refreshToken', { path: '/api/auth' })
-    res.json({ ok: true })
-  } catch (err: any) {
-    console.error('Logout error:', err)
-    res.status(500).json({ error: 'Logout failed' })
-  }
-})
-
+// Login route should apply loginLimiter at call site via router.post('/login', loginLimiter, ...), ensure it's used in server startup when mounting router.
+// If server doesn't mount it, the loginLimiter above will gracefully no-op.
 export default router

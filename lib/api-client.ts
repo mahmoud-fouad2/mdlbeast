@@ -28,6 +28,14 @@ class ApiClient {
     }
   }
 
+  private sessionExpiredListeners: Array<() => void> = []
+  onSessionExpired(cb: () => void) {
+    this.sessionExpiredListeners.push(cb)
+  }
+  private emitSessionExpired() {
+    for (const cb of this.sessionExpiredListeners) cb()
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -72,6 +80,16 @@ class ApiClient {
           errorObj = { error: txt }
         } catch (txtErr) {
           // ignore
+        }
+      }
+
+      // If unauthorized, clear token and notify listeners
+      if (response.status === 401) {
+        this.clearToken()
+        try {
+          this.emitSessionExpired()
+        } catch (e) {
+          // ignore listener errors
         }
       }
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server, Lock } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -12,10 +12,7 @@ import DocumentForm from "@/components/DocumentForm"
 import DocumentList from "@/components/DocumentList"
 import BarcodeScanner from "@/components/BarcodeScanner"
 import ReportGenerator from "@/components/ReportGenerator"
-import AdminBackups from "@/components/AdminBackups"
-import AdminStatus from '@/components/AdminStatus'
 import UserManagement from "@/components/UserManagement"
-import ChangePassword from "@/components/ChangePassword"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -212,7 +209,6 @@ export default function DashboardPage() {
         status: data.type === "INCOMING" ? "وارد" : "صادر",
         classification: data.security,
         notes: data.description,
-        statement: data.statement || null,
         attachments: data.pdfFile ? [data.pdfFile] : [],
         tenant_id: selectedTenantId,
       }
@@ -225,7 +221,6 @@ export default function DashboardPage() {
         title: savedDoc.subject,
         recipient: savedDoc.receiver,
         documentDate: savedDoc.date,
-        statement: savedDoc.statement || null,
         companyId: savedDoc.tenant_id || savedDoc.companyId || selectedTenantId,
       }
 
@@ -312,10 +307,8 @@ export default function DashboardPage() {
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
-          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
-          <NavItem id="admin-status" label="حالة النظام" icon={Server} adminOnly />
         </nav>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
@@ -342,16 +335,14 @@ export default function DashboardPage() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl xl:max-w-none mx-auto w-full">
+        <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl mx-auto w-full">
           {activeTab === "dashboard" && <Dashboard docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} />}
-          {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} companies={tenants} />}
-          {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} companies={tenants} />}
+          {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} />}
+          {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} />}
           {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} />}
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
-          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} currentUserRole={currentUser?.role || ''} />}
-          {activeTab === "change-password" && <ChangePassword />}
-
+          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} />}
           {activeTab === 'companies' && (
             <div className="space-y-8">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
@@ -396,20 +387,33 @@ export default function DashboardPage() {
           {activeTab === 'backup' && (
             <div className="space-y-6">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
-                <h3 className="text-xl font-black mb-4">إدارة النسخ الاحتياطية</h3>
-                <p className="text-sm text-slate-500 mb-4">إنشاء وادارة النسخ الكاملة للمشروع (قاعدة البيانات، الملفات، الاعدادات).</p>
-                <AdminBackups />
+                <h3 className="text-xl font-black mb-4">تصدير البيانات</h3>
+                <p className="text-sm text-slate-500 mb-4">يمكنك تنزيل نسخة JSON من البيانات الحالية (المستندات، المؤسسات، المستخدمين).</p>
+                <div className="flex gap-3">
+                  <div className="flex gap-3">
+                  <AsyncButton className="bg-slate-900 text-white px-6 py-3 rounded" onClickAsync={handleExport}>تحميل JSON</AsyncButton>
+
+                  <input type="file" id="importBackupFile" className="hidden" accept=".json" onChange={async (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0]
+                    if (!file) return
+                    if (!confirm('تحذير: ستستبدل البيانات المحلية الحالية. تابع؟')) return
+                    try {
+                      const text = await file.text()
+                      const svc = await import('@/services/api')
+                      const ok = await svc.ApiService.importFullBackup(text)
+                      if (ok) { alert('تم الاستعادة محلياً. سيتم إعادة تحميل الصفحة'); window.location.reload() }
+                      else alert('فشل الاستعادة')
+                    } catch (err) { console.error(err); alert('فشل الاستعادة') }
+                  }} />
+                  <button className="bg-blue-600 text-white px-6 py-3 rounded" onClick={async () => {
+                    const el = document.getElementById('importBackupFile') as HTMLInputElement | null
+                    el?.click()
+                  }}>استعادة من ملف</button>
+                </div>
+                </div>
               </div>
             </div>
-          )}
-          {activeTab === 'admin-status' && (
-            <div className="space-y-6">
-              <div className="bg-white p-8 rounded-3xl border border-slate-200">
-                <AdminStatus />
-              </div>
-            </div>
-          )}
-        </div>
+          )}        </div>
       </main>
     </div>
   )

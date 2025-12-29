@@ -10,15 +10,10 @@ const BarcodeScanner: React.FC = () => {
   const [timeline, setTimeline] = useState<any[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isLoadingBarcode, setIsLoadingBarcode] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [editPending, setEditPending] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // fetch current user role for admin-only edit capabilities
-    apiClient.getCurrentUser().then(u => { if (u) setCurrentUserRole(String(u.role || '').toLowerCase()) }).catch(()=>{})
-    return () => { stopScanner() }
+    return () => stopScanner();
   }, [])
 
   const detectorRef = useRef<any | null>(null);
@@ -267,43 +262,10 @@ const BarcodeScanner: React.FC = () => {
                 }}>
                   <FileText size={20} /> فتح الملف الكامل
                 </AsyncButton>
-
-                {currentUserRole === 'admin' && (
-                  <button onClick={() => setEditing(true)} className="mt-6 bg-yellow-500 text-white py-4 rounded-xl font-bold flex items-center gap-2 px-4">تعديل القيد</button>
-                )}
-
                 <AsyncButton className="mt-6 bg-red-500 text-white py-4 rounded-xl font-bold flex items-center gap-2 px-4" onClickAsync={async () => { if (!confirm('حذف المستند؟')) return; await apiClient.deleteDocument(foundDoc.barcode || foundDoc.barcodeId); setFoundDoc(null); setTimeline([]); setStatusMessage('تم حذف المستند'); }}>
                   حذف
                 </AsyncButton>
               </div>
-
-              {editing && (
-                <div className="mt-4 p-4 bg-white border rounded-xl">
-                  <h4 className="font-bold mb-2">تعديل القيد</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select className="p-3 border rounded" value={foundDoc.type || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, type: e.target.value}))}>
-                      <option value="INCOMING">وارد</option>
-                      <option value="OUTGOING">صادر</option>
-                    </select>
-                    <input className="p-3 border rounded" value={foundDoc.sender || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, sender: e.target.value}))} placeholder="من" />
-                    <input className="p-3 border rounded" value={foundDoc.recipient || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, recipient: e.target.value}))} placeholder="إلى" />
-                    <button disabled={editPending} onClick={async () => {
-                      try {
-                        setEditPending(true)
-                        await apiClient.updateDocument(foundDoc.barcode || foundDoc.barcodeId, { type: foundDoc.type, sender: foundDoc.sender, receiver: foundDoc.recipient, status: foundDoc.status || (foundDoc.type === 'INCOMING' ? 'وارد' : 'صادر') })
-                        const updated = await apiClient.getBarcode(foundDoc.barcode || foundDoc.barcodeId)
-                        setFoundDoc(updated || foundDoc)
-                        setStatusMessage('تم حفظ التعديلات')
-                        setEditing(false)
-                        setTimeout(() => setStatusMessage(null), 2000)
-                      } catch (e) {
-                        console.error('Failed to save edits', e)
-                        setStatusMessage('فشل حفظ التعديلات')
-                      } finally { setEditPending(false) }
-                    }} className="bg-slate-900 text-white p-3 rounded">حفظ التعديلات</button>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center p-12 text-slate-400 text-center gap-4">

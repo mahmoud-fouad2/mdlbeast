@@ -41,14 +41,12 @@ FormInput.displayName = "FormInput"
 interface DocumentFormProps {
   type: string
   onSave: (doc: any) => void
-  companies?: { id: string; name?: string; nameAr?: string; logo_url?: string }[]
 }
 
-export default function DocumentForm({ type, onSave, companies }: DocumentFormProps) {
+export default function DocumentForm({ type, onSave }: DocumentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<any>(undefined)
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
-  const [filePageCount, setFilePageCount] = useState<number>(0)
   const [users, setUsers] = useState<any[]>([])
   const [formData, setFormData] = useState<any>({
     title: "",
@@ -56,37 +54,25 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
     recipient: "",
     referenceNumber: "",
     documentDate: new Date().toISOString().split("T")[0],
+    archiveDate: new Date().toISOString().split("T")[0],
     description: "",
-    statement: "",
-    security: "عادي",
-    priority: "عاديه",
-    attachmentCount: 0,
+    security: "عام",
+    priority: "عادي",
+    signatory: "",
+    internalRef: "",
   })
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target as any
-    const parsed = (name === 'attachmentCount') ? (value === '' ? '' : Number(value)) : value
-    setFormData((prev: any) => ({ ...prev, [name]: parsed }))
+    const { name, value } = e.target
+    setFormData((prev: any) => ({ ...prev, [name]: value }))
   }, [])
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile)
       const preview = URL.createObjectURL(selectedFile)
       setFilePreviewUrl(preview)
-
-      // compute page count using pdf-lib in client
-      try {
-        const { PDFDocument } = await import('pdf-lib')
-        const ab = await selectedFile.arrayBuffer()
-        const pdfDoc = await PDFDocument.load(ab)
-        const pc = pdfDoc.getPageCount()
-        setFilePageCount(pc)
-      } catch (err) {
-        console.warn('Failed to compute page count', err)
-        setFilePageCount(0)
-      }
     }
   }
 
@@ -168,35 +154,22 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                 required
               />
             </div>
-            {/* Internal number removed per new requirements */}
+            <FormInput
+              label="الرقم الداخلي للمؤسسة"
+              icon={Shield}
+              name="internalRef"
+              value={formData.internalRef}
+              onChange={handleInputChange}
+            />
 
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-1.5 mr-1">
-                <Landmark size={12} className="text-slate-400" /> من جهة
-              </label>
-              { (typeof (companies || []) !== 'undefined') && (companies || []).length > 0 ? (
-                <select
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
-                  value={formData.sender}
-                  onChange={(e) => handleSelectChange('sender', e.target.value)}
-                  required
-                >
-                  <option value="">اختر جهة</option>
-                  {(companies || []).map((c: any) => (
-                    <option key={c.id} value={c.nameAr || c.name || c.slug || c.id}>{c.nameAr || c.name || c.slug || c.id}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  required
-                  type="text"
-                  name="sender"
-                  className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 shadow-sm"
-                  value={formData.sender}
-                  onChange={handleInputChange}
-                />
-              )}
-            </div>
+            <FormInput
+              label="من جهة"
+              icon={Landmark}
+              name="sender"
+              value={formData.sender}
+              onChange={handleInputChange}
+              required
+            />
             <FormInput
               label="إلى جهة"
               icon={User}
@@ -206,7 +179,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
               required
             />
             <FormInput
-              label="تاريخ الصادر/الوارد"
+              label="تاريخ المستند الأصلي"
               icon={ClipboardList}
               name="documentDate"
               value={formData.documentDate}
@@ -214,18 +187,30 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
               type="date"
               required
             />
+
+            <FormInput
+              label="تاريخ الأرشفة الفعلي"
+              icon={Calendar}
+              name="archiveDate"
+              value={formData.archiveDate}
+              onChange={handleInputChange}
+              type="date"
+              required
+            />
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-500 uppercase mr-1 tracking-widest">
-                عدد المرفقات
+                الموقّع المعتمد
               </label>
-              <input
-                type="number"
-                min={0}
-                name="attachmentCount"
-                value={formData.attachmentCount}
-                onChange={(e) => handleInputChange(e as any)}
-                className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 shadow-sm"
-              />
+              <select
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
+                value={formData.signatory}
+                onChange={(e) => handleSelectChange('signatory', e.target.value)}
+              >
+                <option value="">اختر موقّعاً</option>
+                {users.map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.full_name || u.username || u.email}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -239,8 +224,9 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                 value={formData.security}
                 onChange={(e) => handleSelectChange("security", e.target.value)}
               >
-                <option value="عادي">عادي - متاح للجميع</option>
+                <option value="عام">عام - متاح للجميع</option>
                 <option value="سري">سري - محدود الوصول</option>
+                <option value="سري للغاية">سري للغاية - خاص</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -252,26 +238,14 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                 value={formData.priority}
                 onChange={(e) => handleSelectChange("priority", e.target.value)}
               >
-                <option value="عاديه">معالجة اعتيادية</option>
-                <option value="عاجله">معالجة عاجلة</option>
+                <option value="عادي">معالجة اعتيادية</option>
+                <option value="عاجل">معالجة عاجلة</option>
+                <option value="عاجل جداً">معالجة فورية (هام جداً)</option>
               </select>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[11px] font-black text-slate-500 uppercase mr-1 tracking-widest">البيان (اختياري)</label>
-            <textarea
-              name="statement"
-              value={formData.statement}
-              onChange={(e) => setFormData((prev:any) => ({ ...prev, statement: e.target.value }))}
-              placeholder={`البيان والوصف الرسمي:\nتم قيد هذه المعاملة رقميًا وتوثيقها في السجل الموحد للمؤسسة، وتعتبر هذه النسخة أصلية بموجب\nالباركود المرجعي المسجل في أنظمة الحوكمة الرقمية`}
-              className="w-full min-h-[120px] p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm"
-            />
-          </div>
-
           <div className="p-12 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center hover:bg-slate-100/50 transition-all">
-            <div className="mb-4 text-sm font-black text-slate-700">عدد صفحات المرفق: <span className="font-extrabold">{file ? filePageCount || 1 : 0}</span></div>
-
             {!file ? (
               <div className="flex flex-col items-center gap-4">
                 <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm">

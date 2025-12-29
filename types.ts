@@ -12,13 +12,15 @@ export enum DocStatus {
 }
 
 export enum SecurityLevel {
-  NORMAL = 'عادي',
-  CONFIDENTIAL = 'سري'
+  PUBLIC = 'عام',
+  CONFIDENTIAL = 'سري',
+  TOP_SECRET = 'سري للغاية'
 }
 
 export enum Priority {
-  NORMAL = 'عاديه',
-  HIGH = 'عاجله'
+  NORMAL = 'عادي',
+  HIGH = 'عاجل',
+  IMMEDIATE = 'عاجل جداً'
 }
 
 export interface Company {
@@ -26,6 +28,7 @@ export interface Company {
   nameAr: string;
   nameEn: string;
   logoUrl: string;
+  registrationNumber?: string;
 }
 
 export interface User {
@@ -79,7 +82,6 @@ export interface Correspondence {
   attachments: Attachment[];
   signatory: string;
   tags: string[];
-  statement?: string;
   created_at: Date;
   createdBy?: string;
   pdfFile?: {
