@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -398,6 +398,14 @@ export default function DashboardPage() {
                 <AdminBackups />
               </div>
             </div>
+          )}
+          {activeTab === 'admin-status' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                <AdminStatus />
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

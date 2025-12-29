@@ -1,6 +1,6 @@
 {
   "name": "zaco-archive-frontend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "نظام الأرشفة الموحد - زوايا البناء - Frontend",
   "scripts": {
