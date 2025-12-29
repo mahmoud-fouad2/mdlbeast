@@ -312,6 +312,58 @@ router.get("/:barcode", async (req: Request, res: Response) => {
   }
 })
 
+// Statement endpoints: return statement text and a generated PDF when requested
+router.get('/:barcode/statement', async (req: Request, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const r = await query("SELECT statement FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const stmt = r.rows[0].statement || ''
+    return res.json({ statement: String(stmt || '') })
+  } catch (err: any) {
+    console.error('Statement text error:', err)
+    res.status(500).json({ error: 'Failed to fetch statement' })
+  }
+})
+
+router.get('/:barcode/statement.pdf', async (req: Request, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const r = await query("SELECT statement FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (r.rows.length === 0) return res.status(404).send('Not found')
+    const statementText = r.rows[0].statement || ''
+
+    // generate a simple PDF using pdf-lib
+    const { PDFDocument, StandardFonts } = await import('pdf-lib')
+    const pdfDoc = await PDFDocument.create()
+    const page = pdfDoc.addPage([595, 842])
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const fontSize = 12
+    const x = 50
+    let y = 800
+
+    // Split into lines for simple layout
+    const lines = String(statementText || '').split(/\r?\n/)
+    for (const line of lines) {
+      page.drawText(line, { x, y, size: fontSize, font })
+      y -= fontSize + 4
+      if (y < 60) {
+        // new page
+        y = 800
+        pdfDoc.addPage([595, 842])
+      }
+    }
+
+    const pdfBytes = await pdfDoc.save()
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', 'attachment; filename=statement.pdf')
+    return res.send(Buffer.from(pdfBytes))
+  } catch (err: any) {
+    console.error('Statement PDF error:', err)
+    res.status(500).send('Failed to generate statement PDF')
+  }
+})
+
 
 
 // Create document

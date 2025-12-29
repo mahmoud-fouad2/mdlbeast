@@ -1,3 +1,4 @@
+// app/root-layout.tsx أو app/layout.tsx
 import type React from "react"
 import type { Metadata } from "next"
 import { Tajawal } from "next/font/google"
@@ -46,15 +47,32 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
+      {/* 
+        pt-14 فقط للموبايل عشان الـ MobileHeader fixed 
+        md:pt-0 يلغي البادينج على الديسكتوب
+      */}
       <body className={`${tajawal.className} antialiased pt-14 md:pt-0`}>
         <SidebarProvider>
           <LoadingProvider>
             <ClientSetup>
-              <MobileHeader />
-              {children}
+              {/* Mobile header: fixed on top, visible only on small screens */}
+              <div className="fixed top-0 inset-x-0 z-50 md:hidden">
+                <MobileHeader />
+              </div>
+
+              {/* 
+                Main container:
+                - min-h-screen يحافظ على الارتفاع الكامل
+                - md:pr-64 يضيف مساحة على اليمين على الدسكتوب لتجنب تداخل المحتوى مع sidebar
+                  (عدل 64 لو Sidebar عندك بعرض مختلف، مثلاً md:pr-72 أو md:pr-56)
+              */}
+              <div className="min-h-screen md:pr-64">
+                {children}
+              </div>
             </ClientSetup>
           </LoadingProvider>
         </SidebarProvider>
+
         <Analytics />
       </body>
     </html>
