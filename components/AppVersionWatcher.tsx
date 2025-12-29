@@ -19,7 +19,7 @@ export default function AppVersionWatcher() {
         } else if (version && v && (v.version !== version.version || v.commit !== version.commit)) {
           // New version detected
           toast({ title: 'تحديث جديد متاح', description: 'هناك نسخة جديدة من التطبيق. اضغط لإعادة التحميل.', action: (
-            <button onClick={() => window.location.reload(true)} className="font-black text-xs uppercase">إعادة التحميل</button>
+            <button onClick={() => window.location.reload()} className="font-black text-xs uppercase">إعادة التحميل</button>
           )})
           // Optional: auto reload after short delay
           // setTimeout(() => window.location.reload(true), 5000)
