@@ -59,8 +59,31 @@ export default function RootLayout({
         <meta httpEquiv="Cache-control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        {/* Inline, tiny version/checker: runs before any main bundle to force-reload clients if server reports a new version or if a small JS probe returns HTML (indicative of 404/CDN error). Minimal and self-contained. */}
+        {/* Inline, tiny version/checker & defensive polyfills: runs before any main bundle to force-reload clients if server reports a new version or if a small JS probe returns HTML (indicative of 404/CDN error). Also patches environment where constructing MessageChannel or CustomEvent throws (prevents "Illegal constructor" crashes). */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{
+  // Defensive: some environments/proxies/extensions throw when calling native constructors (MessageChannel, CustomEvent).
+  // Provide safe fallbacks to avoid runtime "Illegal constructor" errors in downstream bundles.
+  try {
+    // Test MessageChannel usage; replace with a tiny polyfill if constructing it throws
+    try { new MessageChannel(); } catch (e) {
+      (function(){
+        function Port(){ this.onmessage = null; }
+        Port.prototype.postMessage = function(msg){ var self=this; setTimeout(function(){ try{ if (typeof self.onmessage === 'function') self.onmessage({ data: msg }); }catch(e){} }, 0); };
+        window.MessageChannel = function(){ return { port1: new Port(), port2: new Port() } };
+      })();
+    }
+  } catch(e) { /* ignore */ }
+  try {
+    // Test CustomEvent; provide old-style init-based polyfill if constructing fails
+    try { new CustomEvent('__zaco_test', { detail: {} }); } catch (e) {
+      (function(){
+        function CustomEventPoly(type, params){ params = params || { bubbles: false, cancelable: false, detail: null }; var ev = document.createEvent('CustomEvent'); ev.initCustomEvent(type, params.bubbles, params.cancelable, params.detail); return ev; }
+        CustomEventPoly.prototype = (window.Event || function(){}).prototype;
+        window.CustomEvent = CustomEventPoly;
+      })();
+    }
+  } catch(e) { /* ignore */ }
+
   var now = Date.now();
   var prev=null; try{prev=localStorage.getItem('app_version')}catch(e){}
   // version check
