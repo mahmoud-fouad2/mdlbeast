@@ -64,8 +64,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(() => {
   if (typeof window === 'undefined') return;
-  try { new MessageChannel(); return; } catch (e) {}
-  try { (window as any).MessageChannel = undefined; } catch (e) {}
+  try { new MessageChannel(); } catch (e) {
+    // MessageChannel is broken, remove it to force React to use setTimeout
+    delete window.MessageChannel;
+  }
 })();`,
           }}
         />
