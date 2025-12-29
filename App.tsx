@@ -123,8 +123,6 @@ const App: React.FC = () => {
     // Global error handlers to capture unexpected script/runtime errors and show a simple banner
     const onError = (ev: ErrorEvent) => {
       console.error('Global error captured', ev.error || ev.message || ev);
-      // ignore common external script HTML responses to reduce noise
-      if (String(ev.filename || '').includes('wp-emoji-loader') || String(ev.message || '').includes("Unexpected token '<'")) return;
       setGlobalError(String(ev.message || ev.error || 'خطأ غير متوقع في الواجهة'));
       setTimeout(() => setGlobalError(null), 6000);
     }
