@@ -47,7 +47,7 @@ import { LoadingProvider } from "../components/ui/loading-context"
 import SessionExpiredModal from '@/components/SessionExpiredModal'
 import ClientAppVersionWatcher from '@/components/ClientAppVersionWatcher'
 import SafeAnalytics from '@/components/SafeAnalytics'
-
+import UpdateBanner from '@/components/UpdateBanner'
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -68,6 +68,7 @@ export default function RootLayout({
         <SessionExpiredModal />
         <script dangerouslySetInnerHTML={{__html: `if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'development') { console.log = function(){}; }`}} />
         <ClientAppVersionWatcher />
+        <UpdateBanner />
         {/* Safe analytics loader: loads analytics dynamically in client and fails quietly if unsupported */}
         <SafeAnalytics />
       </body>

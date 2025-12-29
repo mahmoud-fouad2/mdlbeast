@@ -2,7 +2,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { ToastAction } from '@/components/ui/toast'
 
 export default function AppVersionWatcher() {
   const { toast } = useToast()
@@ -18,18 +17,21 @@ export default function AppVersionWatcher() {
         if (!version) {
           setVersion(v)
         } else if (version && v && (v.version !== version.version || v.commit !== version.commit)) {
-          // New version detected
+          // New version detected — safe behavior: simple toast + broadcast event for a persistent banner
           try {
-            toast({ title: 'تحديث جديد متاح', description: 'هناك نسخة جديدة من التطبيق. اضغط لإعادة التحميل.', action: (
-              <div>
-                <button onClick={() => window.location.reload()} className="font-black text-xs uppercase px-2 py-1 bg-slate-100 rounded">إعادة التحميل</button>
-              </div>
-            )})
+            toast({ title: 'تحديث جديد متاح', description: 'هناك نسخة جديدة من التطبيق. يرجى إعادة التحميل.' })
           } catch (e) {
-            // If toast rendering fails in some environments, fallback to a blocking alert so admin notices the update
-            console.warn('AppVersionWatcher: toast action failed', e)
+            // toast might fail in some environments; fallback to alert
+            console.warn('AppVersionWatcher: toast failed', e)
             try { alert('تحديث جديد متاح — أعد تحميل الصفحة') } catch (e2) { /* ignore */ }
           }
+
+          // Broadcast update event and set a local flag so that a persistent banner can show across tabs
+          try {
+            const payload = v || { version: 'unknown' }
+            try { localStorage.setItem('app_update_available', JSON.stringify(payload)) } catch (e) {}
+            try { window.dispatchEvent(new CustomEvent('app-update-available', { detail: payload })) } catch (e) {}
+          } catch (e) { console.warn('AppVersionWatcher: broadcast failed', e) }
           // Optional: auto reload after short delay
           // setTimeout(() => window.location.reload(true), 5000)
         }
