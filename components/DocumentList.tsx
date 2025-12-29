@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Correspondence, SystemSettings } from "@/types"
 import { Search, ArrowRightLeft, FileSpreadsheet, AlertCircle, FileText, Calendar, ScanText } from "lucide-react"
 import AsyncButton from "./ui/async-button"
@@ -24,34 +24,62 @@ export default function DocumentList({ docs, settings, currentUser, users, onRef
   const [endDate, setEndDate] = useState("")
   const [stamperDoc, setStamperDoc] = useState<Correspondence | null>(null)
   const [uploading, setUploading] = useState<string | null>(null)
+  const [localDocs, setLocalDocs] = useState<Correspondence[]>(docs || [])
+
+  // keep localDocs in sync when parent docs change
+  useEffect(() => {
+    setLocalDocs(docs || [])
+  }, [docs])
 
   const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>, doc: Correspondence) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    if (!confirm('سيتم إضافة هذا الملف كمرفق للمستند. متابعة؟')) { e.target.value = ''; return }
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    if (!confirm(`سيتم إضافة ${files.length} مرفق(ات) للمستند. متابعة؟`)) { e.target.value = ''; return }
     const id = String(doc.barcode || doc.barcodeId || doc.id || '')
+
+    // optimistic update: add placeholder entries to localDocs
+    const optimisticEntries = files.map((f, idx) => ({ name: f.name, url: '', size: f.size, type: f.type || 'application/pdf', key: `optimistic-${Date.now()}-${idx}`, __optimistic: true }))
+    setLocalDocs((prev) => prev.map((d) => (d.id === doc.id || (d.barcode || d.barcodeId) === (doc.barcode || doc.barcodeId) ? { ...d, attachments: [...(Array.isArray(d.attachments) ? d.attachments : []), ...optimisticEntries] } : d)))
+
     try {
       setUploading(id)
-      // upload file to storage
-      const uploaded = await apiClient.uploadFile(f as File)
-      // fetch latest doc and append attachment
+      // upload files sequentially to better reflect server behavior and simplify error handling
+      for (const f of files) {
+        const uploaded = await apiClient.uploadFile(f as File)
+        // replace the first optimistic entry (by empty url) with real uploaded entry
+        setLocalDocs((prev) => prev.map((d) => {
+          if (d.id !== doc.id && (d.barcode || d.barcodeId) !== (doc.barcode || doc.barcodeId)) return d
+          const atts = Array.isArray(d.attachments) ? [...d.attachments] : []
+          const optIndex = atts.findIndex((a:any) => a.__optimistic)
+          if (optIndex >= 0) {
+            atts[optIndex] = { ...(atts[optIndex] as any), name: uploaded.name, url: uploaded.url, size: uploaded.size, key: uploaded.key, bucket: uploaded.bucket, storage: uploaded.storage } as any
+          } else {
+            atts.push({ name: uploaded.name, url: uploaded.url, size: uploaded.size, key: uploaded.key, bucket: uploaded.bucket, storage: uploaded.storage } as any)
+          }
+          return { ...d, attachments: atts }
+        }))
+      }
+
+      // persist final attachments server-side
       const latest = await apiClient.getDocumentByBarcode(doc.barcode || doc.barcodeId)
       const attachments = Array.isArray(latest?.attachments) ? latest.attachments : (doc.attachments || [])
-      attachments.push({ name: uploaded.name, url: uploaded.url, size: uploaded.size, key: uploaded.key, bucket: uploaded.bucket, storage: uploaded.storage })
+      // merge any optimistic-replaced attachments that might not yet be on server
       await apiClient.updateDocument(doc.barcode || doc.barcodeId, { attachments })
-      alert('تم إضافة المرفق بنجاح')
-      // Refresh list via callback if provided
+
+      // call optional refresh to sync parent state
       if (typeof onRefresh === 'function') await onRefresh()
     } catch (err) {
       console.error('Failed to add attachment', err)
       alert('فشل إضافة المرفق. حاول لاحقاً.')
+      // revert optimistic entries on error by reloading via onRefresh if available
+      if (typeof onRefresh === 'function') await onRefresh()
     } finally {
       setUploading(null)
       if (e && e.target) e.target.value = ''
     }
   }
 
-  const filtered = docs.filter((doc) => {
+  const filtered = localDocs.filter((doc) => {
     const title = doc.title || doc.subject || ""
     const barcode = doc.barcodeId || doc.barcode || ""
     const matchesSearch =
@@ -246,6 +274,9 @@ export default function DocumentList({ docs, settings, currentUser, users, onRef
                               <a href={att.url} target="_blank" className="underline text-slate-700">{att.name || 'مرفق'}</a>
                               <button className="text-red-500" onClick={async () => {
                                 if (!confirm('حذف هذا المرفق؟')) return
+                                // optimistic removal
+                                const prev = localDocs
+                                setLocalDocs((prevDocs) => prevDocs.map(d => (d.id === doc.id || (d.barcode || d.barcodeId) === (doc.barcode || doc.barcodeId)) ? { ...d, attachments: (d.attachments || []).filter((a:any) => a.key !== att.key) } : d))
                                 try {
                                   const latest = await apiClient.getDocumentByBarcode(doc.barcode || doc.barcodeId)
                                   const atts = Array.isArray(latest?.attachments) ? latest.attachments : (doc.attachments || [])
@@ -255,6 +286,8 @@ export default function DocumentList({ docs, settings, currentUser, users, onRef
                                 } catch (err) {
                                   console.error('Failed to delete attachment', err)
                                   alert('فشل حذف المرفق')
+                                  // revert
+                                  setLocalDocs(prev)
                                 }
                               }}>✖</button>
                             </div>
