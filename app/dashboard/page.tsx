@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Lock } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -13,6 +13,7 @@ import DocumentList from "@/components/DocumentList"
 import BarcodeScanner from "@/components/BarcodeScanner"
 import ReportGenerator from "@/components/ReportGenerator"
 import AdminBackups from "@/components/AdminBackups"
+import AdminStatus from '@/components/AdminStatus'
 import UserManagement from "@/components/UserManagement"
 import ChangePassword from '@/components/ChangePassword'
 import { Spinner } from "@/components/ui/spinner"
@@ -318,6 +319,7 @@ export default function DashboardPage() {
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
+          <NavItem id="admin-status" label="حالة النظام" icon={Server} adminOnly />
         </nav>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
@@ -357,6 +359,7 @@ export default function DashboardPage() {
             <option value="change-password">تغيير كلمة المرور</option>
             <option value="companies">إدارة المؤسسات</option>
             <option value="backup">النسخ الاحتياطي</option>
+            <option value="admin-status">حالة النظام</option>
           </select>
 
           <button onClick={handleLogout} className="text-red-600 text-sm font-black px-3 py-2 rounded-xl bg-red-50">تسجيل خروج</button>
@@ -418,6 +421,14 @@ export default function DashboardPage() {
                 <h3 className="text-xl font-black mb-4">إدارة النسخ الاحتياطية</h3>
                 <p className="text-sm text-slate-500 mb-4">إنشاء وادارة النسخ الكاملة للمشروع (قاعدة البيانات، الملفات، الاعدادات).</p>
                 <AdminBackups />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'admin-status' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                <AdminStatus />
               </div>
             </div>
           )}

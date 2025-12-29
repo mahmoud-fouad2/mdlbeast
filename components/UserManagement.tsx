@@ -10,7 +10,7 @@ interface UserManagementProps {
   currentUserRole?: string;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, currentUserEmail }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, currentUserEmail, currentUserRole }) => {
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'member' as 'member' | 'supervisor' | 'manager' | 'admin' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);

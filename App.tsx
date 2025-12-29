@@ -14,6 +14,7 @@ import BarcodeScanner from './components/BarcodeScanner';
 import ReportGenerator from './components/ReportGenerator';
 import Login from './components/Login';
 import UserManagement from './components/UserManagement';
+import AdminStatus from './components/AdminStatus';
 import AsyncButton from './components/ui/async-button'
 import { LoadingProvider } from './components/ui/loading-context'
 
@@ -249,6 +250,7 @@ const App: React.FC = () => {
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
+          <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
         </nav>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
@@ -277,6 +279,7 @@ const App: React.FC = () => {
           {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: currentCompany?.nameAr || '', logoUrl: currentCompany?.logoUrl || ''}} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email} />}
           {activeTab === 'change-password' && <ChangePassword />}
+          {activeTab === 'admin-status' && <AdminStatus />}
           
           {activeTab === 'companies' && (
              <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">

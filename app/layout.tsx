@@ -45,8 +45,7 @@ export const viewport = {
 
 import { LoadingProvider } from "../components/ui/loading-context"
 import SessionExpiredModal from '@/components/SessionExpiredModal'
-import dynamic from 'next/dynamic'
-const AppVersionWatcher = dynamic(() => import('@/components/AppVersionWatcher'), { ssr: false })
+import ClientAppVersionWatcher from '@/components/ClientAppVersionWatcher'
 
 export default function RootLayout({
   children,
@@ -69,7 +68,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{__html: `if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'development') { console.log = function(){}; }`}} />
         <Analytics />
         {/* Version watcher runs in client to detect new deployments */}
-        <AppVersionWatcher />
+        <ClientAppVersionWatcher />
       </body>
     </html>
   )

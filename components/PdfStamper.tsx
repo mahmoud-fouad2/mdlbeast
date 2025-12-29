@@ -21,6 +21,9 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [compact, setCompact] = useState<boolean>(false)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  // determine available pages for the primary attachment (fallback to attachmentCount)
+  const pagesCount = ((doc.attachments && doc.attachments[0] && (doc.attachments[0] as any).pageCount) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 1))
+
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
     doc.barcodeId || doc.barcode
@@ -204,13 +207,13 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
             <div className="flex items-center gap-6">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">عدد صفحات المرفق</span>
-                <span className="text-2xl font-black text-slate-900 tabular-nums">{(doc.attachments && doc.attachments[0] && doc.attachments[0].pageCount) ? doc.attachments[0].pageCount : (doc.attachmentCount ?? 0)}</span>
+                <span className="text-2xl font-black text-slate-900 tabular-nums">{(doc.attachments && doc.attachments[0] && ((doc.attachments[0] as any).pageCount)) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 0)}</span>
               </div>
 
               <div className="flex flex-col">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">صفحة</label>
                 <select value={pageIndex} onChange={(e) => setPageIndex(Number(e.target.value))} className="p-3 rounded-xl border bg-white text-sm font-black">
-                  {Array.from({length: Math.max(1, ((doc.attachments && doc.attachments[0] && doc.attachments[0].pageCount) ? doc.attachments[0].pageCount : (doc.attachmentCount ?? 1)))}, (_,i)=>i).map(i => (
+                  {Array.from({ length: Math.max(1, pagesCount) }, (_, i) => i).map((i) => (
                     <option key={i} value={i}>صفحة {i+1}</option>
                   ))}
                 </select>
