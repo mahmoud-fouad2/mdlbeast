@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Lock } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -13,6 +13,8 @@ import DocumentList from "@/components/DocumentList"
 import BarcodeScanner from "@/components/BarcodeScanner"
 import ReportGenerator from "@/components/ReportGenerator"
 import UserManagement from "@/components/UserManagement"
+import ChangePassword from "@/components/ChangePassword"
+import AdminStatus from "@/components/AdminStatus"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -306,8 +308,10 @@ export default function DashboardPage() {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
+          <NavItem id="change_password" label="تغيير كلمة السر" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
+          <NavItem id="admin_status" label="حالة النظام" icon={Database} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
         </nav>
 
@@ -342,7 +346,9 @@ export default function DashboardPage() {
           {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} />}
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
+          {activeTab === "change_password" && <ChangePassword />}
           {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} />}
+          {activeTab === "admin_status" && <AdminStatus />}
           {activeTab === 'companies' && (
             <div className="space-y-8">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
