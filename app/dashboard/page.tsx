@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Lock } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -12,9 +12,10 @@ import DocumentForm from "@/components/DocumentForm"
 import DocumentList from "@/components/DocumentList"
 import BarcodeScanner from "@/components/BarcodeScanner"
 import ReportGenerator from "@/components/ReportGenerator"
+import AdminBackups from "@/components/AdminBackups"
+import AdminStatus from '@/components/AdminStatus'
 import UserManagement from "@/components/UserManagement"
-import ChangePassword from "@/components/ChangePassword"
-import AdminStatus from "@/components/AdminStatus"
+import ChangePassword from '@/components/ChangePassword'
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -75,7 +76,10 @@ export default function DashboardPage() {
 
       const docsP = withTimeout(apiClient.getDocuments(), 12_000)
       const tenantsP = withTimeout(apiClient.getTenants(), 10_000)
-      const usersP = withTimeout(apiClient.getUsers(), 10_000)
+      // Only fetch users for admins or managers to avoid 403 noise for regular users
+      const usersP = (String(user.role || '').toLowerCase() === 'admin' || String(user.role || '').toLowerCase() === 'manager')
+        ? withTimeout(apiClient.getUsers(), 10_000)
+        : Promise.resolve([])
 
       const [docsRes, tenantsRes, usersRes] = await Promise.allSettled([docsP, tenantsP, usersP])
 
@@ -211,6 +215,7 @@ export default function DashboardPage() {
         status: data.type === "INCOMING" ? "وارد" : "صادر",
         classification: data.security,
         notes: data.description,
+        statement: data.statement || null,
         attachments: data.pdfFile ? [data.pdfFile] : [],
         tenant_id: selectedTenantId,
       }
@@ -223,6 +228,7 @@ export default function DashboardPage() {
         title: savedDoc.subject,
         recipient: savedDoc.receiver,
         documentDate: savedDoc.date,
+        statement: savedDoc.statement || null,
         companyId: savedDoc.tenant_id || savedDoc.companyId || selectedTenantId,
       }
 
@@ -286,7 +292,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
-      <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print">
+      {/* Sidebar hidden on small screens - mobile users will use the top selector */}
+      <aside className="hidden md:flex w-72 bg-white border-l border-slate-200 flex-col shrink-0 z-20 shadow-sm no-print">
         <div className="p-8 border-b border-slate-100 bg-slate-50/50">
           <img src={settings.logoUrl || "/placeholder.svg"} className="h-12 w-auto mb-5 object-contain" alt="Logo" />
           <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">
@@ -308,11 +315,11 @@ export default function DashboardPage() {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
-          <NavItem id="change_password" label="تغيير كلمة السر" icon={Lock} />
+          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
-          <NavItem id="admin_status" label="حالة النظام" icon={Database} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
+          <NavItem id="admin-status" label="حالة النظام" icon={Server} adminOnly />
         </nav>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
@@ -339,57 +346,34 @@ export default function DashboardPage() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-8 lg:p-14 w-full">
-          {activeTab === "dashboard" && <Dashboard docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} />}
-          {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} />}
-          {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} />}
-          {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} onRefresh={async () => {
-            try {
-              const documents = await apiClient.getDocuments(selectedTenantId ? { tenant_id: selectedTenantId } : undefined)
-              const mappedDocs = (documents || []).map((doc: any) => {
-                const iso = doc.displayDate || doc.date || doc.documentDate || doc.created_at
-                let date = ''
-                let dateHijri = ''
-                let dateGregorian = ''
-                if (iso) {
-                  try {
-                    const dt = new Date(iso)
-                    dateHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt)
-                    dateGregorian = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(dt)
-                    date = `${dateHijri} • ${dateGregorian}`
-                  } catch(e) {
-                    date = iso ? String(iso) : ''
-                    dateHijri = date
-                    dateGregorian = date
-                  }
-                }
+        {/* Mobile top bar (visible on small screens) */}
+        <div className="md:hidden bg-white border-b border-slate-100 p-3 flex items-center gap-3">
+          <select value={activeTab} onChange={(e) => setActiveTab(e.target.value)} className="flex-1 p-2 rounded-xl border bg-white text-sm font-black">
+            <option value="dashboard">لوحة التحكم</option>
+            <option value="incoming">قيد وارد جديد</option>
+            <option value="outgoing">قيد صادر جديد</option>
+            <option value="list">الأرشيف والبحث</option>
+            <option value="scanner">تتبع الباركود</option>
+            <option value="reports">مركز التقارير</option>
+            <option value="users">إدارة المستخدمين</option>
+            <option value="change-password">تغيير كلمة المرور</option>
+            <option value="companies">إدارة المؤسسات</option>
+            <option value="backup">النسخ الاحتياطي</option>
+            <option value="admin-status">حالة النظام</option>
+          </select>
 
-                return {
-                  ...doc,
-                  id: doc.id,
-                  barcode: doc.barcode || doc.barcodeId || '' ,
-                  barcodeId: doc.barcode || doc.barcodeId || '' ,
-                  title: doc.subject || doc.title || '',
-                  subject: doc.subject || doc.title || '',
-                  sender: doc.sender || doc.from || '',
-                  receiver: doc.receiver || doc.recipient || '',
-                  recipient: doc.receiver || doc.recipient || '',
-                  documentDate: doc.date || doc.documentDate || '',
-                  date,
-                  dateHijri,
-                  dateGregorian,
-                  type: (String(doc.type || '').toLowerCase().startsWith('in') || String(doc.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
-                  companyId: doc.companyId || doc.tenant_id || null,
-                }
-              })
-              setDocs(mappedDocs)
-            } catch (e) { console.warn('Failed to refresh docs', e) }
-          }} />}
+          <button onClick={handleLogout} className="text-red-600 text-sm font-black px-3 py-2 rounded-xl bg-red-50">تسجيل خروج</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-14 max-w-7xl xl:max-w-none mx-auto w-full">
+          {activeTab === "dashboard" && <Dashboard docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} />}
+          {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} companies={tenants} />}
+          {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} companies={tenants} />}
+          {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} />}
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
-          {activeTab === "change_password" && <ChangePassword />}
-          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} />}
-          {activeTab === "admin_status" && <AdminStatus />}
+          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} currentUserRole={currentUser?.role || ''} />}
+          {activeTab === "change-password" && <ChangePassword />}
           {activeTab === 'companies' && (
             <div className="space-y-8">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
@@ -434,33 +418,27 @@ export default function DashboardPage() {
           {activeTab === 'backup' && (
             <div className="space-y-6">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
-                <h3 className="text-xl font-black mb-4">تصدير البيانات</h3>
-                <p className="text-sm text-slate-500 mb-4">يمكنك تنزيل نسخة JSON من البيانات الحالية (المستندات، المؤسسات، المستخدمين).</p>
-                <div className="flex gap-3">
-                  <div className="flex gap-3">
-                  <AsyncButton className="bg-slate-900 text-white px-6 py-3 rounded" onClickAsync={handleExport}>تحميل JSON</AsyncButton>
-
-                  <input type="file" id="importBackupFile" className="hidden" accept=".json" onChange={async (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0]
-                    if (!file) return
-                    if (!confirm('تحذير: ستستبدل البيانات المحلية الحالية. تابع؟')) return
-                    try {
-                      const text = await file.text()
-                      const svc = await import('@/services/api')
-                      const ok = await svc.ApiService.importFullBackup(text)
-                      if (ok) { alert('تم الاستعادة محلياً. سيتم إعادة تحميل الصفحة'); window.location.reload() }
-                      else alert('فشل الاستعادة')
-                    } catch (err) { console.error(err); alert('فشل الاستعادة') }
-                  }} />
-                  <button className="bg-blue-600 text-white px-6 py-3 rounded" onClick={async () => {
-                    const el = document.getElementById('importBackupFile') as HTMLInputElement | null
-                    el?.click()
-                  }}>استعادة من ملف</button>
-                </div>
-                </div>
+                <h3 className="text-xl font-black mb-4">إدارة النسخ الاحتياطية</h3>
+                <p className="text-sm text-slate-500 mb-4">إنشاء وادارة النسخ الكاملة للمشروع (قاعدة البيانات، الملفات، الاعدادات).</p>
+                <AdminBackups />
               </div>
             </div>
-          )}        </div>
+          )}
+
+          {activeTab === 'admin-status' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                <AdminStatus />
+              </div>
+            </div>
+          )}
+
+          {/* Mobile quick-create FAB */}
+          <button aria-label="إنشاء قيد جديد" onClick={() => setActiveTab('incoming')} className="md:hidden fixed bottom-6 right-4 z-40 bg-slate-900 text-white rounded-full px-4 py-3 shadow-xl font-black flex items-center gap-2">
+            <FilePlus size={18} />
+            <span className="text-sm">قيد جديد</span>
+          </button>
+        </div>
       </main>
     </div>
   )

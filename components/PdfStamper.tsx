@@ -17,11 +17,17 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [stampWidth, setStampWidth] = useState<number>(160)
+  const [compact, setCompact] = useState<boolean>(false)
+  const [pageIndex, setPageIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  // determine available pages for the primary attachment (fallback to attachmentCount)
+  const pagesCount = ((doc.attachments && doc.attachments[0] && (doc.attachments[0] as any).pageCount) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 1))
+
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
     doc.barcodeId || doc.barcode
-  }&scale=2&rotate=N&includetext=false`
+  }&scale=1.2&height=12&rotate=N&includetext=true&textsize=10`
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -60,7 +66,9 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
         y: Math.round(pos.y),
         containerWidth: Math.round(containerWidth),
         containerHeight: Math.round(containerHeight),
-        stampWidth: 180,
+        stampWidth: Math.round(stampWidth),
+        page: pageIndex,
+        compact: !!compact,
       }
 
       const api = (await import("@/lib/api-client")).apiClient
@@ -70,9 +78,9 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
       if (res && (res.previewUrl || res.url)) {
         const openUrl = res.previewUrl || res.url
         window.open(openUrl, '_blank')
-        alert('تم الدمغ وفتح نسخة العرض المدمغة — إذا لم ترى التغيّر، افتح المعاينة الموقعة أو امسح الكاش.')
+        alert('تم الختم وفتح نسخة العرض المدمجة — إذا لم ترى التغيّر، افتح المعاينة الموقعة أو امسح الكاش.')
       } else {
-        alert('تم الدمغ بنجاح — يُرجى تحديث الصفحة أو فتح المعاينة الموقعة إذا لم ترى التغيّر.')
+        alert('تم الختم بنجاح — يُرجى تحديث الصفحة أو فتح المعاينة الموقعة إذا لم ترى التغيّر.')
       }
 
       // Refresh document list to pick up updated attachments (some caches may delay immediate visibility)
@@ -81,7 +89,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
       }, 1200)
     } catch (e: any) {
       console.error('Stamp failed', e)
-      alert('فشل دمغ الملصق: ' + (e?.message || e))
+      alert('فشل ختم المستند: ' + (e?.message || e))
     } finally {
       setIsSaving(false)
       loading.hide()
@@ -97,9 +105,9 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
               <Layers size={28} />
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-900 font-heading">تطبيق ملصق الأرشفة الرقمي</h3>
+              <h3 className="text-2xl font-black text-slate-900 font-heading">تطبيق ختم المستند الرقمي</h3>
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5">
-                <MousePointer2 size={12} /> قم بسحب ملصق الباركود لوضعه في الزاوية المناسبة للمستند
+                <MousePointer2 size={12} /> قم بسحب الختم لوضعه في المكان المناسب على المستند
               </p>
             </div>
           </div>
@@ -122,7 +130,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className="w-[800px] min-h-[1131px] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl min-h-[60vh] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
           >
             {doc.pdfFile ? (
               // Use signed preview URL from server (avoid opening raw storage URL which may be private)
@@ -136,21 +144,26 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
             <div
               onMouseDown={handleMouseDown}
-              style={{ left: pos.x, top: pos.y }}
-              className={`absolute w-[180px] p-4 bg-white border-2 ${
+              style={{ left: pos.x, top: pos.y, width: stampWidth, maxWidth: 'calc(100% - 40px)' }}
+              className={`absolute p-4 bg-white border-2 ${
                 isDragging
-                  ? "border-blue-600 ring-[15px] ring-blue-500/10 scale-105 rotate-1 cursor-grabbing"
+                  ? "border-blue-600 ring-4 ring-blue-500/10 scale-105 rotate-1 cursor-grabbing"
                   : "border-slate-300 shadow-2xl"
               } cursor-grab rounded-2xl flex flex-col items-center group z-50 transition-all duration-75`}
             >
-              <div className="w-12 h-1.5 bg-slate-100 rounded-full mb-3 opacity-50"></div>
+              <div className="w-10 h-1 bg-slate-100 rounded-full mb-3 opacity-50"></div>
               <img
                 src={barcodeUrl || "/placeholder.svg"}
+                style={{ maxHeight: `${Math.round(stampWidth * 0.45)}px`, objectFit: 'contain' }}
                 className="w-full pointer-events-none select-none"
                 alt="barcode"
               />
-              <div className="text-[10px] font-black font-mono mt-2.5 text-slate-900 select-none tracking-[0.2em] uppercase">
+              <div className="text-[11px] font-extrabold font-mono mt-2.5 text-slate-900 select-none tracking-tight uppercase">
                 {doc.barcodeId || doc.barcode}
+              </div>
+
+              <div className="absolute -top-3 -left-3 w-8 h-8 bg-emerald-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white text-xs font-black">
+                {doc.attachmentCount ?? 0}
               </div>
 
               <div className="absolute -top-3 -right-3 w-7 h-7 bg-blue-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white">
@@ -184,25 +197,64 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <button
-              onClick={onClose}
-              className="px-10 py-5 rounded-[1.5rem] font-black text-lg text-slate-500 hover:bg-slate-50 transition-all"
-            >
-              إلغاء العملية
-            </button>
-            <button
-              onClick={handleFinalize}
-              disabled={isSaving}
-              className="bg-slate-900 text-white px-14 py-5 rounded-[1.5rem] font-black text-lg flex items-center gap-4 hover:bg-black transition-all shadow-2xl hover:shadow-blue-500/20 active:scale-95 disabled:opacity-50 font-heading"
-            >
-              {isSaving ? (
-                <span className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full"></span>
-              ) : (
-                <Save size={24} />
-              )}
-              دمغ وحفظ التغييرات النهائية
-            </button>
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-3">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">حجم الختم</label>
+              <input type="range" min={120} max={260} value={stampWidth} onChange={(e) => setStampWidth(Number(e.target.value))} className="w-44" />
+              <div className="text-sm font-black">{stampWidth}px</div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">عدد صفحات المرفق</span>
+                <span className="text-2xl font-black text-slate-900 tabular-nums">{(doc.attachments && doc.attachments[0] && ((doc.attachments[0] as any).pageCount)) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 0)}</span>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">صفحة</label>
+                <select value={pageIndex} onChange={(e) => setPageIndex(Number(e.target.value))} className="p-3 rounded-xl border bg-white text-sm font-black">
+                  {Array.from({ length: Math.max(1, pagesCount) }, (_, i) => i).map((i) => (
+                    <option key={i} value={i}>صفحة {i+1}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة X</label>
+                <input type="number" value={Math.round(pos.x)} onChange={(e)=> setPos({...pos, x: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة Y</label>
+                <input type="number" value={Math.round(pos.y)} onChange={(e)=> setPos({...pos, y: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">وضع ختام مدمج</label>
+                <input type="checkbox" checked={compact} onChange={(e)=> setCompact(e.target.checked)} />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={onClose}
+                className="px-10 py-5 rounded-[1.5rem] font-black text-lg text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                إلغاء العملية
+              </button>
+              <button
+                onClick={handleFinalize}
+                disabled={isSaving}
+                className="bg-slate-900 text-white px-14 py-5 rounded-[1.5rem] font-black text-lg flex items-center gap-4 hover:bg-black transition-all shadow-2xl hover:shadow-blue-500/20 active:scale-95 disabled:opacity-50 font-heading"
+              >
+                {isSaving ? (
+                  <span className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full"></span>
+                ) : (
+                  <Save size={24} />
+                )}
+                ختم وحفظ التغييرات النهائية
+              </button>
+            </div>
           </div>
         </footer>
       </div>

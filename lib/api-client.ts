@@ -331,9 +331,25 @@ class ApiClient {
     }
   }
 
-  async getPreviewUrl(barcode: string) {
-    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url`)
+  async getPreviewUrl(barcode: string, index?: number) {
+    const qp = (typeof index === 'number') ? `?idx=${encodeURIComponent(String(index))}` : ''
+    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url${qp}`)
     return res?.previewUrl || null
+  }
+
+  // Add an attachment to an existing document: uploadFile should be used first,
+  // then call this method with the uploaded file metadata. This will fetch the
+  // current document attachments and update the document with the new list.
+  async addAttachment(barcode: string, uploaded: any) {
+    // Fetch current doc to get existing attachments
+    const doc = await this.getDocumentByBarcode(barcode).catch(() => null)
+    const existing = (doc && Array.isArray(doc.attachments)) ? doc.attachments : []
+    const newAttachments = [uploaded, ...existing]
+    return this.updateDocument(barcode, { attachments: newAttachments })
+  }
+
+  async getStatement(barcode: string) {
+    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/statement`)
   }
 
   async getStatistics() {
