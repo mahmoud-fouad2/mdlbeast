@@ -72,6 +72,9 @@ app.use('/api/tenants', tenantRoutes)
 app.use('/api/snapshots', snapshotRoutes)
 // lightweight endpoint used by clients to detect deployed app version and notify users
 app.use('/api/version', versionRoutes)
+// Client-side error logging (used by the head-script to report severe errors like Illegal constructor)
+import clientLogRoutes from './routes/clientLog'
+app.use('/api/client-log', clientLogRoutes)
 
 // Uploads route (accepts PDF via multipart/form-data)
 import uploadRoutes from './routes/uploads'
