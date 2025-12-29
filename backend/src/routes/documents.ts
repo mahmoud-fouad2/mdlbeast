@@ -553,19 +553,20 @@ router.post(
       if (!barcode) {
         // Generate numeric-only barcode (new behavior). Keep direction required for status only.
         if (!direction) return res.status(400).json({ error: 'Direction (type) is required to generate barcode' })
-        const seqName = 'doc_seq'
+        // Use per-direction sequences so incoming and outgoing numbering can be managed independently
+        const seqName = (String(direction || '').toUpperCase().startsWith('IN')) ? 'doc_in_seq' : 'doc_out_seq'
         let n: number
         try {
           const seqRes = await query(`SELECT nextval('${seqName}') as n`)
           n = seqRes.rows[0].n
         } catch (seqErr: any) {
-          console.warn('Sequence missing or nextval failed for doc_seq, creating sequences:', seqErr?.message || seqErr)
+          console.warn(`Sequence missing or nextval failed for ${seqName}, attempting to create it:`, seqErr?.message || seqErr)
           try {
-            await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
+            await query(`CREATE SEQUENCE IF NOT EXISTS ${seqName} START 1`)
             const seqRes2 = await query(`SELECT nextval('${seqName}') as n`)
             n = seqRes2.rows[0].n
           } catch (seqErr2: any) {
-            console.error('Failed to create or get sequence value for doc_seq:', seqErr2)
+            console.error(`Failed to create or get sequence value for ${seqName}:`, seqErr2)
             return res.status(500).json({ error: 'Failed to generate barcode sequence' })
           }
         }
@@ -711,6 +712,19 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 
     // Prevent changing tenant via update
+
+    // If the client attempts to change the document type (incoming/outgoing), only allow admins to do so
+    try {
+      const requestedType = String(type || '').toUpperCase()
+      const existingType = String(doc.type || '').toUpperCase()
+      if (requestedType && requestedType !== existingType) {
+        const role = String((req as any).user?.role || '').toLowerCase()
+        if (role !== 'admin') {
+          return res.status(403).json({ error: 'Only administrators may change the document direction/type' })
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     const result = await query(
       `UPDATE documents 
        SET type = $1, sender = $2, receiver = $3, date = $4, subject = $5, 

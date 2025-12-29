@@ -33,6 +33,20 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
 
   useEffect(() => { setLocalDocs(docs) }, [docs])
 
+  // Listen for stamped document events and update local list entry when triggered
+  useEffect(() => {
+    const handler = async (e: any) => {
+      try {
+        const barcode = e?.detail?.barcode
+        if (!barcode) return
+        const updated = await apiClient.getDocumentByBarcode(barcode).catch(() => null)
+        if (updated) setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === barcode || d.barcodeId === barcode) ? updated : d)))
+      } catch (err) { console.warn('document:stamped handler failed', err) }
+    }
+    window.addEventListener('document:stamped', handler)
+    return () => window.removeEventListener('document:stamped', handler)
+  }, [])
+
   const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     const targetBarcode = (e.target as any)?._targetBarcode || ''
@@ -248,6 +262,24 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                         <button onClick={() => setStamperDoc(doc)} className="h-9 px-3 flex items-center gap-2 rounded-md text-[11px] font-black bg-slate-900 text-white border border-slate-900 hover:bg-black transition-all shadow"> 
                           <ScanText size={16} /> ختم المستند
                         </button>
+
+                        {currentUser && String(currentUser.role || '').toLowerCase() === 'admin' && (
+                          <button onClick={async () => {
+                            try {
+                              const choice = prompt('تغيير نوع القيد إلى (INCOMING أو OUTGOING) — أدخل INCOMING أو OUTGOING');
+                              if (!choice) return;
+                              const normalized = String(choice).toUpperCase().trim();
+                              if (!['INCOMING','OUTGOING'].includes(normalized)) { alert('قيمة غير صالحة'); return }
+                              const newStatus = normalized === 'INCOMING' ? 'وارد' : 'صادر'
+                              await (await import('@/lib/api-client')).apiClient.updateDocument(doc.barcode || doc.barcodeId, { type: normalized, status: newStatus })
+                              const updated = await (await import('@/lib/api-client')).apiClient.getDocumentByBarcode(doc.barcode || doc.barcodeId)
+                              if (updated) setLocalDocs((prev:any[]) => prev.map((d:any) => ((d.barcode === doc.barcode || d.barcodeId === doc.barcodeId) ? updated : d)))
+                              alert('تم تعديل نوع القيد')
+                            } catch (e) { console.error('Failed to change type', e); alert('فشل تعديل نوع القيد') }
+                          }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-yellow-500 text-white border border-yellow-500 hover:bg-yellow-600 transition-all text-[11px] font-black">
+                            تعديل نوع
+                          </button>
+                        )}
 
                         <button className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black" onClick={() => {
                           const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null

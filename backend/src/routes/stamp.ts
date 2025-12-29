@@ -606,9 +606,11 @@ router.post('/:barcode/stamp', async (req, res) => {
       const centerXStamp = xPdf + widthPdf / 2
 
       // Determine image display size (ensure minimum visible height)
-      const imgDisplayWidth = Math.min(widthPdf, 220)
+      // Reduce max height to keep barcode squat rather than tall
+      const imgDisplayWidth = Math.min(widthPdf, 180)
       const imgAspect = (pngImage.height || 1) / (pngImage.width || 1)
-      const imgDisplayHeight = Math.max(28, Math.min(imgDisplayWidth * imgAspect, 140))
+      const desiredHeight = imgDisplayWidth * imgAspect
+      const imgDisplayHeight = Math.max(20, Math.min(desiredHeight, 90))
 
       // Draw barcode image centered at provided x/y (use yPdf as baseline)
       const imgX = centerXStamp - imgDisplayWidth / 2

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import type { Correspondence } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 import { useLoading } from './ui/loading-context'
@@ -22,12 +22,18 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [compact] = useState<boolean>(true)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Keep a refreshed copy of the authoritative document fetched from server
+  const [docData, setDocData] = useState<Correspondence | null>(null)
+  const [docLoading, setDocLoading] = useState<boolean>(false)
+
   // determine available pages for the primary attachment (fallback to attachmentCount)
-  const pagesCount = ((doc.attachments && doc.attachments[0] && (doc.attachments[0] as any).pageCount) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 1))
+  const effectiveDoc = docData || doc
+  const pagesCount = ((effectiveDoc.attachments && effectiveDoc.attachments[0] && (effectiveDoc.attachments[0] as any).pageCount) ? (effectiveDoc.attachments[0] as any).pageCount : (effectiveDoc.attachmentCount ?? (effectiveDoc.attachments ? effectiveDoc.attachments.length : 1)))
 
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
-    doc.barcodeId || doc.barcode
+    (effectiveDoc.barcodeId || effectiveDoc.barcode)
   }&scale=1.2&height=12&rotate=N&includetext=true&textsize=10`
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -53,6 +59,25 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   } catch (e) {
     loading = { show: () => {}, hide: () => {} }
   }
+
+  // Fetch authoritative document data on open so attachment counts/page counts are accurate
+  useEffect(() => {
+    let mounted = true
+    const fetchDoc = async () => {
+      try {
+        setDocLoading(true)
+        const api = (await import('@/lib/api-client')).apiClient
+        const fresh = await api.getDocumentByBarcode(doc.barcode || doc.barcodeId)
+        if (mounted && fresh) setDocData(fresh)
+      } catch (e) {
+        // ignore, keep using provided doc
+      } finally {
+        if (mounted) setDocLoading(false)
+      }
+    }
+    fetchDoc()
+    return () => { mounted = false }
+  }, [doc.barcode, doc.barcodeId])
 
   const handleFinalize = async () => {
     setIsSaving(true)
@@ -82,13 +107,19 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
         window.open(openUrl, '_blank')
         alert('تم الختم وفتح نسخة العرض المدمجة — إذا لم ترى التغيّر، افتح المعاينة الموقعة أو امسح الكاش.')
       } else {
-        alert('تم الختم بنجاح — يُرجى تحديث الصفحة أو فتح المعاينة الموقعة إذا لم ترى التغيّر.')
+        alert('تم الختم بنجاح — المعاينة ستُحدَّث قريباً.')
       }
 
-      // Refresh document list to pick up updated attachments (some caches may delay immediate visibility)
-      setTimeout(() => {
-        window.location.reload()
-      }, 1200)
+      // Refetch the authoritative document and update local view
+      try {
+        const api = (await import('@/lib/api-client')).apiClient
+        const fresh = await api.getDocumentByBarcode(doc.barcode || doc.barcodeId)
+        if (fresh) setDocData(fresh)
+        // notify other parts of the UI (DocumentList) to refresh their local state for this barcode
+        try { window.dispatchEvent(new CustomEvent('document:stamped', { detail: { barcode: doc.barcode || doc.barcodeId } })) } catch (e) {}
+      } catch (e) {
+        // ignore
+      }
     } catch (e: any) {
       console.error('Stamp failed', e)
       alert('فشل ختم المستند: ' + (e?.message || e))
@@ -163,7 +194,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
                 <img
                   src={barcodeUrl || "/placeholder.svg"}
-                  style={{ maxHeight: Math.min(140, Math.round(stampWidth * 0.65)), objectFit: 'contain' }}
+                  style={{ maxHeight: Math.min(100, Math.round(stampWidth * 0.55)), objectFit: 'contain' }}
                   className="w-full h-auto pointer-events-none select-none"
                   alt="barcode"
                 />
@@ -186,7 +217,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
                 {/* small badges (reduced size) */}
                 <div className="absolute -top-2 -left-2 w-6 h-6 bg-emerald-600 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-[10px] font-black">
-                  {doc.attachmentCount ?? 0}
+                  {docLoading ? '…' : ( (effectiveDoc && (effectiveDoc.attachmentCount ?? (effectiveDoc.attachments ? effectiveDoc.attachments.length : 0))) || 0 )}
                 </div>
 
                 <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white">

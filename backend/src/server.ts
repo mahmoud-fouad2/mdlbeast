@@ -743,6 +743,8 @@ import backupsRouter from './routes/backups'
 app.use('/api/admin/backups', backupsRouter)
 import adminStatusRouter from './routes/adminStatus'
 app.use('/api/admin/status', adminStatusRouter)
+import adminAssetReportRouter from './routes/adminAssetReport'
+app.use('/api/admin/report-asset', adminAssetReportRouter)
 
 // Debug: list available font files on server (protected)
 app.get('/debug/list-fonts', async (req, res) => {
