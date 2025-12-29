@@ -46,6 +46,10 @@ app.use(
 )
 app.use(morgan("dev"))
 
+// Inject a small polyfill into HTML responses for /archive/* so MessageChannel/CustomEvent are defined
+import injectHtmlPolyfill from './middleware/injectHtmlPolyfill'
+app.use(injectHtmlPolyfill)
+
 // Capture logs into an in-memory buffer to show in admin UI
 import { logBuffer } from './lib/logBuffer'
 const origLog = console.log; const origWarn = console.warn; const origError = console.error; const origInfo = console.info
