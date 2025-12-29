@@ -19,11 +19,17 @@ export default function AppVersionWatcher() {
           setVersion(v)
         } else if (version && v && (v.version !== version.version || v.commit !== version.commit)) {
           // New version detected
-          toast({ title: 'تحديث جديد متاح', description: 'هناك نسخة جديدة من التطبيق. اضغط لإعادة التحميل.', action: (
-            <ToastAction asChild altText="reload">
-              <button onClick={() => window.location.reload()} className="font-black text-xs uppercase">إعادة التحميل</button>
-            </ToastAction>
-          )})
+          try {
+            toast({ title: 'تحديث جديد متاح', description: 'هناك نسخة جديدة من التطبيق. اضغط لإعادة التحميل.', action: (
+              <div>
+                <button onClick={() => window.location.reload()} className="font-black text-xs uppercase px-2 py-1 bg-slate-100 rounded">إعادة التحميل</button>
+              </div>
+            )})
+          } catch (e) {
+            // If toast rendering fails in some environments, fallback to a blocking alert so admin notices the update
+            console.warn('AppVersionWatcher: toast action failed', e)
+            try { alert('تحديث جديد متاح — أعد تحميل الصفحة') } catch (e2) { /* ignore */ }
+          }
           // Optional: auto reload after short delay
           // setTimeout(() => window.location.reload(true), 5000)
         }
