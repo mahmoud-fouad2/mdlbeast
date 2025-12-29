@@ -92,6 +92,7 @@ export interface Correspondence {
   user_id?: number;
   updated_at: Date;
   notes: string;
+  statement?: string;
 }
 
 export interface SystemSettings {

@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, FilePlus, FileMinus, Search, Scan, FileText, 
-  Users, Briefcase, LogOut, Trash2, Building2, Plus, 
+  Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
   AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check 
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, Company, User } from './types';
 import { apiClient } from './lib/api-client';
 import Dashboard from './components/Dashboard';
 import DocumentForm from './components/DocumentForm';
+import ChangePassword from './components/ChangePassword';
 import DocumentList from './components/DocumentList';
 import BarcodeScanner from './components/BarcodeScanner';
 import ReportGenerator from './components/ReportGenerator';
 import Login from './components/Login';
 import UserManagement from './components/UserManagement';
+import AdminStatus from './components/AdminStatus';
 import AsyncButton from './components/ui/async-button'
 import { LoadingProvider } from './components/ui/loading-context'
 
@@ -65,7 +67,8 @@ const App: React.FC = () => {
         description: d.description || d.notes || '',
         status: d.status || '',
         security: d.security || '',
-        priority: d.priority || '',
+        // Normalize DB priority labels to new frontend labels ('عادي' -> 'عاديه', 'عاجل' -> 'عاجله')
+        priority: (d.priority === 'عادي') ? 'عاديه' : (d.priority === 'عاجل') ? 'عاجله' : (d.priority === 'عاجل جداً' ? 'عاجل' : (d.priority || '')),
         category: d.category || '',
         physicalLocation: d.physical_location || '',
         attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
@@ -243,9 +246,11 @@ const App: React.FC = () => {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
+          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
+          <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
         </nav>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
@@ -262,17 +267,19 @@ const App: React.FC = () => {
 
       <LoadingProvider>
         <main className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl xl:max-w-none mx-auto w-full">
           {globalError && (
             <div className="mb-6 p-3 bg-red-50 text-red-700 rounded-xl font-bold">{globalError}</div>
           )}
           {activeTab === 'dashboard' && <Dashboard docs={docs} />}
-          {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} />}
-          {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} />}
+          {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} companies={companies} />}
+          {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={companies} />}
           {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: currentCompany?.nameAr, logoUrl: currentCompany?.logoUrl, orgNameEn: currentCompany?.nameEn}} currentUser={currentUser} users={users} /> }
           {activeTab === 'scanner' && <BarcodeScanner />}
           {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: currentCompany?.nameAr || '', logoUrl: currentCompany?.logoUrl || ''}} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email} />}
+          {activeTab === 'change-password' && <ChangePassword />}
+          {activeTab === 'admin-status' && <AdminStatus />}
           
           {activeTab === 'companies' && (
              <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
