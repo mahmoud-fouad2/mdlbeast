@@ -395,6 +395,8 @@ class ApiClient {
   async clearAdminLogs() {
     return this.request<any>(`/admin/status/clear`, { method: 'POST' })
   }
+
+
 }
 
 export const apiClient = new ApiClient()
