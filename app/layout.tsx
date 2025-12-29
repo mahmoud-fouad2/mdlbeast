@@ -28,24 +28,16 @@ export const metadata: Metadata = {
       {
         url: "/icon.svg",
         type: "image/svg+xml",
-      },      {
-        url: "/favicon.ico",
-        type: "image/x-icon",
-      },    ],
+      },
+    ],
     apple: "/apple-icon.png",
   },
 }
 
-// Use dedicated viewport export for Next.js app router
-export const viewport = {
-  width: 'device-width',
-  initialScale: 1,
-}
-
-
 import { LoadingProvider } from "../components/ui/loading-context"
-import SessionExpiredModal from '@/components/SessionExpiredModal'
-import ErrorBoundary from '@/components/ErrorBoundary'
+import MobileHeader from "../components/MobileHeader"
+import { SidebarProvider } from "../components/ui/sidebar"
+import ClientSetup from "../components/ClientSetup"
 
 export default function RootLayout({
   children,
@@ -54,19 +46,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
-      <head>
-        {/* Prevent aggressive caching of the HTML shell so clients revalidate frequently */}
-        <meta httpEquiv="Cache-control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
-      </head>
-      <body className={`${tajawal.className} antialiased`}>
-        <ErrorBoundary>
+      <body className={`${tajawal.className} antialiased pt-14 md:pt-0`}>
+        <SidebarProvider>
           <LoadingProvider>
-            {children}
+            <ClientSetup>
+              <MobileHeader />
+              {children}
+            </ClientSetup>
           </LoadingProvider>
-          <SessionExpiredModal />
-        </ErrorBoundary>
+        </SidebarProvider>
         <Analytics />
       </body>
     </html>
