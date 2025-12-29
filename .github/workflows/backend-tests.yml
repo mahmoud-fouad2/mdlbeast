@@ -17,9 +17,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - name: Install Dependencies
+      - name: Dump environment info (debug)
         working-directory: backend
-        run: npm ci
+        run: |
+          echo "--- System ---"
+          uname -a || true
+          echo "--- Node / NPM ---"
+          node -v || true
+          npm -v || true
+      - name: Install Dependencies (with retry)
+        working-directory: backend
+        run: |
+          set -e
+          ATTEMPTS=3
+          for i in $(seq 1 $ATTEMPTS); do
+            echo "Attempt $i: npm ci"
+            if npm ci; then
+              echo "npm ci succeeded"
+              break
+            else
+              echo "npm ci failed on attempt $i"
+              if [ "$i" -lt "$ATTEMPTS" ]; then sleep $((i*5)); fi
+            fi
+          done
       - name: Run tests
         working-directory: backend
         run: npm test --silent
