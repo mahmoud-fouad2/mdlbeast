@@ -64,7 +64,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
               className="h-14 mx-auto mb-6 object-contain grayscale"
               alt="Logo"
             />
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">بوابة الأرشفة الموحدة</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">بوابة مركز البيانات</h1>
             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Enterprise Access Hub</p>
           </header>
 
@@ -147,9 +147,26 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
             </button>
           </form>
 
-          <footer className="mt-10 text-center flex items-center justify-center gap-2 text-slate-300">
-            <ShieldCheck size={14} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">Enterprise Encrypted Session</span>
+          <footer className="mt-10 text-center">
+            <div className="flex items-center justify-center gap-2 text-slate-300 mb-6">
+              <ShieldCheck size={14} />
+              <span className="text-[9px] font-bold uppercase tracking-widest">Enterprise Encrypted Session</span>
+            </div>
+
+            <div className="space-y-4">
+              <a 
+                href="https://zaco.sa/archive/clear-cache.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 border border-slate-100 rounded-lg text-[10px] font-black hover:bg-slate-100 transition-colors"
+              >
+                تواجه مشكلة؟
+              </a>
+              
+              <p className="text-[10px] font-bold text-slate-400">
+                جميع الحقوق محفوظه زوايا البناء للإستشارات الهندسيه
+              </p>
+            </div>
           </footer>
         </div>
       </div>

@@ -99,7 +99,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
     description: "",
     statement: "",
     security: "عادي",
-    priority: "عاديه",
+    priority: "عادي",
     attachmentCount: 0,
   })
 
@@ -292,8 +292,8 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                 value={formData.priority}
                 onChange={(e) => handleSelectChange("priority", e.target.value)}
               >
-                <option value="عاديه">معالجة اعتيادية</option>
-                <option value="عاجله">معالجة عاجلة</option>
+                <option value="عادي">معالجة اعتيادية</option>
+                <option value="عاجل">معالجة عاجلة</option>
               </select>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Scan, Search, FileText, X, AlertCircle } from 'lucide-react';
+import { Scan, Search, FileText, X, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
 import AsyncButton from './ui/async-button'
 
@@ -189,7 +189,7 @@ const BarcodeScanner: React.FC = () => {
                   }`}>
                     {foundDoc.type === 'INCOMING' ? 'وارد' : 'صادر'}
                   </span>
-                  <h3 className="text-xl font-black mt-2 text-slate-900">{foundDoc.title}</h3>
+                  <h3 className="text-xl font-black mt-2 text-slate-900">{foundDoc.title || foundDoc.subject}</h3>
                 </div>
                 <div className="font-mono text-xs font-bold bg-slate-100 p-2 rounded border border-slate-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px]">
                   {foundDoc.barcode}
@@ -197,35 +197,71 @@ const BarcodeScanner: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-sm">من:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.sender || '—'}</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 rounded-xl">
+                    <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">من</span>
+                    <span className="font-bold text-slate-900 block truncate">{foundDoc.sender || '—'}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl">
+                    <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">إلى</span>
+                    <span className="font-bold text-slate-900 block truncate">{foundDoc.recipient || foundDoc.receiver || '—'}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-sm">إلى:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.recipient || '—'}</span>
+
+                <div className="p-3 bg-slate-50 rounded-xl flex justify-between items-center">
+                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">تاريخ التسجيل</span>
+                  <span className="font-bold text-slate-900 font-mono" dir="ltr">
+                    {foundDoc.date ? new Date(foundDoc.date).toLocaleDateString('en-GB') : (foundDoc.created_at ? new Date(foundDoc.created_at).toLocaleDateString('en-GB') : '—')}
+                  </span>
                 </div>
-                <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-sm">تاريخ التسجيل:</span>
-                  <span className="font-bold text-slate-800">{foundDoc.date || (foundDoc.created_at ? new Date(foundDoc.created_at).toLocaleString() : '—')}</span>
-                </div>
+
                 <div className="p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-sm block mb-1">الوصف:</span>
+                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">الوصف</span>
                   <p className="text-sm text-slate-700 leading-relaxed">{foundDoc.description || foundDoc.notes || 'لا يوجد وصف مضاف.'}</p>
                 </div>
 
-                <div className="mt-4">
-                  <h4 className="text-sm font-bold text-slate-700 mb-2">السجل الزمني</h4>
-                  <div className="space-y-2 max-h-40 overflow-auto">
+                {/* Attachments Section */}
+                <div className="p-3 bg-slate-50 rounded-xl">
+                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-2">المرفقات</span>
+                  <div className="flex flex-wrap gap-2">
+                    {(foundDoc.attachments && foundDoc.attachments.length > 0) ? (
+                      foundDoc.attachments.map((_: any, idx: number) => (
+                        <button
+                          key={idx}
+                          onClick={async () => {
+                            try {
+                              const url = await apiClient.getPreviewUrl(foundDoc.barcode, idx)
+                              if (url) window.open(url, '_blank')
+                              else alert('لا يوجد ملف لعرضه')
+                            } catch(e) { alert('فشل فتح المرفق') }
+                          }}
+                          className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all flex items-center gap-2"
+                        >
+                          <FileText size={14} />
+                          <span>مرفق {idx + 1}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 font-medium">لا توجد مرفقات</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <h4 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                    السجل الزمني
+                  </h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                     {timeline.length ? (
                       timeline.map((t, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-100">
-                          <div className="text-xs text-slate-500 font-mono">{new Date(t.created_at || t.date || t.ts || Date.now()).toLocaleString()}</div>
-                          <div className="text-sm text-slate-700">{t.message || t.note || t.action || JSON.stringify(t)}</div>
+                        <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100/50">
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">{new Date(t.created_at || t.date || t.ts || Date.now()).toLocaleDateString('en-GB')}</div>
+                          <div className="text-xs font-bold text-slate-700">{t.message || t.note || t.action || JSON.stringify(t)}</div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-3 text-sm text-slate-500">لا توجد مدخلات في السجل حتى الآن.</div>
+                      <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">لا توجد مدخلات في السجل حتى الآن.</div>
                     )}
                   </div>
 
@@ -248,14 +284,14 @@ const BarcodeScanner: React.FC = () => {
                       setTimeout(() => setStatusMessage(null), 2000);
                     }
                   }}>
-                    <input name="note" placeholder="أضف ملاحظة للسجل" className="flex-1 p-2 rounded-xl border border-slate-200" />
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-xl">إضافة</button>
+                    <input name="note" placeholder="أضف ملاحظة للسجل..." className="flex-1 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:bg-white focus:border-blue-500 transition-all" />
+                    <button className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all">إضافة</button>
                   </form>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <AsyncButton className="w-full mt-6 bg-slate-900 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2" onClickAsync={async () => {
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <AsyncButton className="col-span-2 bg-blue-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all" onClickAsync={async () => {
                   try {
                     const previewUrl = await apiClient.getPreviewUrl(foundDoc.barcode)
                     if (!previewUrl) { alert('لم يتم العثور على ملف للمعاينة'); return }
@@ -265,28 +301,44 @@ const BarcodeScanner: React.FC = () => {
                     alert('فشل فتح الملف - حاول مرة أخرى')
                   }
                 }}>
-                  <FileText size={20} /> فتح الملف الكامل
+                  <FileText size={18} /> فتح الملف الكامل
                 </AsyncButton>
 
                 {currentUserRole === 'admin' && (
-                  <button onClick={() => setEditing(true)} className="mt-6 bg-yellow-500 text-white py-4 rounded-xl font-bold flex items-center gap-2 px-4">تعديل القيد</button>
+                  <button onClick={() => setEditing(true)} className="bg-amber-100 text-amber-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-200 transition-all">
+                    <Edit3 size={18} /> تعديل القيد
+                  </button>
                 )}
 
-                <AsyncButton className="mt-6 bg-red-500 text-white py-4 rounded-xl font-bold flex items-center gap-2 px-4" onClickAsync={async () => { if (!confirm('حذف المستند؟')) return; await apiClient.deleteDocument(foundDoc.barcode); setFoundDoc(null); setTimeline([]); setStatusMessage('تم حذف المستند'); }}>
-                  حذف
+                <AsyncButton className="bg-red-50 text-red-600 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-all" onClickAsync={async () => { if (!confirm('حذف المستند؟')) return; await apiClient.deleteDocument(foundDoc.barcode); setFoundDoc(null); setTimeline([]); setStatusMessage('تم حذف المستند'); }}>
+                  <Trash2 size={18} /> حذف
                 </AsyncButton>
               </div>
 
               {editing && (
-                <div className="mt-4 p-4 bg-white border rounded-xl">
-                  <h4 className="font-bold mb-2">تعديل القيد</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select className="p-3 border rounded" value={foundDoc.type || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, type: e.target.value}))}>
-                      <option value="INCOMING">وارد</option>
-                      <option value="OUTGOING">صادر</option>
-                    </select>
-                    <input className="p-3 border rounded" value={foundDoc.sender || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, sender: e.target.value}))} placeholder="من" />
-                    <input className="p-3 border rounded" value={foundDoc.recipient || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, recipient: e.target.value}))} placeholder="إلى" />
+                <div className="mt-6 p-6 bg-slate-50 border border-slate-200 rounded-2xl animate-in zoom-in-95 duration-300">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-black text-slate-900">تعديل بيانات القيد</h4>
+                    <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">نوع القيد</label>
+                      <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.type || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, type: e.target.value}))}>
+                        <option value="INCOMING">وارد</option>
+                        <option value="OUTGOING">صادر</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">من</label>
+                        <input className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.sender || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, sender: e.target.value}))} placeholder="الجهة المرسلة" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">إلى</label>
+                        <input className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.recipient || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, recipient: e.target.value}))} placeholder="الجهة المستلمة" />
+                      </div>
+                    </div>
                     <button disabled={editPending} onClick={async () => {
                       try {
                         setEditPending(true)

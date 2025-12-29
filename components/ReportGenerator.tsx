@@ -202,85 +202,169 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-700">
-      <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-lg shadow-blue-200">
-            <FileBarChart size={32} />
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 font-heading tracking-tight">مركز التقارير</h1>
+          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-2">تصدير وطباعة تقارير الأداء والأرشفة</p>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Filters Panel */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
+                <Filter size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">تخصيص التقرير</h3>
+                <p className="text-xs font-bold text-slate-400">حدد النطاق الزمني والنوع</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mr-1">من تاريخ</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mr-1">إلى تاريخ</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mr-1">نوع المعاملات</label>
+                <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 rounded-xl">
+                  {[
+                    { id: 'ALL', label: 'الكل' },
+                    { id: 'INCOMING', label: 'وارد' },
+                    { id: 'OUTGOING', label: 'صادر' }
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setScope(opt.id as any)}
+                      className={`py-2.5 rounded-lg text-xs font-black transition-all ${
+                        scope === opt.id
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400">عدد النتائج</span>
+                <span className="text-xl font-black text-slate-900">{filteredDocs.length}</span>
+              </div>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 w-full animate-pulse"></div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 leading-tight">مركز توليد التقارير</h2>
-            <p className="text-slate-500 font-medium">قم بتحديد النطاق الزمني لاستخراج تقرير مفصل بنسخة A4</p>
+
+          {/* Quick Stats Mini Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-blue-50 p-5 rounded-3xl border border-blue-100">
+              <div className="text-blue-600 mb-2"><FileBarChart size={20} /></div>
+              <div className="text-2xl font-black text-slate-900">{stats.incoming}</div>
+              <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">وارد</div>
+            </div>
+            <div className="bg-indigo-50 p-5 rounded-3xl border border-indigo-100">
+              <div className="text-indigo-600 mb-2"><FileBarChart size={20} /></div>
+              <div className="text-2xl font-black text-slate-900">{stats.outgoing}</div>
+              <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">صادر</div>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10 p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-              <Calendar size={14} /> تاريخ البداية
-            </label>
-            <input 
-              type="date" 
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none font-bold transition-all"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-              <Calendar size={14} /> تاريخ النهاية
-            </label>
-            <input 
-              type="date" 
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none font-bold transition-all"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+        {/* Actions & Preview */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] shadow-2xl shadow-slate-900/20 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full -ml-20 -mt-20 blur-3xl"></div>
+            
+            <div className="relative z-10">
+              <h2 className="text-2xl font-black mb-2">تصدير التقرير</h2>
+              <p className="text-slate-400 text-sm font-medium mb-8 max-w-md">
+                سيتم إنشاء تقرير تفصيلي يتضمن {filteredDocs.length} معاملة للفترة من {startDate} إلى {endDate}
+              </p>
+
+              <div className="flex flex-wrap gap-4">
+                <button
+                  onClick={handlePrintReport}
+                  disabled={filteredDocs.length === 0}
+                  className="flex items-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl font-black hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/10"
+                >
+                  <Printer size={20} />
+                  <span>طباعة التقرير (PDF)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    import('../lib/barcode-service').then(m => m.exportToCSV(filteredDocs, `Report_${startDate}_${endDate}`))
+                  }}
+                  disabled={filteredDocs.length === 0}
+                  className="flex items-center gap-3 bg-slate-800 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700"
+                >
+                  <Download size={20} />
+                  <span>تصدير Excel / CSV</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">نطاق التقرير</label>
-            <select value={scope} onChange={(e) => setScope(e.target.value as any)} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold">
-              <option value="ALL">الوارد + الصادر</option>
-              <option value="INCOMING">الوارد فقط</option>
-              <option value="OUTGOING">الصادر فقط</option>
-            </select>
-          </div>
-        </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[300px]">
+            <div className="flex items-center gap-3 mb-6">
+              <Info size={20} className="text-slate-400" />
+              <h3 className="text-lg font-black text-slate-900">معاينة سريعة</h3>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm text-center">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إجمالي النتائج</p>
-            <p className="text-4xl font-black text-slate-900">{stats.total}</p>
+            {filteredDocs.length > 0 ? (
+              <div className="space-y-3">
+                {filteredDocs.slice(0, 5).map((doc, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-xs font-black text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">{doc.barcode}</span>
+                      <span className="text-sm font-bold text-slate-900 line-clamp-1">{doc.title || doc.subject}</span>
+                    </div>
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${
+                      doc.type === 'INCOMING' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                    }`}>
+                      {doc.type === 'INCOMING' ? 'وارد' : 'صادر'}
+                    </span>
+                  </div>
+                ))}
+                {filteredDocs.length > 5 && (
+                  <div className="text-center py-4 text-xs font-bold text-slate-400">
+                    + {filteredDocs.length - 5} معاملات أخرى...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                <Filter size={32} className="mb-3 opacity-20" />
+                <p className="font-bold">لا توجد بيانات للعرض</p>
+                <p className="text-xs mt-1">قم بتغيير فلاتر البحث لإظهار النتائج</p>
+              </div>
+            )}
           </div>
-          <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm text-center">
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">الوارد</p>
-            <p className="text-4xl font-black text-blue-600">{stats.incoming}</p>
-          </div>
-          <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm text-center">
-            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">الصادر</p>
-            <p className="text-4xl font-black text-indigo-600">{stats.outgoing}</p>
-          </div>
-        </div>
-
-        <div className="flex gap-4">
-          <button 
-            onClick={handlePrintReport}
-            disabled={stats.total === 0}
-            className="flex-1 bg-slate-900 hover:bg-black text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Printer size={24} /> معالجة وطباعة التقرير A4
-          </button>
-        </div>
-      </div>
-
-      <div className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 flex gap-5">
-        <div className="bg-white p-3 rounded-2xl shadow-sm h-fit text-blue-600"><Info size={24} /></div>
-        <div className="space-y-1">
-          <h4 className="font-black text-blue-900">حول التقارير الذكية</h4>
-          <p className="text-blue-800 text-sm leading-relaxed font-medium">
-            يتم استخراج البيانات مباشرة من الأرشيف الرقمي المشفر. تأكد من أن الطابعة مضبوطة على وضع <strong>Landscape</strong> إذا كانت قائمة المعاملات طويلة جداً لضمان ظهور كافة الأعمدة بوضوح.
-          </p>
         </div>
       </div>
     </div>

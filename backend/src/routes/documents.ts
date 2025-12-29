@@ -11,12 +11,14 @@ const router = express.Router()
 router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
+    const idx = parseInt(String(req.query.idx || '0'), 10)
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).json({ error: 'No attachment' })
-    const pdf = attachments[0]
+    
+    const pdf = attachments[idx] || attachments[0]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -74,12 +76,14 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
 router.get('/:barcode/preview', async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
+    const idx = parseInt(String(req.query.idx || '0'), 10)
     const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
     if (r.rows.length === 0) return res.status(404).send('Not found')
     let attachments: any = r.rows[0].attachments
     try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch (e) { attachments = Array.isArray(attachments) ? attachments : [] }
     if (!attachments || !attachments.length) return res.status(404).send('No attachment')
-    const pdf = attachments[0]
+    
+    const pdf = attachments[idx] || attachments[0]
 
     const supabaseUrl = (await import('../config/storage')).USE_R2_ONLY ? '' : process.env.SUPABASE_URL
     const supabaseKeyRaw = (await import('../config/storage')).USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -558,6 +562,12 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     const doc = existing.rows[0]
     const authReq = req as any
     const user = authReq.user
+    
+    // Strict Admin-only check for modification
+    if (user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only administrators can edit documents' })
+    }
+
     const { canAccessDocument } = await import('../lib/rbac')
     if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 
@@ -610,6 +620,12 @@ router.delete("/:barcode", async (req: Request, res: Response) => {
     const doc = existing.rows[0]
     const authReq = req as any
     const user = authReq.user
+    
+    // Strict Admin-only check for deletion
+    if (user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only administrators can delete documents' })
+    }
+
     const { canAccessDocument } = await import('../lib/rbac')
     if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 

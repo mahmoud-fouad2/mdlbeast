@@ -11,7 +11,7 @@ const router = express.Router()
 router.use(authenticateToken)
 router.use(isAdmin)
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/status', async (req: Request, res: Response) => {
   try {
     // basic health
     const uptime = process.uptime()
@@ -49,7 +49,7 @@ router.get('/', async (req: Request, res: Response) => {
 })
 
 // Clear logs (admin only)
-router.post('/clear', async (req: Request, res: Response) => {
+router.post('/status/clear', async (req: Request, res: Response) => {
   try {
     logBuffer.clear()
     res.json({ ok: true })

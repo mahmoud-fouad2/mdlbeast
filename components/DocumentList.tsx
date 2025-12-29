@@ -89,257 +89,274 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
   })
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <input id="addAttachmentInput" ref={addAttachmentInputRef} type="file" accept=".pdf" className="hidden" onChange={handleAddAttachment} />
-      {stamperDoc && <PdfStamper doc={stamperDoc} onClose={() => setStamperDoc(null)} />}
+      {stamperDoc && <PdfStamper doc={stamperDoc} settings={settings} onClose={() => setStamperDoc(null)} />}
 
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-        <div className="relative">
-          <Search className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300" size={22} />
-          <input
-            type="text"
-            placeholder="البحث بالباركود، الموضوع، أو اسم الجهة..."
-            className="w-full pr-14 pl-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-slate-900 transition-all font-bold text-sm shadow-inner"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-5 items-end">
-          <div className="space-y-2 flex-1 min-w-[200px]">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
-              <Calendar size={12} /> من تاريخ
-            </label>
-            <input
-              type="date"
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-slate-900 transition-all"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2 flex-1 min-w-[200px]">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
-              <Calendar size={12} /> إلى تاريخ
-            </label>
-            <input
-              type="date"
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-slate-900 transition-all"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-md">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+          {/* Search Input */}
+          <div className="lg:col-span-4 space-y-2">
+            <label className="text-xs font-bold text-slate-500 mr-2">بحث سريع</label>
+            <div className="relative group">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <input
+                type="text"
+                placeholder="الباركود، الموضوع، الجهة..."
+                className="w-full pr-12 pl-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2 min-w-[160px]">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
-              فلتر: وارد / صادر
-            </label>
-            <select
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
-              value={directionFilter}
-              onChange={(e) => setDirectionFilter(e.target.value as any)}
+          {/* Date Filters */}
+          <div className="lg:col-span-4 grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 mr-2 flex items-center gap-1">
+                <Calendar size={12} /> من تاريخ
+              </label>
+              <input
+                type="date"
+                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all text-slate-600"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 mr-2 flex items-center gap-1">
+                <Calendar size={12} /> إلى تاريخ
+              </label>
+              <input
+                type="date"
+                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all text-slate-600"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Type Filter */}
+          <div className="lg:col-span-2 space-y-2">
+            <label className="text-xs font-bold text-slate-500 mr-2">نوع القيد</label>
+            <div className="relative">
+              <select
+                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer text-slate-700"
+                value={directionFilter}
+                onChange={(e) => setDirectionFilter(e.target.value as any)}
+              >
+                <option value="ALL">الكل</option>
+                <option value="INCOMING">وارد</option>
+                <option value="OUTGOING">صادر</option>
+              </select>
+              <ArrowRightLeft className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="lg:col-span-2 flex gap-2">
+            <button
+              onClick={() => { setSearchTerm(""); setStartDate(""); setEndDate(""); setDirectionFilter("ALL"); }}
+              className="p-3.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 hover:text-slate-700 transition-all"
+              title="إعادة تعيين الفلاتر"
             >
-              <option value="ALL">الكل</option>
-              <option value="INCOMING">وارد</option>
-              <option value="OUTGOING">صادر</option>
-            </select>
+              <ArrowRightLeft size={20} />
+            </button>
+            <button
+              onClick={() => exportToCSV(filtered, "Registry_Report")}
+              className="flex-1 bg-slate-900 text-white px-4 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl active:scale-95"
+            >
+              <FileSpreadsheet size={18} />
+              <span>تصدير</span>
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setSearchTerm("")
-              setStartDate("")
-              setEndDate("")
-            }}
-            className="p-4 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all group"
-            title="إعادة تعيين"
-          >
-            <ArrowRightLeft size={20} className="group-active:rotate-180 transition-transform" />
-          </button>
-          <button
-            onClick={() => exportToCSV(filtered, "Registry_Report")}
-            className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2.5 shadow-xl hover:bg-black transition-all active:scale-95"
-          >
-            <FileSpreadsheet size={18} /> تصدير السجل CSV
-          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">
-                  المعرف الموحد
-                </th>
-                <th className="px-8 py-5 text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                  تفاصيل القيد المؤسسي
-                </th>
-                <th className="px-8 py-5 text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                  الأرشفة والدمغ
-                </th>
-                <th className="px-8 py-5 text-[11px] font-black text-slate-500 uppercase tracking-widest text-left">
-                  إجراءات الطباعة
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.length > 0 ? (
-                filtered.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-slate-50/80 transition-all group">
-                    <td className="px-8 py-7 text-center">
-                        <span className="font-mono text-[13px] font-black text-slate-900 bg-white border border-slate-300 px-4 py-2 rounded-xl shadow-sm tracking-wider whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px] inline-block">
-                        {doc.barcode}
-                      </span>
-                    </td>
-                    <td className="px-8 py-7">
-                      <div className="space-y-1.5">
-                        <div className="font-black text-slate-900 text-lg leading-tight font-heading">
-                          {doc.title || doc.subject}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                          <span className="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded uppercase">
-                            من: {doc.sender}
-                          </span>
-                          <span className="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded uppercase">
-                            إلى: {doc.receiver || doc.recipient}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-                            <span>📅 تاريخ:</span>
-                            <span className="font-black">{(doc.documentDate || doc.date || '').split('T')?.[0]}</span>
-                          </span>
-
-                          {/* Badge when no statement exists */}
-                          {!(doc.statement || '').trim() && (
-                            <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded uppercase">بدون بيان</span>
-                          )}
-
-                          {/* Show creator to admin/supervisor */}
-                          {(currentUser && (String(currentUser.role || '').toLowerCase() === 'admin' || String(currentUser.role || '').toLowerCase() === 'supervisor')) && (
-                            <span className="text-[10px] font-bold text-slate-500">أصدر: {(() => {
-                              // Resolve createdBy: prefer lookup via users list
-                              const cb = (doc as any).createdBy || (doc as any).created_by || (doc as any).user_id || ''
-                              if (!cb) return '—'
-                              const cbStr = String(cb)
-                              const u = (users || []).find((x: any) => String(x.id) === cbStr || String(x.username || x.email || '') === cbStr)
-                              if (u) return (u.full_name || u.name || u.username || u.email || cbStr)
-                              return cbStr
-                            })()}</span>
-                          )}
-                          <span
-                            className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                              doc.priority === "عاديه" ? "bg-slate-100 text-slate-500" : "bg-red-50 text-red-600"
-                            }`}
-                          >
-                            {doc.priority}
-                          </span>
-                        </div>
+      {/* Results List */}
+      <div className="bg-white rounded-3xl border border-slate-300 shadow-md overflow-hidden">
+        {filtered.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right border-collapse">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-300">
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-wider text-center w-48">
+                    المعرف الموحد
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-wider">
+                    تفاصيل القيد
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-wider w-64">
+                    البيانات الإضافية
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-wider text-left w-48">
+                    الإجراءات
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filtered.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-blue-50 transition-colors group">
+                    <td className="px-6 py-4 align-top">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="font-mono text-xs font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg tracking-wider whitespace-nowrap">
+                          {doc.barcode}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                          doc.type === 'INCOMING' 
+                            ? 'bg-blue-50 text-blue-600 border-blue-100' 
+                            : 'bg-purple-50 text-purple-600 border-purple-100'
+                        }`}>
+                          {doc.type === 'INCOMING' ? 'وارد' : 'صادر'}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-8 py-7">
-                      <div className="flex gap-3 items-center">
-                        <div className="text-[11px] font-black px-3 py-1 rounded bg-slate-50 border border-slate-100">مرفقات: <span className="font-extrabold mr-2">{(doc.attachments || []).length}</span></div>
+                    
+                    <td className="px-6 py-4 align-top">
+                      <div className="space-y-2">
+                        <h3 className="font-black text-slate-900 text-base leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
+                          {doc.title || doc.subject}
+                        </h3>
+                        
+                        <div className="flex flex-wrap gap-y-1 gap-x-4 text-xs text-slate-500">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-400">من:</span>
+                            <span className="font-medium text-slate-700">{doc.sender || '—'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-400">إلى:</span>
+                            <span className="font-medium text-slate-700">{doc.recipient || '—'}</span>
+                          </div>
+                        </div>
 
-                        {/* Numbered attachment buttons */}
-                        {(doc.attachments || []).length > 0 && (
-                          <div className="flex items-center gap-2">
-                            {(doc.attachments || []).map((a: any, idx: number) => (
+                        {doc.date && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-50 w-fit px-2 py-1 rounded-md">
+                            <Calendar size={12} />
+                            <span dir="ltr" className="font-mono">{new Date(doc.date).toLocaleDateString('en-GB')}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold text-slate-400">المرفقات:</span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1.5">
+                          {(doc.attachments || []).length > 0 ? (
+                            (doc.attachments || []).map((_, idx) => (
                               <button
                                 key={idx}
-                                title={`فتح المرفق ${idx + 1}`}
                                 onClick={async () => {
                                   try {
                                     const url = await apiClient.getPreviewUrl(doc.barcode, idx)
-                                    if (!url) { alert('لا يوجد ملف لعرضه'); return }
-                                    window.open(url, '_blank')
-                                  } catch (e) { console.error(e); alert('فشل فتح المرفق') }
+                                    if (url) window.open(url, '_blank')
+                                    else alert('لا يوجد ملف لعرضه')
+                                  } catch(e) { alert('فشل فتح المرفق') }
                                 }}
-                                className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-sm border border-slate-200"
+                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 text-[10px] font-black flex items-center justify-center transition-all border border-slate-200 shadow-sm"
+                                title={`عرض المرفق ${idx + 1}`}
                               >
                                 {idx + 1}
                               </button>
-                            ))}
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-300 font-bold">—</span>
+                          )}
+                          
+                          <button 
+                            className="w-7 h-7 rounded-lg bg-white border border-dashed border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 flex items-center justify-center transition-all"
+                            title="إضافة مرفق"
+                            onClick={() => {
+                              const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null
+                              if (!el) return
+                              ;(el as any)._targetBarcode = doc.barcode
+                              el.click()
+                            }}
+                          >
+                            <span className="text-lg leading-none mb-0.5">+</span>
+                          </button>
+                        </div>
+                        
+                        {doc.statement && (
+                          <div className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 px-2 py-1.5 rounded-lg leading-relaxed line-clamp-2 mt-2">
+                            {doc.statement}
                           </div>
                         )}
-
-                        {/* Action buttons - standardized size */}
-                        <button onClick={() => setStamperDoc(doc)} className="h-9 px-3 flex items-center gap-2 rounded-md text-[11px] font-black bg-slate-900 text-white border border-slate-900 hover:bg-black transition-all shadow"> 
-                          <ScanText size={16} /> ختم المستند
-                        </button>
-
-                        {currentUser && String(currentUser.role || '').toLowerCase() === 'admin' && (
-                          <button onClick={() => {
-                            setEditingDoc(doc)
-                            setEditFormData({
-                              sender: doc.sender || '',
-                              receiver: doc.receiver || '',
-                              subject: doc.subject || doc.title || '',
-                              date: (doc.documentDate || doc.date || '').split('T')[0],
-                              priority: doc.priority || 'عاديه',
-                              notes: doc.notes || '',
-                              classification: doc.security || 'عادي',
-                            })
-                          }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 transition-all text-[11px] font-black">
-                            تعديل القيد
-                          </button>
-                        )}
-
-                        <button className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black" onClick={() => {
-                          const el = document.getElementById('addAttachmentInput') as HTMLInputElement | null
-                          if (!el) return
-                          ;(el as any)._targetBarcode = doc.barcode
-                          el.click()
-                        }}>
-                          إضافة مرفق
-                        </button>
-
-                        {currentUser?.role === 'admin' && (
-                        <button onClick={async () => { if (!confirm('حذف المستند؟')) return; await (await import('@/lib/api-client')).apiClient.deleteDocument(doc.barcode); setLocalDocs((prev:any[]) => prev.filter((d:any) => d.barcode !== doc.barcode)) }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-red-500 border border-red-100 hover:bg-red-50 transition-all text-[11px] font-black">
-                          حذف
-                        </button>
-                        )}
-
-                        {/* Button to open the statement for quick reading (fetches JSON and opens inline modal). Keep PDF download accessible via long-press or secondary action. */}
-                        <button onClick={async () => {
-                          try {
-                            setStatementLoading(true)
-                            const res = await apiClient.getStatement(doc.barcode)
-                            setStatementText(res?.statement || '')
-                            setStatementOpenDoc(doc)
-                          } catch (e:any) {
-                            console.error('Fetch statement failed', e)
-                            alert('فشل جلب البيان: ' + (e?.message || JSON.stringify(e)))
-                          } finally { setStatementLoading(false) }
-                        }} className="h-9 px-3 flex items-center gap-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all text-[11px] font-black">
-                          <FileText size={16} /> عرض ملخص
-                          {statementLoading && <span className="ml-1 text-xs text-slate-400">...</span>}
-                        </button>
-
                       </div>
                     </td>
-                    <td className="px-8 py-7">
-                      <div className="flex justify-end gap-3">
-                        <BarcodePrinter doc={doc} settings={settings} />
-                        <OfficialReceipt doc={doc} settings={settings} />
+
+                    <td className="px-6 py-4 align-middle">
+                      <div className="flex flex-col gap-3 items-end">
+                        <button
+                          onClick={() => setStamperDoc(doc)}
+                          className="w-7 h-7 rounded-lg bg-slate-900 text-white hover:bg-black flex items-center justify-center transition-all shadow-md hover:shadow-lg active:scale-95"
+                          title="ختم المستند"
+                        >
+                          <ScanText size={14} />
+                        </button>
+
+                        <div className="flex items-center gap-1 opacity-100 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity">
+                          <BarcodePrinter doc={doc} settings={settings} />
+                          <OfficialReceipt doc={doc} settings={settings} />
+
+                          {currentUser?.role === 'admin' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingDoc(doc)
+                                  setEditFormData({
+                                    subject: doc.subject || doc.title,
+                                    sender: doc.sender,
+                                    recipient: doc.recipient || doc.receiver,
+                                    type: doc.type,
+                                    date: doc.date
+                                  })
+                                }}
+                                className="p-2 bg-blue-50 border border-blue-100 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                title="تعديل"
+                              >
+                                <FileText size={16} />
+                              </button>
+
+                              <AsyncButton
+                                className="p-2 bg-red-50 border border-red-100 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                                onClickAsync={async () => {
+                                  if (!confirm('هل أنت متأكد من حذف هذا المستند؟')) return
+                                  await apiClient.deleteDocument(doc.barcode)
+                                  setLocalDocs(prev => prev.filter(d => d.barcode !== doc.barcode))
+                                }}
+                              >
+                                <AlertCircle size={16} />
+                              </AsyncButton>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="py-24 text-center">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-5 text-slate-200">
-                      <Search size={40} />
-                    </div>
-                    <p className="text-2xl font-black text-slate-300 font-heading">لم يتم العثور على نتائج مطابقة</p>
-                    <p className="text-slate-400 text-sm mt-1">
-                      تأكد من كتابة الرقم بشكل صحيح أو تغيير نطاق البحث التاريخي
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <Search size={32} className="opacity-20" />
+            </div>
+            <p className="font-bold text-lg text-slate-600">لا توجد نتائج</p>
+            <p className="text-sm">جرب تغيير معايير البحث أو الفلاتر</p>
+            <button 
+              onClick={() => { setSearchTerm(""); setStartDate(""); setEndDate(""); setDirectionFilter("ALL"); }}
+              className="mt-4 text-blue-600 text-sm font-bold hover:underline"
+            >
+              إعادة تعيين الفلاتر
+            </button>
+          </div>
+        )}
       </div>
       <StatementModal open={Boolean(statementOpenDoc)} onClose={() => { setStatementOpenDoc(null); setStatementText('') }} statement={statementText} />
       

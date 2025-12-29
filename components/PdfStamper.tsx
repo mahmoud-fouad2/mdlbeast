@@ -3,31 +3,29 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import type { Correspondence } from "@/types"
+import type { Correspondence, SystemSettings } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 import { useLoading } from './ui/loading-context'
 import SignedPdfPreview from './SignedPdfPreview'
 
 interface PdfStamperProps {
   doc: Correspondence
+  settings?: SystemSettings
   onClose: () => void
 }
 
-export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
+export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) {
   const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [stampWidth, setStampWidth] = useState<number>(160)
-  const [compact, setCompact] = useState<boolean>(false)
+  const [stampWidth, setStampWidth] = useState<number>(200)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
-  // determine available pages for the primary attachment (fallback to attachmentCount)
+  
   const pagesCount = ((doc.attachments && doc.attachments[0] && (doc.attachments[0] as any).pageCount) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 1))
 
-
-  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${
-    doc.barcode
-  }&scale=1.2&height=12&rotate=N&includetext=true&textsize=10`
+  // Cleaner barcode URL - text rendered manually
+  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${doc.barcode}&scale=2&rotate=N&includetext=false`
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -38,7 +36,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
     if (!isDragging || !containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
 
-    const newX = Math.max(0, Math.min(e.clientX - rect.left - 85, rect.width - 170))
+    const newX = Math.max(0, Math.min(e.clientX - rect.left - (stampWidth/2), rect.width - stampWidth))
     const newY = Math.max(0, Math.min(e.clientY - rect.top - 40, rect.height - 80))
 
     setPos({ x: newX, y: newY })
@@ -68,25 +66,22 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
         containerHeight: Math.round(containerHeight),
         stampWidth: Math.round(stampWidth),
         page: pageIndex,
-        compact: !!compact,
+        compact: false,
       }
 
       const api = (await import("@/lib/api-client")).apiClient
       const res = await api.stampDocument(doc.barcode, payload)
 
-      // If server supplied a previewUrl (signed or cache-busted), open it immediately
       if (res && (res.previewUrl || res.url)) {
         const openUrl = res.previewUrl || res.url
-        window.open(openUrl, '_blank')
-        alert('تم الختم وفتح نسخة العرض المدمجة — إذا لم ترى التغيّر، افتح المعاينة الموقعة أو امسح الكاش.')
-      } else {
-        alert('تم الختم بنجاح — يُرجى تحديث الصفحة أو فتح المعاينة الموقعة إذا لم ترى التغيّر.')
+        // window.open(openUrl, '_blank') // Optional: auto-open
       }
 
-      // Refresh document list to pick up updated attachments (some caches may delay immediate visibility)
-      setTimeout(() => {
-        window.location.reload()
-      }, 1200)
+      // Dispatch event to update list without reload
+      window.dispatchEvent(new CustomEvent('document:stamped', { detail: { barcode: doc.barcode } }))
+      
+      alert('تم ختم المستند بنجاح')
+      onClose()
     } catch (e: any) {
       console.error('Stamp failed', e)
       alert('فشل ختم المستند: ' + (e?.message || e))
@@ -133,7 +128,6 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
             className="w-full max-w-4xl min-h-[60vh] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
           >
             {doc.pdfFile ? (
-              // Use signed preview URL from server (avoid opening raw storage URL which may be private)
               <SignedPdfPreview barcode={doc.barcode} fallbackUrl={doc.pdfFile.url} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-slate-300 flex flex-col gap-4">
@@ -142,32 +136,42 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
               </div>
             )}
 
+            {/* Professional Stamp Design */}
             <div
               onMouseDown={handleMouseDown}
-              style={{ left: pos.x, top: pos.y, width: stampWidth, maxWidth: 'calc(100% - 40px)' }}
-              className={`absolute p-4 bg-white border-2 ${
+              style={{ left: pos.x, top: pos.y, width: stampWidth }}
+              className={`absolute bg-white border-2 ${
                 isDragging
-                  ? "border-blue-600 ring-4 ring-blue-500/10 scale-105 rotate-1 cursor-grabbing"
-                  : "border-slate-300 shadow-2xl"
-              } cursor-grab rounded-2xl flex flex-col items-center group z-50 transition-all duration-75`}
+                  ? "border-blue-600 ring-4 ring-blue-500/10 scale-105 rotate-1 cursor-grabbing shadow-2xl"
+                  : "border-slate-900 shadow-lg"
+              } cursor-grab rounded-lg flex flex-col items-center justify-center p-3 z-50 transition-all duration-75 select-none`}
             >
-              <div className="w-10 h-1 bg-slate-100 rounded-full mb-3 opacity-50"></div>
+              {/* Header */}
+              <div className="text-[10px] font-bold text-slate-900 mb-2 text-center leading-tight w-full border-b border-slate-100 pb-2">
+                {settings?.orgName || "نظام الأرشفة الإلكتروني"}
+              </div>
+
+              {/* Barcode */}
               <img
-                src={barcodeUrl || "/placeholder.svg"}
-                style={{ maxHeight: `${Math.round(stampWidth * 0.45)}px`, objectFit: 'contain' }}
-                className="w-full pointer-events-none select-none"
+                src={barcodeUrl}
+                style={{ height: '40px', objectFit: 'contain' }}
+                className="w-full pointer-events-none select-none mix-blend-multiply"
                 alt="barcode"
               />
-              <div className="text-[11px] font-extrabold font-mono mt-2.5 text-slate-900 select-none tracking-tight uppercase">
+
+              {/* Footer */}
+              <div className="text-[12px] font-black font-mono mt-2 text-slate-900 tracking-widest">
                 {doc.barcode}
               </div>
-
-              <div className="absolute -top-3 -left-3 w-8 h-8 bg-emerald-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white text-xs font-black">
-                {doc.attachmentCount ?? 0}
+              
+              <div className="w-full flex justify-between items-center mt-2 pt-2 border-t border-slate-100 text-[8px] text-slate-500 font-medium">
+                 <span>{new Date().toLocaleDateString('en-GB')}</span>
+                 <span>{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
 
-              <div className="absolute -top-3 -right-3 w-7 h-7 bg-blue-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white">
-                <Scan size={12} />
+              {/* Drag Handle Indicator */}
+              <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white">
+                <Scan size={10} />
               </div>
             </div>
 
@@ -177,82 +181,57 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
         <footer className="p-8 bg-white border-t border-slate-100 flex justify-between items-center px-12">
           <div className="flex gap-14">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                الإحداثي السيني (X)
-              </span>
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
-                {Math.round(pos.x)}
-                <span className="text-xs text-slate-300 ml-1">PX</span>
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                الإحداثي الصادي (Y)
-              </span>
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
-                {Math.round(pos.y)}
-                <span className="text-xs text-slate-300 ml-1">PX</span>
-              </span>
-            </div>
+             <div className="flex items-center gap-4 text-slate-400 text-xs font-bold">
+                <span>X: {Math.round(pos.x)}</span>
+                <span>Y: {Math.round(pos.y)}</span>
+             </div>
           </div>
 
           <div className="flex gap-4 items-center">
-            <div className="flex items-center gap-3">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">حجم الختم</label>
-              <input type="range" min={120} max={260} value={stampWidth} onChange={(e) => setStampWidth(Number(e.target.value))} className="w-44" />
-              <div className="text-sm font-black">{stampWidth}px</div>
-            </div>
-
             <div className="flex items-center gap-6">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">عدد صفحات المرفق</span>
-                <span className="text-2xl font-black text-slate-900 tabular-nums">{(doc.attachments && doc.attachments[0] && ((doc.attachments[0] as any).pageCount)) ? (doc.attachments[0] as any).pageCount : (doc.attachmentCount ?? 0)}</span>
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight">حجم الختم</label>
+                <input 
+                  type="range" 
+                  min={150} 
+                  max={400} 
+                  step={10}
+                  value={stampWidth} 
+                  onChange={(e) => setStampWidth(Number(e.target.value))} 
+                  className="w-32 accent-slate-900" 
+                />
               </div>
 
               <div className="flex flex-col">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">صفحة</label>
-                <select value={pageIndex} onChange={(e) => setPageIndex(Number(e.target.value))} className="p-3 rounded-xl border bg-white text-sm font-black">
+                <select value={pageIndex} onChange={(e) => setPageIndex(Number(e.target.value))} className="p-2.5 rounded-xl border bg-white text-sm font-black outline-none focus:ring-2 focus:ring-blue-500/20">
                   {Array.from({ length: Math.max(1, pagesCount) }, (_, i) => i).map((i) => (
                     <option key={i} value={i}>صفحة {i+1}</option>
                   ))}
                 </select>
               </div>
-
-              <div className="flex flex-col">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة X</label>
-                <input type="number" value={Math.round(pos.x)} onChange={(e)=> setPos({...pos, x: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
-              </div>
-
-              <div className="flex flex-col">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة Y</label>
-                <input type="number" value={Math.round(pos.y)} onChange={(e)=> setPos({...pos, y: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">وضع ختام مدمج</label>
-                <input type="checkbox" checked={compact} onChange={(e)=> setCompact(e.target.checked)} />
-              </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="h-10 w-px bg-slate-200 mx-2"></div>
+
+            <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-10 py-5 rounded-[1.5rem] font-black text-lg text-slate-500 hover:bg-slate-50 transition-all"
+                className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all"
               >
-                إلغاء العملية
+                إلغاء
               </button>
               <button
                 onClick={handleFinalize}
                 disabled={isSaving}
-                className="bg-slate-900 text-white px-14 py-5 rounded-[1.5rem] font-black text-lg flex items-center gap-4 hover:bg-black transition-all shadow-2xl hover:shadow-blue-500/20 active:scale-95 disabled:opacity-50 font-heading"
+                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
               >
                 {isSaving ? (
-                  <span className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full"></span>
+                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
                 ) : (
-                  <Save size={24} />
+                  <Save size={16} />
                 )}
-                ختم وحفظ التغييرات النهائية
+                ختم وحفظ
               </button>
             </div>
           </div>
