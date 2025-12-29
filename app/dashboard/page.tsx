@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server, Lock } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -15,6 +15,7 @@ import ReportGenerator from "@/components/ReportGenerator"
 import AdminBackups from "@/components/AdminBackups"
 import AdminStatus from '@/components/AdminStatus'
 import UserManagement from "@/components/UserManagement"
+import ChangePassword from "@/components/ChangePassword"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -311,6 +312,7 @@ export default function DashboardPage() {
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
+          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
           <NavItem id="admin-status" label="حالة النظام" icon={Server} adminOnly />
@@ -347,7 +349,8 @@ export default function DashboardPage() {
           {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} />}
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
-          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} />}
+          {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} currentUserRole={currentUser?.role || ''} />}
+          {activeTab === "change-password" && <ChangePassword />}
 
           {activeTab === 'companies' && (
             <div className="space-y-8">

@@ -13,7 +13,11 @@ router.use(authenticateToken)
 router.post('/:barcode/stamp', async (req, res) => {
   try {
     const { barcode } = req.params
-    const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0 } = req.body || {}
+    // Accept coordinates with higher precision (floats) and coerce safely
+    const { x: xRaw = 20, y: yRaw = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0 } = req.body || {}
+    const x = parseFloat(String(xRaw))
+    const y = parseFloat(String(yRaw))
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: 'invalid_coordinates' })
 
     const d = await query('SELECT * FROM documents WHERE barcode = $1 LIMIT 1', [barcode])
     if (d.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
@@ -437,7 +441,7 @@ router.post('/:barcode/stamp', async (req, res) => {
 
     const companyName = repairArabicEncoding(rawCompany)
 
-    // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues)
+    // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues). Use a strict default including 'Consultancy'.
     let companyNameEnglish = ''
     try {
       // first prefer explicit English fields if present
@@ -451,12 +455,11 @@ router.post('/:barcode/stamp', async (req, res) => {
           // ignore
         }
       }
-      // fallback to configured org name or a sensible default
-      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
-      // match user's preference for lowercase/relaxed styling
-      companyNameEnglish = String(companyNameEnglish).toLowerCase()
+      // fallback to configured org name or an explicit default that includes CONSULTANCY
+      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
+      companyNameEnglish = String(companyNameEnglish).trim()
     } catch (e) {
-      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
+      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
     }
 
     // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
@@ -540,9 +543,10 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayBarcodeLatin = String(barcode || '')
 
     // Force English company name (avoid Arabic font issues) and ensure CONSULTANCY suffix
-    let displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zawaya Albina Engineering Consultancy')
+    let displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING CONSULTANCY').trim()
     if (!/consultancy/i.test(displayCompanyText)) displayCompanyText = `${displayCompanyText} Consultancy`
     displayCompanyText = displayCompanyText.toUpperCase()
+    if (!displayCompanyText) displayCompanyText = 'ZAWAYA ALBINA ENGINEERING CONSULTANCY'
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
     let docTypeText = ''
@@ -556,7 +560,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // }
 
     // sizes (make company name slightly smaller per UX request)
-    const companySize = 9
+    const companySize = 7
     const typeSize = 10
     const barcodeSize2 = 9
     const dateSize2 = 9

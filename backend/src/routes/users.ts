@@ -53,8 +53,8 @@ router.put('/:id', isManager, async (req: AuthRequest, res: Response) => {
     const { id } = req.params
     const { full_name, role, password, email } = req.body
 
-    // Only admins may change email addresses
-    if (typeof email !== 'undefined' && req.user?.role !== 'admin') {
+    // Only admins may change email addresses (case-insensitive check)
+    if (typeof email !== 'undefined' && String(req.user?.role || '').toLowerCase() !== 'admin') {
       return res.status(403).json({ error: 'Admin access required to change email' })
     }
 

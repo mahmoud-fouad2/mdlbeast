@@ -18,7 +18,8 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [stampWidth, setStampWidth] = useState<number>(160)
-  const [compact, setCompact] = useState<boolean>(false)
+  // Integrated compact stamp by default (no explicit UI toggle)
+  const [compact] = useState<boolean>(true)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
   // determine available pages for the primary attachment (fallback to attachmentCount)
@@ -62,8 +63,9 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
       const containerWidth = rect?.width || 800
       const containerHeight = rect?.height || 1131
       const payload = {
-        x: Math.round(pos.x),
-        y: Math.round(pos.y),
+        // send coordinates with higher precision (no UI added for editing)
+        x: Number(pos.x.toFixed(2)),
+        y: Number(pos.y.toFixed(2)),
         containerWidth: Math.round(containerWidth),
         containerHeight: Math.round(containerHeight),
         stampWidth: Math.round(stampWidth),
@@ -176,26 +178,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
         </div>
 
         <footer className="p-8 bg-white border-t border-slate-100 flex justify-between items-center px-12">
-          <div className="flex gap-14">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                الإحداثي السيني (X)
-              </span>
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
-                {Math.round(pos.x)}
-                <span className="text-xs text-slate-300 ml-1">PX</span>
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                الإحداثي الصادي (Y)
-              </span>
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
-                {Math.round(pos.y)}
-                <span className="text-xs text-slate-300 ml-1">PX</span>
-              </span>
-            </div>
-          </div>
+
 
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-3">
@@ -219,20 +202,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
                 </select>
               </div>
 
-              <div className="flex flex-col">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة X</label>
-                <input type="number" value={Math.round(pos.x)} onChange={(e)=> setPos({...pos, x: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
-              </div>
 
-              <div className="flex flex-col">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">دقة Y</label>
-                <input type="number" value={Math.round(pos.y)} onChange={(e)=> setPos({...pos, y: Number(e.target.value)})} className="p-2 rounded-xl border w-20" />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-tight mr-1">وضع ختام مدمج</label>
-                <input type="checkbox" checked={compact} onChange={(e)=> setCompact(e.target.checked)} />
-              </div>
             </div>
 
             <div className="flex gap-4">

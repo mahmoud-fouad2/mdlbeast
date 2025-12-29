@@ -15,10 +15,12 @@ export default function injectHtmlPolyfill(req: Request, res: Response, next: Ne
         // Insert polyfill right after opening <head> tag
         body = body.replace(/<head(.*?)>/i, match => match + polyfillScript)
 
-        // Also remove known problematic chunk references (hotfix):
-        // This avoids loading the minified chunk that is causing runtime crashes in affected clients.
+        // NOTE: previously we removed a specific chunk (249261e921aeebba.js) as an emergency hotfix.
+        // Removing that strip so we don't mask the root cause; instead log occurrences so we can diagnose in production.
         try {
-          body = body.replace(new RegExp(`<script[^>]*src=["'][^"']*249261e921aeebba\\.js(?:\\?[^"']*)?["'][^>]*>\\s*<\\/script>`, 'gi'), `<!-- removed problematic chunk 249261e921aeebba.js -->`)
+          if (/<script[^>]*src=["'][^"']*249261e921aeebba\\.js(?:\\?[^"']*)?["'][^>]*>/i.test(body)) {
+            try { console.warn('[injectHtmlPolyfill] detected reference to problematic chunk 249261e921aeebba.js for', req.path) } catch(e) {}
+          }
         } catch (e) {
           // ignore
         }
