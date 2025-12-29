@@ -44,28 +44,8 @@ app.use(
   }),
 )
 app.use(morgan("dev"))
-
-// Inject a small polyfill into HTML responses for /archive/* so MessageChannel/CustomEvent are defined
-import injectHtmlPolyfill from './middleware/injectHtmlPolyfill'
-import blockHtmlJsResponses from './middleware/blockHtmlJsResponses'
-app.use(injectHtmlPolyfill)
-// Prevent HTML pages being returned for .js requests (causes "Unexpected token '<'" etc.)
-app.use(blockHtmlJsResponses)
-
-// Capture logs into an in-memory buffer to show in admin UI
-import { logBuffer } from './lib/logBuffer'
-const origLog = console.log; const origWarn = console.warn; const origError = console.error; const origInfo = console.info
-console.log = (...args: any[]) => { try { logBuffer.push('log', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')) } catch(e){}; origLog.apply(console, args) }
-console.warn = (...args: any[]) => { try { logBuffer.push('warn', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')) } catch(e){}; origWarn.apply(console, args) }
-console.error = (...args: any[]) => { try { logBuffer.push('error', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')) } catch(e){}; origError.apply(console, args) }
-console.info = (...args: any[]) => { try { logBuffer.push('info', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')) } catch(e){}; origInfo.apply(console, args) }
-
-import cookieParser from 'cookie-parser'
-
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-// cookie parser for refresh token cookies
-app.use(cookieParser())
 
 // Mount API routes
 app.use('/api/auth', authRoutes)
@@ -89,6 +69,10 @@ app.use('/uploads', express.static(uploadsDirStartup))
 
 // Stamp endpoint
 app.use('/api/documents', stampRoutes)
+
+// Admin status & logs (admin-only)
+import adminStatusRoutes from './routes/adminStatus'
+app.use('/admin/status', adminStatusRoutes)
 
 // Serve a small wp-emoji loader stub to avoid JS parse errors when clients request /wp-includes/js/wp-emoji-loader.min.js
 app.get('/wp-includes/js/wp-emoji-loader.min.js', (_req, res) => {
@@ -621,7 +605,7 @@ async function runAllowedMigrationsOnStartup() {
   try {
     if (String(process.env.AUTO_RUN_MIGRATIONS || '').toLowerCase() !== 'true') return
 
-    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "09_create_doc_seq.sql", "11_add_statement_column.sql", "12_create_backups_table.sql"]
+    const allowed = ["01_create_tables.sql", "02_seed_data.sql", "03_create_modules_tables.sql", "04_seed_modules.sql", "05_create_indexes.sql", "06_add_documents_tenant.sql", "07_create_sequences.sql", "09_create_doc_seq.sql"]
 
     const fs = await import('fs')
     const path = await import('path')
@@ -696,10 +680,6 @@ async function runAllowedMigrationsOnStartup() {
 // Kick off startup migration runner (non-blocking)
 runAllowedMigrationsOnStartup().catch(err => console.error('Startup migrations error:', err))
 
-// Start backup scheduler (if enabled)
-import { startBackupScheduler } from './lib/backup-scheduler'
-startBackupScheduler()
-
 // Debug: stream a pg_dump of the database for backup (protected)
 app.get("/debug/backup-db", async (req, res) => {
   const { allowDebugAccess } = await import('./config/validateEnv')
@@ -736,15 +716,6 @@ app.get("/debug/backup-db", async (req, res) => {
     res.status(500).json({ error: err.message || String(err) })
   }
 })
-
-// Admin backups endpoints (protected)
-import backupsRouter from './routes/backups'
-// mount under /api to match client API_BASE_URL
-app.use('/api/admin/backups', backupsRouter)
-import adminStatusRouter from './routes/adminStatus'
-app.use('/api/admin/status', adminStatusRouter)
-import adminAssetReportRouter from './routes/adminAssetReport'
-app.use('/api/admin/report-asset', adminAssetReportRouter)
 
 // Debug: list available font files on server (protected)
 app.get('/debug/list-fonts', async (req, res) => {

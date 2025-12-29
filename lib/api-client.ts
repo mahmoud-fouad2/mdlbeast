@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://zaco-backend.onrender.com/api"
 
 interface ApiResponse<T> {
   data?: T
@@ -15,20 +15,7 @@ class ApiClient {
   }
 
   setToken(token: string) {
-    // Defensive: strip accidental leading "Bearer " so we don't store "Bearer Bearer ..."
-    if (typeof token === 'string' && token.startsWith('Bearer ')) token = token.slice(7)
-
-    // Basic JWT format check (three dot-separated base64url segments). If malformed, don't store.
-    const jwtLike = typeof token === 'string' && /^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$/.test(token)
-    if (!jwtLike) {
-      console.warn('Attempted to set malformed auth token; rejecting and clearing.')
-      this.clearToken()
-      return
-    }
-
     this.token = token
-    // Reset any session-block that may have been set after an invalid token
-    this.sessionBlocked = false
     if (typeof window !== "undefined") {
       localStorage.setItem("auth_token", token)
     }
@@ -36,35 +23,8 @@ class ApiClient {
 
   clearToken() {
     this.token = null
-    // Prevent further authenticated requests until user signs in again
-    this.sessionBlocked = true
     if (typeof window !== "undefined") {
       localStorage.removeItem("auth_token")
-    }
-  }
-
-  private sessionExpiredListeners: Array<() => void> = []
-  // When an invalid_token is detected, we set this flag to avoid repeatedly sending failing requests
-  private sessionBlocked = false
-
-  onSessionExpired(cb: () => void) {
-    this.sessionExpiredListeners.push(cb)
-  }
-
-  private emitSessionExpired() {
-    for (const cb of this.sessionExpiredListeners) cb()
-  }
-
-  private async refresh(): Promise<boolean> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'include' })
-      if (!res.ok) return false
-      const body = await res.json().catch(() => null)
-      if (!body || !body.token) return false
-      this.setToken(body.token)
-      return true
-    } catch (e) {
-      return false
     }
   }
 
@@ -77,23 +37,6 @@ class ApiClient {
     if (this.token) {
       (headers as any)["Authorization"] = `Bearer ${this.token}`
     }
-
-    // If we've already detected an invalid session, short-circuit and avoid hammering the API
-    if (this.sessionBlocked && !endpoint.startsWith('/auth')) {
-      console.warn('Blocked API request due to invalid session:', endpoint)
-      throw new Error('Session expired')
-    }
-
-    // For GET requests to documents/barcodes, ensure we bypass browser/CDN caches to reduce stale results for managers/supervisors
-    try {
-      const method = (typeof options.method === 'string' ? options.method : 'GET').toUpperCase()
-      if (method === 'GET' && (endpoint.startsWith('/documents') || endpoint.startsWith('/barcodes'))) {
-        const h = headers as Record<string, string>
-        h['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        h['Pragma'] = 'no-cache'
-        options = { ...options, cache: 'no-store' }
-      }
-    } catch (e) { /* ignore */ }
 
     // Timeout & abort support
     const controller = new AbortController()
@@ -132,42 +75,6 @@ class ApiClient {
         }
       }
 
-      // If token expired, attempt a single refresh and retry
-      const isTokenExpired = errorObj && (errorObj.error === 'token_expired' || String(errorObj?.message || '').toLowerCase().includes('token_expired'))
-      if (isTokenExpired && !(options as any)._retry) {
-        const refreshed = await this.refresh()
-        if (refreshed) {
-          ;(options as any)._retry = true
-          // retry original request with new token
-          if (this.token) (headers as any)["Authorization"] = `Bearer ${this.token}`
-          try {
-            const retryRes = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers })
-            if (!retryRes.ok) {
-              let errBody = null
-              try { errBody = await retryRes.json() } catch (e) { errBody = await retryRes.text().catch(() => null) }
-              throw new Error(errBody?.error || errBody?.message || String(errBody))
-            }
-            return retryRes.json()
-          } catch (e) {
-            this.clearToken()
-            this.emitSessionExpired()
-            throw e
-          }
-        }
-
-        // refresh failed
-        this.clearToken()
-        this.emitSessionExpired()
-        throw new Error('Session expired')
-      }
-
-      // If token is invalid (signature/malformed) clear it, block future requests, and notify listeners so UI can force login
-      if (response.status === 401 && (errorObj?.error === 'invalid_token' || errorObj?.error === 'invalid_or_expired_token')) {
-        this.clearToken()
-        this.emitSessionExpired()
-        throw new Error('Invalid session')
-      }
-
       // Build a friendly message from common error shapes
       let message = 'Request failed'
       if (errorObj) {
@@ -190,14 +97,11 @@ class ApiClient {
 
   // Auth
   async login(username: string, password: string) {
-    // send credentials include so server can set HttpOnly refresh cookie
-    const res = await fetch(`${API_BASE_URL}/auth/login`, { method: 'POST', body: JSON.stringify({ username, password }), headers: { 'Content-Type': 'application/json' }, credentials: 'include' })
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw new Error(body?.error || body?.message || 'Login failed')
-    }
-    const data = await res.json()
-    if (data?.token) this.setToken(data.token)
+    const data = await this.request<{ token: string; user: any }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    })
+    this.setToken(data.token)
     return data
   }
 
@@ -219,21 +123,10 @@ class ApiClient {
     return this.request<any>(`/documents/${barcode}`)
   }
 
-  async getStatement(barcode: string) {
-    return this.request<{ statement: string }>(`/documents/${encodeURIComponent(barcode)}/statement`)
-  }
-
   async createDocument(document: any) {
     return this.request<any>("/documents", {
       method: "POST",
       body: JSON.stringify(document),
-    })
-  }
-
-  async addAttachment(barcode: string, attachment: any) {
-    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/attachments`, {
-      method: 'POST',
-      body: JSON.stringify({ attachment }),
     })
   }
 
@@ -259,30 +152,13 @@ class ApiClient {
     const headers: any = { 'Content-Type': 'application/json' }
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`
     try {
-      let res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(barcode)}/stamp`, { method: 'POST', body: JSON.stringify(payload), headers, signal: controller.signal })
+      const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(barcode)}/stamp`, { method: 'POST', body: JSON.stringify(payload), headers, signal: controller.signal })
       if (!res.ok) {
         let body: any = null
         try { body = await res.json() } catch (e) { body = await res.text().catch(() => null) }
-        // handle token expiry: attempt refresh once
-        if (res.status === 401 && body?.error === 'token_expired') {
-          const refreshed = await this.refresh()
-          if (refreshed) {
-            if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-            res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(barcode)}/stamp`, { method: 'POST', body: JSON.stringify(payload), headers, signal: controller.signal })
-          } else {
-            this.clearToken()
-            this.emitSessionExpired()
-            throw new Error('Session expired')
-          }
-        }
-
-        if (!res.ok) {
-          let body2: any = null
-          try { body2 = await res.json() } catch (e) { body2 = await res.text().catch(() => null) }
-          let msg = 'Stamp failed'
-          if (body2) msg = body2?.error || body2?.message || String(body2)
-          throw new Error(msg)
-        }
+        let msg = 'Stamp failed'
+        if (body) msg = body?.error || body?.message || String(body)
+        throw new Error(msg)
       }
       return res.json()
     } catch (err: any) {
@@ -293,64 +169,58 @@ class ApiClient {
     }
   }
 
-  async getPreviewUrl(barcode: string, index?: number) {
-    const qs = typeof index === 'number' ? `?index=${index}` : ''
-    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url${qs}`)
+  async getPreviewUrl(barcode: string) {
+    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/preview-url`)
     return res?.previewUrl || null
-  }
-
-  // Download server-generated statement PDF securely (includes Authorization header)
-  async downloadStatementPdf(barcode: string) {
-    const headers: any = {}
-    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30_000)
-    try {
-      const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(barcode)}/statement.pdf`, { headers, signal: controller.signal, cache: 'no-store' })
-      if (!res.ok) {
-        let txt = await res.text().catch(() => '')
-        throw new Error(txt || 'Failed to fetch statement PDF')
-      }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const w = window.open(url, '_blank')
-      if (!w) {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${barcode}-statement.pdf`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }
-      return true
-    } finally {
-      clearTimeout(timeout)
-    }
   }
 
   async getStatistics() {
     return this.request<any>("/documents/stats/summary")
   }
 
-  // Backups
+  // Backups (admin)
   async listBackups() {
-    return this.request<any>("/admin/backups")
+    return this.request<any>(`/backups`).then((r) => r || { items: [] })
   }
 
   async createBackup() {
-    return this.request<any>("/admin/backups", { method: 'POST' })
+    return this.request<any>(`/backups`, { method: 'POST' })
   }
 
-  async downloadBackupUrl(key: string) {
-    return this.request<any>(`/admin/backups/download?key=${encodeURIComponent(key)}`)
+  async downloadJsonBackupBlob() {
+    const headers: any = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const controller = new AbortController()
+    const timeoutMs = 60_000
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(`${API_BASE_URL}/backups/json`, { method: 'GET', headers, signal: controller.signal })
+      if (!res.ok) {
+        let body: any = null
+        try { body = await res.json() } catch { body = await res.text().catch(() => null) }
+        throw new Error(body?.error || body?.message || String(body || 'Download failed'))
+      }
+      return await res.blob()
+    } catch (err: any) {
+      if (err && err.name === 'AbortError') throw new Error('Request timeout')
+      throw err
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 
-  async deleteBackup(key: string) {
-    return this.request<any>(`/admin/backups?key=${encodeURIComponent(key)}`, { method: 'DELETE' })
-  }
-
-  async restoreBackup(key: string) {
-    return this.request<any>(`/admin/backups/restore`, { method: 'POST', body: JSON.stringify({ key }) })
+  async restoreJsonBackup(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    const headers: any = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const res = await fetch(`${API_BASE_URL}/backups/json/restore`, { method: 'POST', body: form, headers })
+    if (!res.ok) {
+      let body: any = null
+      try { body = await res.json() } catch { body = await res.text().catch(() => null) }
+      throw new Error(body?.error || body?.message || String(body || 'Restore failed'))
+    }
+    return res.json()
   }
 
   async restoreBackupUpload(file: File) {
@@ -358,56 +228,35 @@ class ApiClient {
     form.append('file', file)
     const headers: any = {}
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-    const res = await fetch(`${API_BASE_URL}/admin/backups/restore-upload`, { method: 'POST', body: form, headers })
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw new Error(body?.error || 'Restore upload failed')
-    }
-    return res.json()
-  }
-
-  // ADMIN: system status and logs
-  async getAdminStatus() {
-    return this.request<any>(`/admin/status`, { method: 'GET', cache: 'no-store' })
-  }
-
-  async clearAdminLogs() {
-    return this.request<any>(`/admin/status/clear`, { method: 'POST' })
-  }
-
-  // JSON backup/restore helpers
-  async downloadJsonBackupBlob() {
-    const headers: any = { 'Content-Type': 'application/json' }
-    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30_000)
+    const timeoutMs = 5 * 60_000
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/backups/json`, { method: 'POST', headers, signal: controller.signal })
+      const res = await fetch(`${API_BASE_URL}/backups/restore-upload`, { method: 'POST', body: form, headers, signal: controller.signal })
       if (!res.ok) {
-        let txt = await res.text().catch(() => '')
-        throw new Error(txt || 'JSON backup failed')
-      }
-      const blob = await res.blob()
-      return blob
-    } finally { clearTimeout(timeout) }
-  }
-
-  async restoreJsonBackup(data: any) {
-    // Accept either a JS object (sent as JSON) or a File (FormData)
-    if (data instanceof File) {
-      const form = new FormData()
-      form.append('file', data)
-      const headers: any = {}
-      if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-      const res = await fetch(`${API_BASE_URL}/admin/backups/json/restore`, { method: 'POST', body: form, headers })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error || 'Restore failed')
+        let body: any = null
+        try { body = await res.json() } catch { body = await res.text().catch(() => null) }
+        throw new Error(body?.error || body?.message || String(body || 'Upload restore failed'))
       }
       return res.json()
-    } else {
-      return this.request<any>(`/admin/backups/json/restore`, { method: 'POST', body: JSON.stringify(data) })
+    } catch (err: any) {
+      if (err && err.name === 'AbortError') throw new Error('Request timeout')
+      throw err
+    } finally {
+      clearTimeout(timeout)
     }
+  }
+
+  async downloadBackupUrl(key: string) {
+    return this.request<any>(`/backups/download?key=${encodeURIComponent(key)}`)
+  }
+
+  async deleteBackup(key: string) {
+    return this.request<any>(`/backups?key=${encodeURIComponent(key)}`, { method: 'DELETE' })
+  }
+
+  async restoreBackup(key: string) {
+    return this.request<any>(`/backups/restore`, { method: 'POST', body: JSON.stringify({ key }) })
   }
 
   // Barcodes
@@ -444,32 +293,16 @@ class ApiClient {
       const timeoutMs = 60_000
       const timeout = setTimeout(() => controller.abort(), timeoutMs)
       try {
-        let res = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form, headers, signal: controller.signal })
-        let body = await res.json().catch(() => null)
+        const res = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form, headers, signal: controller.signal })
+        const body = await res.json().catch(() => null)
         if (!res.ok) {
-          // handle token expiry — try refresh once
-          if (res.status === 401 && body?.error === 'token_expired') {
-            const refreshed = await this.refresh()
-            if (refreshed) {
-              if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-              res = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form, headers, signal: controller.signal })
-              body = await res.json().catch(() => null)
-            } else {
-              this.clearToken()
-              this.emitSessionExpired()
-              throw new Error('Session expired')
-            }
+          let msg = 'Upload failed'
+          if (body) {
+            if (Array.isArray(body.errors)) msg = body.errors.map((e: any) => e.msg || e.message || JSON.stringify(e)).join('; ')
+            else if (body.error || body.message) msg = body.error || body.message
+            else msg = JSON.stringify(body)
           }
-
-          if (!res.ok) {
-            let msg = 'Upload failed'
-            if (body) {
-              if (Array.isArray(body.errors)) msg = body.errors.map((e: any) => e.msg || e.message || JSON.stringify(e)).join('; ')
-              else if (body.error || body.message) msg = body.error || body.message
-              else msg = JSON.stringify(body)
-            }
-            throw new Error(msg)
-          }
+          throw new Error(msg)
         }
         return body
       } catch (err: any) {
@@ -554,20 +387,13 @@ class ApiClient {
     }
   }
 
-  // Change own password: requires current password and new password
-  async changePassword(currentPassword: string, newPassword: string) {
-    return this.request<any>("/users/me/password", {
-      method: 'POST',
-      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-    })
+  // Admin status & logs
+  async getAdminStatus() {
+    return this.request<any>(`/admin/status`)
   }
 
-  // Admin/manager: set password for specific user
-  async adminSetUserPassword(id: string | number, newPassword: string) {
-    return this.request<any>(`/users/${id}/password`, {
-      method: 'POST',
-      body: JSON.stringify({ new_password: newPassword }),
-    })
+  async clearAdminLogs() {
+    return this.request<any>(`/admin/status/clear`, { method: 'POST' })
   }
 }
 
