@@ -12,13 +12,14 @@ import {
   FileUp,
   X,
   CheckCircle2,
-  User,
+  User as UserIcon,
   Landmark,
   ClipboardList,
   Calendar,
 } from "lucide-react"
 import { generateBusinessBarcode } from "@/lib/barcode-service"
 import AsyncButton from './ui/async-button'
+import type { User } from '@/types'
 
 interface FormInputProps {
   label: string
@@ -238,7 +239,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
             </div>
             <FormInput
               label="إلى جهة"
-              icon={User}
+              icon={UserIcon}
               name="recipient"
               value={formData.recipient}
               onChange={handleInputChange}
