@@ -48,12 +48,15 @@ npm install
 
 3. إنشاء ملف `.env`:
 ```env
-DATABASE_URL=postgresql://zacodb_user:ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO@dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com/zacodb
-JWT_SECRET=JWT_7aP!Q9#xL$4M@Wc2KZr8NfD0m
+DATABASE_URL=postgresql://user:password@host:port/dbname
+JWT_SECRET=your-secret-jwt-key-here-use-strong-random-value
+REFRESH_TOKEN_SECRET=your-refresh-secret-key-here-use-strong-random-value
 PORT=3001
 NODE_ENV=production
 FRONTEND_URL=https://zaco.sa
 ```
+
+⚠️ **أمان**: لا تستخدم القيم الافتراضية أعلاه! استخدم قيم عشوائية قوية لـ JWT_SECRET و REFRESH_TOKEN_SECRET
 
 4. تشغيل SQL Scripts لإنشاء الجداول:
 - قم بتنفيذ `scripts/01_create_tables.sql`
@@ -95,9 +98,9 @@ npm start
 
 ## 👤 حسابات الدخول
 
-### حساب المدير (Admin)
-- **البريد الإلكتروني**: admin@zaco.sa
-- **كلمة المرور**: admin123
+### حساب المدير (Admin) - قم بتغييره فوراً!
+- استخدم البريد والرقم السري الذي قمت بإعدادهم أثناء التثبيت
+- ⚠️ لا تستخدم admin@zaco.sa / admin123 في الإنتاج
 
 ### حساب مستخدم (User)
 - **البريد الإلكتروني**: user@zaco.sa

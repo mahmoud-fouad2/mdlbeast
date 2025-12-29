@@ -155,6 +155,16 @@ class ApiClient {
       this.checkVersion().catch(() => {}) // Fire and forget
     } catch (e) {}
 
+    // Simple public endpoint detection - extend if you add more public endpoints
+    const publicPrefixes = ['/auth/', '/version', '/documents/']
+    const isPreviewEndpoint = endpoint.includes('/preview') || endpoint.includes('/preview-url')
+    const isPublic = publicPrefixes.some(p => endpoint.startsWith(p)) || isPreviewEndpoint || endpoint === '/version'
+
+    // If endpoint requires auth and we don't have a token, fail fast to avoid noisy 401s
+    if (!this.token && !isPublic) {
+      throw new Error('Access token required')
+    }
+
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -182,39 +192,42 @@ class ApiClient {
       clearTimeout(timeout)
     }
 
-    // If 401, try to refresh token once and retry
+    // If 401, try to refresh token once and retry (only if we had a refresh token)
     if (response.status === 401) {
-      const refreshed = await this.refreshAccessToken()
-      if (refreshed) {
-        // Retry request with new token
-        const newHeaders: HeadersInit = {
-          "Content-Type": "application/json",
-          ...options.headers,
-        }
-        if (this.token) {
-          (newHeaders as any)["Authorization"] = `Bearer ${this.token}`
-        }
-
-        const retryController = new AbortController()
-        const retryTimeout = setTimeout(() => retryController.abort(), 10000)
-        try {
-          response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers: newHeaders,
-            signal: retryController.signal,
-          })
-        } finally {
-          clearTimeout(retryTimeout)
-        }
-      } else {
-        // Refresh failed; clear token and notify listeners
-        // BUT don't clear just because of 401 - user might have new deployment
-        // Try one more time after a small delay
-        console.warn('[ApiClient] 401 and refresh failed, checking for deployment')
+      if (!this.refreshToken) {
+        console.warn('[ApiClient] 401 received and no refresh token available')
         this.clearToken()
-        try {
-          this.emitSessionExpired()
-        } catch (e) {}
+        try { this.emitSessionExpired() } catch (e) {}
+      } else {
+        const refreshed = await this.refreshAccessToken()
+        if (refreshed) {
+          // Retry request with new token
+          const newHeaders: HeadersInit = {
+            "Content-Type": "application/json",
+            ...options.headers,
+          }
+          if (this.token) {
+            (newHeaders as any)["Authorization"] = `Bearer ${this.token}`
+          }
+
+          const retryController = new AbortController()
+          const retryTimeout = setTimeout(() => retryController.abort(), 10000)
+          try {
+            response = await fetch(`${API_BASE_URL}${endpoint}`, {
+              ...options,
+              headers: newHeaders,
+              signal: retryController.signal,
+            })
+          } finally {
+            clearTimeout(retryTimeout)
+          }
+        } else {
+          console.warn('[ApiClient] 401 and refresh failed, clearing tokens')
+          this.clearToken()
+          try {
+            this.emitSessionExpired()
+          } catch (e) {}
+        }
       }
     }
 

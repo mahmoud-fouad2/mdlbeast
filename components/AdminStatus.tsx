@@ -3,8 +3,14 @@ import React, { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { Spinner } from './ui/spinner'
 
+interface AdminStatusData {
+  message?: string
+  timestamp?: string
+  [key: string]: unknown
+}
+
 export default function AdminStatus() {
-  const [status, setStatus] = useState<any | null>(null)
+  const [status, setStatus] = useState<AdminStatusData | null>(null)
   const [loading, setLoading] = useState(false)
 
   const load = async () => {

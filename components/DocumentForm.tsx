@@ -20,7 +20,17 @@ import {
 import { generateBusinessBarcode } from "@/lib/barcode-service"
 import AsyncButton from './ui/async-button'
 
-const FormInput = memo(({ label, icon: Icon, name, value, type = "text", required = false, onChange }: any) => (
+interface FormInputProps {
+  label: string
+  icon: React.ComponentType<{ size: number; className?: string }>
+  name: string
+  value: string | number
+  type?: string
+  required?: boolean
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+const FormInput = memo(({ label, icon: Icon, name, value, type = "text", required = false, onChange }: FormInputProps) => (
   <div className="space-y-1.5">
     <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-1.5 mr-1">
       <Icon size={12} className="text-slate-400" /> {label}
@@ -40,17 +50,53 @@ FormInput.displayName = "FormInput"
 
 interface DocumentFormProps {
   type: string
-  onSave: (doc: any) => void
+  onSave: (doc: DocumentFormData) => void | Promise<void>
   companies?: { id: string; name?: string; nameAr?: string; logo_url?: string }[]
+}
+
+interface DocumentFormData {
+  type: string
+  title: string
+  sender: string
+  recipient: string
+  referenceNumber?: string
+  documentDate: string
+  description?: string
+  statement?: string
+  security: string
+  priority: string
+  attachmentCount: number | string
+  pdfFile?: { name: string; size: string | number; url: string; key?: string; bucket?: string; storage?: string }
+  date?: string
+}
+
+interface FormDataState {
+  title: string
+  sender: string
+  recipient: string
+  referenceNumber: string
+  documentDate: string
+  description: string
+  statement: string
+  security: string
+  priority: string
+  attachmentCount: number | string
+}
+
+interface User {
+  id: string | number
+  username?: string
+  name?: string
+  email?: string
 }
 
 export default function DocumentForm({ type, onSave, companies }: DocumentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [file, setFile] = useState<any>(undefined)
+  const [file, setFile] = useState<File | undefined>(undefined)
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
   const [filePageCount, setFilePageCount] = useState<number>(0)
-  const [users, setUsers] = useState<any[]>([])
-  const [formData, setFormData] = useState<any>({
+  const [users, setUsers] = useState<User[]>([])
+  const [formData, setFormData] = useState<FormDataState>({
     title: "",
     sender: "",
     recipient: "",
@@ -64,9 +110,9 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
   })
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target as any
+    const { name, value, type: inputType } = e.target
     const parsed = (name === 'attachmentCount') ? (value === '' ? '' : Number(value)) : value
-    setFormData((prev: any) => ({ ...prev, [name]: parsed }))
+    setFormData((prev) => ({ ...prev, [name]: parsed }))
   }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +137,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   // load users for signatory select
@@ -99,7 +145,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
     let mounted = true
     ;(async () => {
       try {
-        const u = await (await import('@/lib/api-client')).apiClient.getUsers().catch(() => [])
+        const u = await (await import('@/lib/api-client')).apiClient.getUsers().catch(() => []) as User[]
         if (mounted) setUsers(u || [])
       } catch (e) {
         console.warn('DocumentForm: failed to load users', e)
@@ -182,8 +228,8 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                   required
                 >
                   <option value="">اختر جهة</option>
-                  {(companies || []).map((c: any) => (
-                    <option key={c.id} value={c.nameAr || c.name || c.slug || c.id}>{c.nameAr || c.name || c.slug || c.id}</option>
+                  {(companies || []).map((c) => (
+                    <option key={c.id} value={c.nameAr || c.name || c.id}>{c.nameAr || c.name || c.id}</option>
                   ))}
                 </select>
               ) : (
@@ -263,7 +309,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
             <textarea
               name="statement"
               value={formData.statement}
-              onChange={(e) => setFormData((prev:any) => ({ ...prev, statement: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, statement: e.target.value }))}
               placeholder={`البيان والوصف الرسمي:\nتم قيد هذه المعاملة رقميًا وتوثيقها في السجل الموحد للمؤسسة، وتعتبر هذه النسخة أصلية بموجب\nالباركود المرجعي المسجل في أنظمة الحوكمة الرقمية`}
               className="w-full min-h-[120px] p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm"
             />

@@ -55,9 +55,49 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
       <head>
+        {/* 
+          MessageChannel and CustomEvent polyfills
+          Must run SYNCHRONOUSLY and IMMEDIATELY to prevent "Illegal constructor" errors
+          This is a raw HTML script tag, not a React component
+        */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){if(typeof window==='undefined')return;if(typeof MessageChannel==='undefined'||!window.MessageChannel){function Port(){this.onmessage=null;this.start=function(){};this.close=function(){};}Port.prototype.postMessage=function(msg){var self=this;setTimeout(function(){if(typeof self.onmessage==='function')self.onmessage({data:msg});},0);};window.MessageChannel=function(){return{port1:new Port(),port2:new Port()};};}if(typeof CustomEvent!=='function'){function CustomEventPoly(type,params){params=params||{bubbles:false,cancelable:false,detail:undefined};var evt=document.createEvent('CustomEvent');evt.initCustomEvent(type,params.bubbles,params.cancelable,params.detail);return evt;}CustomEventPoly.prototype=window.Event.prototype;window.CustomEvent=CustomEventPoly;}})()`
+            __html: `
+              (function polyfillWebAPIs(){
+                'use strict';
+                if(typeof window==='undefined')return;
+                
+                // MessageChannel polyfill for browsers that don't support it
+                if(typeof MessageChannel==='undefined'||!window.MessageChannel){
+                  function Port(){
+                    this.onmessage=null;
+                    this.start=function(){};
+                    this.close=function(){};
+                  }
+                  Port.prototype.postMessage=function(msg){
+                    var self=this;
+                    setTimeout(function(){
+                      try{if(typeof self.onmessage==='function')self.onmessage({data:msg});}catch(e){}
+                    },0);
+                  };
+                  try{window.MessageChannel=function(){return{port1:new Port(),port2:new Port()};};}catch(e){}
+                }
+                
+                // CustomEvent polyfill for older browsers
+                if(typeof window.CustomEvent!=='function'){
+                  try{
+                    function CustomEventPoly(type,params){
+                      params=params||{bubbles:false,cancelable:false,detail:undefined};
+                      var evt=document.createEvent('CustomEvent');
+                      evt.initCustomEvent(type,params.bubbles,params.cancelable,params.detail);
+                      return evt;
+                    }
+                    CustomEventPoly.prototype=window.Event.prototype;
+                    window.CustomEvent=CustomEventPoly;
+                  }catch(e){}
+                }
+              })();
+            `
           }}
         />
         {/* Prevent aggressive caching of the HTML shell so clients revalidate frequently */}

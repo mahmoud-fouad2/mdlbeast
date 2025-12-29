@@ -32,15 +32,12 @@ export interface Company {
 }
 
 export interface User {
-  id: string;
-  username: string;
-  full_name: string;
-  name: string;
-  email: string;
-  password: string;
-  role: 'admin' | 'manager' | 'supervisor' | 'member' | 'admin';
-  created_at: Date;
-  companyId?: string;
+  id: string | number
+  username: string
+  full_name?: string
+  email?: string
+  role: 'admin' | 'manager' | 'supervisor' | 'member'
+  created_at?: Date | string
 }
 
 export interface Attachment {
@@ -51,48 +48,47 @@ export interface Attachment {
 }
 
 export interface Correspondence {
-  id: number;
-  barcode: string;
-  barcodeId: string;
-  companyId: string;
-  type: DocType;
-  title: string;
-  sender: string;
-  /** fallback variant for some data sources */
-  from?: string;
-  receiver: string;
-  /** fallback variant for some data sources */
-  to?: string;
-  recipient: string;
-  referenceNumber: string;
-  internalRef: string;
-  documentDate: string;
-  archiveDate: string;
-  date: string;
-  dateHijri?: string;
-  dateGregorian?: string;
-  subject: string;
-  description: string;
-  status: string;
-  security: string;
-  priority: string;
-  category: string;
-  physicalLocation: string;
-  attachmentCount: number;
-  attachments: Attachment[];
-  signatory: string;
-  tags: string[];
-  created_at: Date;
-  createdBy?: string;
+  id: number
+  barcode: string // Primary ID for all operations
+  companyId?: string
+  tenant_id?: number
+  type: DocType
+  title: string
+  subject: string
+  sender: string
+  receiver: string
+  recipient?: string // Alias for receiver
+  referenceNumber?: string
+  internalRef?: string
+  documentDate: string // ISO date string
+  date?: string // Formatted display date (should match documentDate)
+  dateHijri?: string
+  dateGregorian?: string
+  archiveDate?: string
+  status: string // 'وارد' | 'صادر' | 'محفوظ'
+  security: string
+  priority: string
+  category?: string
+  physicalLocation?: string
+  attachmentCount?: number
+  attachments: Attachment[]
+  signatory?: string
+  tags?: string[]
+  created_at?: Date | string
+  updated_at?: Date | string
+  createdBy?: string
+  notes?: string
+  statement?: string
+  displayDate?: string // Server-provided formatted date
   pdfFile?: {
-    name: string;
-    size: string;
-    url: string;
-  };
-  user_id?: number;
-  updated_at: Date;
-  notes: string;
-  statement?: string;
+    name: string
+    size: string | number
+    url: string
+    key?: string
+    bucket?: string
+    storage?: string
+  }
+  user_id?: number
 }
 
 export interface SystemSettings {

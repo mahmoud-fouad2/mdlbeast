@@ -13,12 +13,21 @@ export default function HomePage() {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem("auth_token")
+        // Only try to validate if we have a token
         if (token) {
-          await apiClient.getCurrentUser()
-          router.push("/dashboard")
+          try {
+            await apiClient.getCurrentUser()
+            router.push("/dashboard")
+            return
+          } catch (error) {
+            // Token is invalid or expired, clear it
+            console.warn('Token validation failed, clearing')
+            localStorage.removeItem("auth_token")
+            apiClient.clearToken()
+          }
         }
       } catch (error) {
-        localStorage.removeItem("auth_token")
+        console.warn('Auth check error:', error)
       } finally {
         setIsLoading(false)
       }
