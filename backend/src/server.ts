@@ -86,6 +86,17 @@ app.get('/wp-includes/js/wp-emoji-loader.min.js', (_req, res) => {
 })();`)
 })
 
+// Version endpoint (no auth required, used for cache busting and deployment detection)
+app.get("/api/version", (_req, res) => {
+  const version = process.env.DEPLOYMENT_VERSION || "1.0.0"
+  const buildTime = process.env.BUILD_TIME || new Date().toISOString()
+  res.status(200).json({
+    version,
+    buildTime,
+    timestamp: Date.now()
+  })
+})
+
 // Health check
 app.get("/", (req, res) => {
   res.status(200).json({

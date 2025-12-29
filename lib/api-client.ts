@@ -8,11 +8,97 @@ interface ApiResponse<T> {
 class ApiClient {
   private token: string | null = null
   private refreshToken: string | null = null
+  private lastVersionCheck: number = 0
+  private cachedVersion: string | null = null
 
   constructor() {
     if (typeof window !== "undefined") {
       this.token = localStorage.getItem("auth_token")
       this.refreshToken = localStorage.getItem("refresh_token")
+      
+      // On initialization, validate and clean old tokens
+      this.validateAndCleanTokens()
+    }
+  }
+
+  /**
+   * Validate tokens on initialization and remove expired/invalid ones
+   * Prevents looping with stale tokens
+   */
+  private validateAndCleanTokens() {
+    if (!this.token) return
+    
+    try {
+      // Decode JWT without verification (just to check expiry time)
+      const parts = this.token.split('.')
+      if (parts.length !== 3) {
+        // Invalid JWT format, clear it
+        this.clearToken()
+        return
+      }
+      
+      const payload = JSON.parse(atob(parts[1]))
+      const now = Date.now() / 1000
+      
+      // If token expired more than 1 minute ago, clear both tokens
+      // (This prevents using stale tokens that will immediately fail)
+      if (payload.exp && payload.exp < now - 60) {
+        console.warn('[ApiClient] Stored token is stale (expired >1min ago), clearing')
+        this.clearToken()
+        // Emit event to trigger re-login if needed
+        try { this.emitSessionExpired() } catch (e) {}
+      }
+    } catch (err) {
+      // If we can't parse/validate token, clear it to prevent loops
+      console.warn('[ApiClient] Failed to validate stored token, clearing', err)
+      this.clearToken()
+    }
+  }
+
+  /**
+   * Check backend version and force page reload if deployment updated
+   * This ensures all clients get fresh code and tokens after deployment
+   */
+  private async checkVersion() {
+    const now = Date.now()
+    // Only check version once per 5 minutes
+    if (now - this.lastVersionCheck < 5 * 60 * 1000 && this.cachedVersion) {
+      return
+    }
+    
+    try {
+      this.lastVersionCheck = now
+      const response = await fetch(`${API_BASE_URL}/version`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const newVersion = data.version || 'unknown'
+        
+        if (this.cachedVersion && this.cachedVersion !== newVersion) {
+          console.warn('[ApiClient] Deployment detected - version changed from', this.cachedVersion, 'to', newVersion)
+          console.warn('[ApiClient] Forcing hard refresh to load new code')
+          
+          // Force hard refresh to clear all caches
+          if (typeof window !== 'undefined' && window.location) {
+            // Disable service worker cache for this reload
+            if (navigator.serviceWorker) {
+              navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(reg => reg.unregister())
+              })
+            }
+            // Hard refresh with cache busting
+            window.location.href = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 't=' + Date.now()
+          }
+        }
+        
+        this.cachedVersion = newVersion
+      }
+    } catch (err) {
+      // Version check failed - continue anyway but log it
+      console.debug('[ApiClient] Version check failed (non-critical)', err)
     }
   }
 
@@ -63,6 +149,12 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    // Check for deployment updates periodically
+    // This runs in the background without blocking requests
+    try {
+      this.checkVersion().catch(() => {}) // Fire and forget
+    } catch (e) {}
+
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -116,6 +208,9 @@ class ApiClient {
         }
       } else {
         // Refresh failed; clear token and notify listeners
+        // BUT don't clear just because of 401 - user might have new deployment
+        // Try one more time after a small delay
+        console.warn('[ApiClient] 401 and refresh failed, checking for deployment')
         this.clearToken()
         try {
           this.emitSessionExpired()

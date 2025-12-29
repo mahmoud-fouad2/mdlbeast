@@ -1,6 +1,7 @@
 // app/layout.tsx  (أو app/root-layout.tsx)
 import type React from "react"
 import type { Metadata } from "next"
+import Script from "next/script"
 import { Tajawal } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
@@ -39,6 +40,72 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
+      <head>
+        {/* Service Worker cleanup and deployment detection script */}
+        <Script
+          id="deployment-detection"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Check for deployment updates and clear old service workers
+              (function() {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    registrations.forEach(function(reg) {
+                      reg.unregister();
+                    });
+                  });
+                }
+                
+                // Force cache busting on page load
+                // Add a timestamp to all fetch requests to bypass stale caches
+                if (typeof window !== 'undefined') {
+                  const originalFetch = window.fetch;
+                  window.fetch = function(...args) {
+                    if (args[0] && typeof args[0] === 'string') {
+                      const url = new URL(args[0], window.location.origin);
+                      // Add cache buster to API calls
+                      if (url.pathname.includes('/api/')) {
+                        url.searchParams.set('_t', Date.now());
+                      }
+                      args[0] = url.toString();
+                    }
+                    return originalFetch.apply(this, args);
+                  };
+                }
+                
+                // Clear localStorage of old/stale auth tokens on app start
+                try {
+                  const token = localStorage.getItem('auth_token');
+                  if (token) {
+                    try {
+                      const parts = token.split('.');
+                      if (parts.length === 3) {
+                        const payload = JSON.parse(atob(parts[1]));
+                        const now = Date.now() / 1000;
+                        // If token expired more than 2 minutes ago, clear it
+                        if (payload.exp && payload.exp < now - 120) {
+                          localStorage.removeItem('auth_token');
+                          localStorage.removeItem('refresh_token');
+                          console.log('[Layout] Cleared stale token on app start');
+                        }
+                      } else {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('refresh_token');
+                      }
+                    } catch (e) {
+                      localStorage.removeItem('auth_token');
+                      localStorage.removeItem('refresh_token');
+                    }
+                  }
+                } catch (e) {
+                  // Ignore storage errors
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       {/* Note: body نظيف من أي padding عام (نضيف padding فقط على الـ main عند الموبايل) */}
       <body className={`${tajawal.className} antialiased`}>
         {/* ===== MobileHeader: يظهر فقط على الموبايل (md:hidden) ===== */}
