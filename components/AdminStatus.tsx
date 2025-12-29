@@ -39,9 +39,9 @@ export default function AdminStatus() {
           <h3 className="text-xl font-black mb-1">حالة النظام</h3>
           <p className="text-sm text-slate-500 mb-2">نظرة عامة على صحة النظام والسجلات الأخيرة.</p>
           <div className="flex gap-6 items-center">
-            <div className={`w-3 h-3 rounded-full ${status && status.healthy ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-            <div className="text-sm font-black">{status ? (status.healthy ? 'صحي وآمن' : 'تحذير: تحقق من النظام') : (loading ? 'جارٍ التحميل...' : 'غير متاح')}</div>
-            <div className="text-xs text-slate-400">نسخة: {status?.version || '—'}</div>
+            <div className={`w-3 h-3 rounded-full ${status && status.healthy ? 'bg-emerald-500' : (loading ? 'bg-slate-200' : 'bg-amber-400')}`} />
+            <div className="text-sm font-black">{loading ? 'جارٍ التحميل...' : (status ? (status.healthy ? 'صحي وآمن' : 'تحذير: تحقق من النظام') : 'غير متاح')}</div>
+            <div className="text-xs text-slate-400">نسخة: {status?.version || (loading ? 'جارٍ التحقق…' : '—')}</div>
           </div>
         </div>
 
@@ -54,7 +54,7 @@ export default function AdminStatus() {
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-black">سجل النظام (آخر السجلات)</div>
-          <div className="text-xs text-slate-400">{status ? new Date(status.at).toLocaleString() : ''}</div>
+          <div className="text-xs text-slate-400">{status ? new Date(status.at).toLocaleString() : (loading ? '' : '')}</div>
         </div>
         <div className="h-80 overflow-auto bg-slate-50 p-3 rounded">
           {loading && <div className="flex items-center justify-center"><Spinner/></div>}

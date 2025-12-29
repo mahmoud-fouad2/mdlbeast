@@ -58,7 +58,6 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
     description: "",
     security: "عام",
     priority: "عادي",
-    signatory: "",
     internalRef: "",
   })
 
@@ -80,19 +79,7 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
     setFormData((prev: any) => ({ ...prev, [name]: value }))
   }
 
-  // load users for signatory select
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const u = await (await import('@/lib/api-client')).apiClient.getUsers().catch(() => [])
-        if (mounted) setUsers(u || [])
-      } catch (e) {
-        console.warn('DocumentForm: failed to load users', e)
-      }
-    })()
-    return () => { mounted = false }
-  }, [])
+
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault()
@@ -197,21 +184,7 @@ export default function DocumentForm({ type, onSave }: DocumentFormProps) {
               type="date"
               required
             />
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-500 uppercase mr-1 tracking-widest">
-                الموقّع المعتمد
-              </label>
-              <select
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
-                value={formData.signatory}
-                onChange={(e) => handleSelectChange('signatory', e.target.value)}
-              >
-                <option value="">اختر موقّعاً</option>
-                {users.map((u: any) => (
-                  <option key={u.id} value={u.id}>{u.full_name || u.username || u.email}</option>
-                ))}
-              </select>
-            </div>
+
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

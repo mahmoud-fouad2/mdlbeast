@@ -19,10 +19,11 @@ export default function Dashboard({ docs }: DashboardProps) {
     { name: "الصادر", value: outgoing, color: "#3b82f6" },
   ]
 
+  const normalCount = docs.filter((d) => d.priority === "عادي").length
+  const urgentCount = docs.filter((d) => d.priority === "عاجل" || d.priority === "عاجل جداً").length
   const priorityData = [
-    { name: "عادي", value: docs.filter((d) => d.priority === "عادي").length },
-    { name: "عاجل", value: docs.filter((d) => d.priority === "عاجل").length },
-    { name: "فوري", value: docs.filter((d) => d.priority === "عاجل جداً").length },
+    { name: "عادي", value: normalCount },
+    { name: "عاجل", value: urgentCount },
   ]
 
   return (
