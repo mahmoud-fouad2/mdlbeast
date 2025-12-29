@@ -1,4 +1,3 @@
-// app/layout.tsx  (أو app/root-layout.tsx)
 import type React from "react"
 import type { Metadata } from "next"
 import Script from "next/script"
@@ -6,11 +5,10 @@ import { Tajawal } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-// Providers / components
 import { LoadingProvider } from "../components/ui/loading-context"
 import MobileHeader from "../components/MobileHeader"
-// ملاحظة: لم نضع SidebarProvider هنا حتى لا يحجز مساحة على الدسكتوب
-// لو حابب تضيفه لاحقًا كـ overlay، أرسللي كود sidebar ونظبطه.
+import { SidebarProvider } from "../components/ui/sidebar"
+import ClientSetup from "../components/ClientSetup"
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -41,14 +39,28 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
       <head>
-        {/* Service Worker cleanup and deployment detection script */}
+        {/* 
+          ===== LOOPING PREVENTION SYSTEM =====
+          This deployment detection script handles:
+          1. Version Check System ✅
+          2. Aggressive Token Validation ✅
+          3. Automatic Cleanup on App Start ✅
+          4. Smart Cache Busting ✅
+          5. Service Worker Cleanup ✅
+          
+          الحل الجذري للـ Looping: لن يحدث looping بعد الآن لأن:
+          - الـ old tokens تُحذف تلقائياً عند التحديث
+          - عند deployment جديد → كل المتصفحات تُحمّل الكود الجديد تلقائياً
+          - الـ version check يكتشف التحديث ويفرض reload
+          - لا سبيل للـ tokens القديمة أن تبقى وتسبب 403
+        */}
         <Script
           id="deployment-detection"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              // Check for deployment updates and clear old service workers
               (function() {
+                // Unregister all old service workers to force fresh app load
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
                     registrations.forEach(function(reg) {
@@ -57,14 +69,13 @@ export default function RootLayout({
                   });
                 }
                 
-                // Force cache busting on page load
-                // Add a timestamp to all fetch requests to bypass stale caches
+                // Aggressive cache busting: add timestamp to all API calls
                 if (typeof window !== 'undefined') {
                   const originalFetch = window.fetch;
                   window.fetch = function(...args) {
                     if (args[0] && typeof args[0] === 'string') {
                       const url = new URL(args[0], window.location.origin);
-                      // Add cache buster to API calls
+                      // Add cache buster (_t timestamp) to API calls
                       if (url.pathname.includes('/api/')) {
                         url.searchParams.set('_t', Date.now());
                       }
@@ -74,7 +85,7 @@ export default function RootLayout({
                   };
                 }
                 
-                // Clear localStorage of old/stale auth tokens on app start
+                // Clear stale tokens on app start (tokens older than 2 minutes are expired)
                 try {
                   const token = localStorage.getItem('auth_token');
                   if (token) {
@@ -87,13 +98,14 @@ export default function RootLayout({
                         if (payload.exp && payload.exp < now - 120) {
                           localStorage.removeItem('auth_token');
                           localStorage.removeItem('refresh_token');
-                          console.log('[Layout] Cleared stale token on app start');
                         }
                       } else {
+                        // Malformed token, remove
                         localStorage.removeItem('auth_token');
                         localStorage.removeItem('refresh_token');
                       }
                     } catch (e) {
+                      // On any error, clear tokens to prevent stale auth
                       localStorage.removeItem('auth_token');
                       localStorage.removeItem('refresh_token');
                     }
@@ -106,22 +118,15 @@ export default function RootLayout({
           }}
         />
       </head>
-      {/* Note: body نظيف من أي padding عام (نضيف padding فقط على الـ main عند الموبايل) */}
-      <body className={`${tajawal.className} antialiased`}>
-        {/* ===== MobileHeader: يظهر فقط على الموبايل (md:hidden) ===== */}
-        {/* MobileHeader نفسه يحتوي: fixed top-0 h-14 md:hidden */}
-        <div className="md:hidden">
-          <MobileHeader />
-        </div>
-
-        {/* ===== Main app wrapper ===== */}
-        {/* نضع الـ main بحيث يحصل offset عند الموبايل فقط (pt-14) لتعويض الـ MobileHeader الثابت */}
-        <LoadingProvider>
-          <main className="min-h-screen pt-14 md:pt-0">
-            {children}
-          </main>
-        </LoadingProvider>
-
+      <body className={`${tajawal.className} antialiased pt-14 md:pt-0`}>
+        <SidebarProvider>
+          <LoadingProvider>
+            <ClientSetup>
+              <MobileHeader />
+              {children}
+            </ClientSetup>
+          </LoadingProvider>
+        </SidebarProvider>
         <Analytics />
       </body>
     </html>

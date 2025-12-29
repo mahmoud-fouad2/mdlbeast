@@ -72,7 +72,7 @@ app.use('/api/documents', stampRoutes)
 
 // Admin status & logs (admin-only)
 import adminStatusRoutes from './routes/adminStatus'
-app.use('/admin/status', adminStatusRoutes)
+app.use('/api/admin', adminStatusRoutes)
 
 
 
