@@ -157,7 +157,7 @@ export default function PdfStamper({ doc, onClose }: PdfStamperProps) {
 
               {/* Compact vertical stamp: company name, barcode, barcode number, date/status */}
               <div className="w-full flex flex-col items-center gap-3 px-2">
-                <div className="text-[11px] font-black text-slate-900 uppercase tracking-wider text-center select-none" style={{lineHeight: 1}}>
+                <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider text-center select-none" style={{lineHeight: 1}}>
                   {doc.from || doc.sender || 'زاوية البناء للاستشارات الهندسية'}
                 </div>
 
