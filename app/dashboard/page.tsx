@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server, Lock } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"

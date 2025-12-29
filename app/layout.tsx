@@ -65,10 +65,22 @@ export default function RootLayout({
             __html: `(function() {
   if (typeof window === 'undefined') return;
   try {
-    // Force React to use setTimeout by removing MessageChannel
-    // This fixes "Illegal constructor" errors in some environments
+    // Aggressively disable MessageChannel and BroadcastChannel
+    // This forces React to use setTimeout and avoids "Illegal constructor" errors
+    
+    // 1. Delete properties
     delete window.MessageChannel;
-    console.log("MessageChannel disabled to prevent crashes.");
+    delete window.BroadcastChannel;
+    
+    // 2. Explicitly set to undefined (shadowing prototype if necessary)
+    window.MessageChannel = undefined;
+    window.BroadcastChannel = undefined;
+    
+    // 3. Try to lock it down
+    Object.defineProperty(window, 'MessageChannel', { value: undefined, writable: false, configurable: false });
+    Object.defineProperty(window, 'BroadcastChannel', { value: undefined, writable: false, configurable: false });
+    
+    console.log("MessageChannel/BroadcastChannel disabled.");
   } catch (e) {
     console.error("Failed to disable MessageChannel:", e);
   }
