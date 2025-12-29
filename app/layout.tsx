@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import Script from "next/script"
 import { Tajawal } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
@@ -55,6 +56,45 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
       <head>
+        {/* MessageChannel and CustomEvent polyfills - must run before any other scripts */}
+        <Script
+          id="polyfill-messagechannel-customevnt"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  new MessageChannel();
+                } catch (e) {
+                  function Port() { this.onmessage = null; }
+                  Port.prototype.postMessage = function(m) {
+                    var s = this;
+                    setTimeout(function() {
+                      try {
+                        if (typeof s.onmessage === 'function') s.onmessage({ data: m });
+                      } catch (e) {}
+                    }, 0);
+                  };
+                  window.MessageChannel = function() {
+                    return { port1: new Port(), port2: new Port() };
+                  };
+                }
+                try {
+                  new CustomEvent('__test__', { detail: {} });
+                } catch (e) {
+                  function CustomEventPoly(t, p) {
+                    p = p || { bubbles: false, cancelable: false, detail: null };
+                    var ev = document.createEvent('CustomEvent');
+                    ev.initCustomEvent(t, p.bubbles, p.cancelable, p.detail);
+                    return ev;
+                  }
+                  CustomEventPoly.prototype = (window.Event || function(){}).prototype;
+                  window.CustomEvent = CustomEventPoly;
+                }
+              })();
+            `
+          }}
+        />
         {/* Prevent aggressive caching of the HTML shell so clients revalidate frequently */}
         <meta httpEquiv="Cache-control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
