@@ -46,8 +46,6 @@ export const viewport = {
 import { LoadingProvider } from "../components/ui/loading-context"
 import SessionExpiredModal from '@/components/SessionExpiredModal'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import { SidebarProvider } from '@/components/ui/sidebar'
-import MobileHeader from '@/components/MobileHeader'
 
 export default function RootLayout({
   children,
@@ -64,13 +62,10 @@ export default function RootLayout({
       </head>
       <body className={`${tajawal.className} antialiased`}>
         <ErrorBoundary>
-          <SidebarProvider>
-            <MobileHeader />
-            <LoadingProvider>
-              <div className="pt-16 md:pt-0">{children}</div>
-            </LoadingProvider>
-            <SessionExpiredModal />
-          </SidebarProvider>
+          <LoadingProvider>
+            {children}
+          </LoadingProvider>
+          <SessionExpiredModal />
         </ErrorBoundary>
         <Analytics />
       </body>
