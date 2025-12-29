@@ -333,6 +333,22 @@ class ApiClient {
     return this.request<any[]>(`/tenants`)
   }
 
+  // Change own password
+  async changePassword(current_password: string, new_password: string) {
+    return this.request<any>(`/users/me/password`, {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    })
+  }
+
+  // Admin: set another user's password
+  async setUserPassword(id: number | string, new_password: string) {
+    return this.request<any>(`/users/${id}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password }),
+    })
+  }
+
   async createTenant(payload: { name: string; slug: string; logo_url?: string }) {
     return this.request<any>(`/tenants`, {
       method: 'POST',
