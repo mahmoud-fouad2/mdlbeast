@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Lock } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -14,6 +14,7 @@ import BarcodeScanner from "@/components/BarcodeScanner"
 import ReportGenerator from "@/components/ReportGenerator"
 import AdminBackups from "@/components/AdminBackups"
 import UserManagement from "@/components/UserManagement"
+import ChangePassword from '@/components/ChangePassword'
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -74,7 +75,10 @@ export default function DashboardPage() {
 
       const docsP = withTimeout(apiClient.getDocuments(), 12_000)
       const tenantsP = withTimeout(apiClient.getTenants(), 10_000)
-      const usersP = withTimeout(apiClient.getUsers(), 10_000)
+      // Only fetch users for admins or managers to avoid 403 noise for regular users
+      const usersP = (String(user.role || '').toLowerCase() === 'admin' || String(user.role || '').toLowerCase() === 'manager')
+        ? withTimeout(apiClient.getUsers(), 10_000)
+        : Promise.resolve([])
 
       const [docsRes, tenantsRes, usersRes] = await Promise.allSettled([docsP, tenantsP, usersP])
 
@@ -287,7 +291,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
-      <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print">
+      {/* Sidebar hidden on small screens - mobile users will use the top selector */}
+      <aside className="hidden md:flex w-72 bg-white border-l border-slate-200 flex-col shrink-0 z-20 shadow-sm no-print">
         <div className="p-8 border-b border-slate-100 bg-slate-50/50">
           <img src={settings.logoUrl || "/placeholder.svg"} className="h-12 w-auto mb-5 object-contain" alt="Logo" />
           <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">
@@ -309,6 +314,7 @@ export default function DashboardPage() {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
+          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
           <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
@@ -338,7 +344,25 @@ export default function DashboardPage() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-8 lg:p-14 max-w-7xl xl:max-w-none mx-auto w-full">
+        {/* Mobile top bar (visible on small screens) */}
+        <div className="md:hidden bg-white border-b border-slate-100 p-3 flex items-center gap-3">
+          <select value={activeTab} onChange={(e) => setActiveTab(e.target.value)} className="flex-1 p-2 rounded-xl border bg-white text-sm font-black">
+            <option value="dashboard">لوحة التحكم</option>
+            <option value="incoming">قيد وارد جديد</option>
+            <option value="outgoing">قيد صادر جديد</option>
+            <option value="list">الأرشيف والبحث</option>
+            <option value="scanner">تتبع الباركود</option>
+            <option value="reports">مركز التقارير</option>
+            <option value="users">إدارة المستخدمين</option>
+            <option value="change-password">تغيير كلمة المرور</option>
+            <option value="companies">إدارة المؤسسات</option>
+            <option value="backup">النسخ الاحتياطي</option>
+          </select>
+
+          <button onClick={handleLogout} className="text-red-600 text-sm font-black px-3 py-2 rounded-xl bg-red-50">تسجيل خروج</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-14 max-w-7xl xl:max-w-none mx-auto w-full">
           {activeTab === "dashboard" && <Dashboard docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} />}
           {activeTab === "incoming" && <DocumentForm type="INCOMING" onSave={handleSaveDoc} companies={tenants} />}
           {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} companies={tenants} />}
@@ -346,6 +370,7 @@ export default function DashboardPage() {
           {activeTab === "scanner" && <BarcodeScanner />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
           {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} />}
+          {activeTab === "change-password" && <ChangePassword />}
           {activeTab === 'companies' && (
             <div className="space-y-8">
               <div className="bg-white p-8 rounded-3xl border border-slate-200">
@@ -395,7 +420,14 @@ export default function DashboardPage() {
                 <AdminBackups />
               </div>
             </div>
-          )}        </div>
+          )}
+
+          {/* Mobile quick-create FAB */}
+          <button aria-label="إنشاء قيد جديد" onClick={() => setActiveTab('incoming')} className="md:hidden fixed bottom-6 right-4 z-40 bg-slate-900 text-white rounded-full px-4 py-3 shadow-xl font-black flex items-center gap-2">
+            <FilePlus size={18} />
+            <span className="text-sm">قيد جديد</span>
+          </button>
+        </div>
       </main>
     </div>
   )

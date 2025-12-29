@@ -45,6 +45,8 @@ export const viewport = {
 
 import { LoadingProvider } from "../components/ui/loading-context"
 import SessionExpiredModal from '@/components/SessionExpiredModal'
+import dynamic from 'next/dynamic'
+const AppVersionWatcher = dynamic(() => import('@/components/AppVersionWatcher'), { ssr: false })
 
 export default function RootLayout({
   children,
@@ -53,6 +55,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
+      <head>
+        {/* Prevent aggressive caching of the HTML shell so clients revalidate frequently */}
+        <meta httpEquiv="Cache-control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
+      </head>
       <body className={`${tajawal.className} antialiased`}>
         <LoadingProvider>
           {children}
@@ -60,6 +68,8 @@ export default function RootLayout({
         <SessionExpiredModal />
         <script dangerouslySetInnerHTML={{__html: `if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'development') { console.log = function(){}; }`}} />
         <Analytics />
+        {/* Version watcher runs in client to detect new deployments */}
+        <AppVersionWatcher />
       </body>
     </html>
   )

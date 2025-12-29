@@ -10,6 +10,7 @@ import barcodeRoutes from "./routes/barcodes"
 import reportRoutes from "./routes/reports"
 import tenantRoutes from "./routes/tenants"
 import snapshotRoutes from "./routes/snapshots"
+import versionRoutes from './routes/version'
 import { errorHandler } from "./middleware/errorHandler"
 import { query } from "./config/database"
 
@@ -60,6 +61,8 @@ app.use('/api/barcodes', barcodeRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/tenants', tenantRoutes)
 app.use('/api/snapshots', snapshotRoutes)
+// lightweight endpoint used by clients to detect deployed app version and notify users
+app.use('/api/version', versionRoutes)
 
 // Uploads route (accepts PDF via multipart/form-data)
 import uploadRoutes from './routes/uploads'
