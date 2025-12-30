@@ -49,6 +49,8 @@ app.use(express.urlencoded({ extended: true }))
 
 // Mount API routes
 app.use('/api/auth', authRoutes)
+import backupRoutes from "./routes/backups"
+app.use('/api/backups', backupRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/users', userRoutes)
 // New module routes

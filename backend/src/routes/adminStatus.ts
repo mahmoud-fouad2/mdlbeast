@@ -58,4 +58,54 @@ router.post('/status/clear', async (req: Request, res: Response) => {
   }
 })
 
+// Fix sequences endpoint
+router.post('/fix-sequences', async (req: Request, res: Response) => {
+  try {
+    // 1. Create sequences if not exist
+    await query("CREATE SEQUENCE IF NOT EXISTS doc_in_seq START 1")
+    await query("CREATE SEQUENCE IF NOT EXISTS doc_out_seq START 1")
+
+    // 2. Fix INCOMING documents
+    const inDocs = await query("SELECT id, created_at FROM documents WHERE type = 'INCOMING' OR barcode LIKE '1-%' ORDER BY created_at ASC")
+    let inCounter = 0
+    for (const doc of inDocs.rows) {
+      inCounter++
+      const newBarcode = `1-${String(inCounter).padStart(8, '0')}`
+      await query("UPDATE documents SET barcode = $1 WHERE id = $2", [newBarcode, doc.id])
+    }
+
+    // 3. Fix OUTGOING documents
+    const outDocs = await query("SELECT id, created_at FROM documents WHERE type = 'OUTGOING' OR barcode LIKE '2-%' ORDER BY created_at ASC")
+    let outCounter = 0
+    for (const doc of outDocs.rows) {
+      outCounter++
+      const newBarcode = `2-${String(outCounter).padStart(8, '0')}`
+      await query("UPDATE documents SET barcode = $1 WHERE id = $2", [newBarcode, doc.id])
+    }
+
+    // 4. Reset sequences
+    if (inCounter > 0) {
+        await query("SELECT setval('doc_in_seq', $1, true)", [inCounter])
+    } else {
+        await query("SELECT setval('doc_in_seq', 1, false)")
+    }
+
+    if (outCounter > 0) {
+        await query("SELECT setval('doc_out_seq', $1, true)", [outCounter])
+    } else {
+        await query("SELECT setval('doc_out_seq', 1, false)")
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Sequences reset. IN: ${inCounter}, OUT: ${outCounter}`,
+      inCount: inCounter,
+      outCount: outCounter
+    })
+  } catch (err: any) {
+    console.error('Fix sequences error:', err)
+    res.status(500).json({ error: err?.message || String(err) })
+  }
+})
+
 export default router

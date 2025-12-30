@@ -158,7 +158,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
                 href="https://zaco.sa/archive/clear-cache.html"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 border border-slate-100 rounded-lg text-[10px] font-black hover:bg-slate-100 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-200 transition-colors shadow-sm"
               >
                 تواجه مشكلة؟
               </a>

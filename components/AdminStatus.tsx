@@ -87,6 +87,22 @@ export default function AdminStatus() {
               <Trash2 size={16} />
               مسح السجلات
             </button>
+            <button 
+              onClick={async () => {
+                if (!confirm('هل أنت متأكد؟ سيتم إعادة ترقيم جميع المستندات وإعادة تعيين التسلسل. هذا الإجراء لا يمكن التراجع عنه.')) return
+                try {
+                  const res = await apiClient.fixSequences()
+                  alert(`تمت العملية بنجاح.\nوارد: ${res.inCount}\nصادر: ${res.outCount}`)
+                  load()
+                } catch (e: any) {
+                  alert('فشل العملية: ' + (e?.message || e))
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 hover:bg-amber-100 font-bold flex items-center gap-2 transition-colors"
+            >
+              <RefreshCw size={16} />
+              إصلاح التسلسل
+            </button>
           </div>
         </div>
 

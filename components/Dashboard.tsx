@@ -130,7 +130,7 @@ export default function Dashboard({ docs }: DashboardProps) {
           </div>
           
           <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={0}>
               <BarChart data={typeData} barSize={80}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
@@ -216,7 +216,14 @@ export default function Dashboard({ docs }: DashboardProps) {
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                     <span>{doc.sender}</span>
                     <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                    <span dir="ltr">{doc.date ? new Date(doc.date).toLocaleDateString('en-GB') : ''}</span>
+                    <span dir="ltr">
+                      {(() => {
+                        try {
+                          const d = new Date(doc.date || '');
+                          return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB');
+                        } catch (e) { return '' }
+                      })()}
+                    </span>
                   </div>
                 </div>
               </div>

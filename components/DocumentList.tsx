@@ -230,10 +230,17 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                           </div>
                         </div>
 
-                        {doc.date && (
+                        {(doc.date || doc.documentDate) && (
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-50 w-fit px-2 py-1 rounded-md">
                             <Calendar size={12} />
-                            <span dir="ltr" className="font-mono">{new Date(doc.date).toLocaleDateString('en-GB')}</span>
+                            <span dir="ltr" className="font-mono">
+                              {(() => {
+                                try {
+                                  const d = new Date(doc.date || doc.documentDate || '');
+                                  return isNaN(d.getTime()) ? '---' : d.toLocaleDateString('en-GB');
+                                } catch (e) { return '---' }
+                              })()}
+                            </span>
                           </div>
                         )}
                       </div>

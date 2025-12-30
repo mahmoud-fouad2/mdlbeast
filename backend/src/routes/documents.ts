@@ -462,25 +462,27 @@ router.post(
       if (!barcode) {
         // Generate numeric-only barcode (new behavior). Keep direction required for status only.
         if (!direction) return res.status(400).json({ error: 'Direction (type) is required to generate barcode' })
-        const seqName = 'doc_seq'
+        
+        const prefix = direction === 'INCOMING' ? '1' : '2'
+        const seqName = direction === 'INCOMING' ? 'doc_in_seq' : 'doc_out_seq'
         let n: number
+        
         try {
           const seqRes = await query(`SELECT nextval('${seqName}') as n`)
           n = seqRes.rows[0].n
         } catch (seqErr: any) {
-          console.warn('Sequence missing or nextval failed for doc_seq, creating sequences:', seqErr?.message || seqErr)
+          console.warn(`Sequence missing or nextval failed for ${seqName}, creating sequences:`, seqErr?.message || seqErr)
           try {
-            await query("CREATE SEQUENCE IF NOT EXISTS doc_seq START 1")
+            await query(`CREATE SEQUENCE IF NOT EXISTS ${seqName} START 1`)
             const seqRes2 = await query(`SELECT nextval('${seqName}') as n`)
             n = seqRes2.rows[0].n
           } catch (seqErr2: any) {
-            console.error('Failed to create or get sequence value for doc_seq:', seqErr2)
+            console.error(`Failed to create or get sequence value for ${seqName}:`, seqErr2)
             return res.status(500).json({ error: 'Failed to generate barcode sequence' })
           }
         }
 
         const padded = String(n).padStart(8, '0')
-        const prefix = direction === 'INCOMING' ? '1' : '2'
         barcode = `${prefix}-${padded}`
       }
 
