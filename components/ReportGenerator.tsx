@@ -17,8 +17,23 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
   const [scope, setScope] = useState<'ALL'|'INCOMING'|'OUTGOING'>('ALL')
 
   const filteredDocs = docs.filter(doc => {
-    const docDate = doc.date || doc.documentDate || '';
-    const inRange = docDate >= startDate && docDate <= endDate;
+    // Prioritize documentDate (ISO) over date (which might be formatted display string)
+    let raw = doc.documentDate || (doc as any).created_at || doc.date || '';
+    // Normalize to YYYY-MM-DD
+    if (typeof raw === 'string' && raw.includes('T')) {
+      raw = raw.split('T')[0];
+    }
+    // If raw is still not YYYY-MM-DD (e.g. formatted string), try to parse or ignore
+    // This simple check ensures we don't compare "1445..." with "2025..."
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(raw))) {
+       // fallback: try to create Date and toISOString
+       try {
+         const d = new Date(raw);
+         if (!isNaN(d.getTime())) raw = d.toISOString().split('T')[0];
+       } catch (e) { /* ignore */ }
+    }
+
+    const inRange = String(raw) >= startDate && String(raw) <= endDate;
     const inScope = scope === 'ALL' || (scope === 'INCOMING' && doc.type === DocType.INCOMING) || (scope === 'OUTGOING' && doc.type === DocType.OUTGOING);
     return inRange && inScope;
   });

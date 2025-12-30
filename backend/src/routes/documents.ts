@@ -573,6 +573,26 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     const { canAccessDocument } = await import('../lib/rbac')
     if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
 
+    // Prepare values for partial update (use existing if new value is undefined)
+    const newType = type !== undefined ? type : doc.type
+    const newSender = sender !== undefined ? sender : doc.sender
+    const newReceiver = receiver !== undefined ? receiver : doc.receiver
+    const newDate = date !== undefined ? date : doc.date
+    const newSubject = subject !== undefined ? subject : doc.subject
+    const newPriority = priority !== undefined ? priority : doc.priority
+    const newStatus = status !== undefined ? status : doc.status
+    const newClassification = classification !== undefined ? classification : doc.classification
+    const newNotes = notes !== undefined ? notes : doc.notes
+    
+    // Handle attachments carefully
+    let currentAttachments = doc.attachments
+    try {
+        if (typeof currentAttachments === 'string') currentAttachments = JSON.parse(currentAttachments)
+    } catch(e) { currentAttachments = [] }
+    if (!Array.isArray(currentAttachments)) currentAttachments = []
+    
+    const newAttachments = incomingAttachments !== undefined ? incomingAttachments : currentAttachments
+
     // Prevent changing tenant via update
     const result = await query(
       `UPDATE documents 
@@ -581,16 +601,16 @@ router.put("/:barcode", async (req: Request, res: Response) => {
        WHERE barcode = $11
        RETURNING *`,
       [
-        type,
-        sender,
-        receiver,
-        date,
-        subject,
-        priority,
-        status,
-        classification,
-        notes,
-        JSON.stringify(incomingAttachments),
+        newType,
+        newSender,
+        newReceiver,
+        newDate,
+        newSubject,
+        newPriority,
+        newStatus,
+        newClassification,
+        newNotes,
+        JSON.stringify(newAttachments),
         barcode,
       ],
     )
