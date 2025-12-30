@@ -17,9 +17,10 @@ interface DocumentListProps {
   settings: SystemSettings
   currentUser?: any
   users?: any[]
+  tenants?: any[]
 }
 
-export default function DocumentList({ docs, settings, currentUser, users }: DocumentListProps) {
+export default function DocumentList({ docs, settings, currentUser, users, tenants }: DocumentListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -233,7 +234,13 @@ export default function DocumentList({ docs, settings, currentUser, users }: Doc
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold text-slate-400">إلى:</span>
-                              <span className="font-medium text-slate-700">{doc.recipient || '—'}</span>
+                              <span className="font-medium text-slate-700">
+                                {doc.recipient || (
+                                  doc.type === 'INCOMING' && doc.companyId && tenants 
+                                    ? (tenants.find(t => String(t.id) === String(doc.companyId))?.name || '—')
+                                    : '—'
+                                )}
+                              </span>
                             </div>
                           </div>
 
