@@ -116,7 +116,7 @@ export default function AuditLogs() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={px-2 py-1 rounded-lg text-[10px] font-black border }>
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-black border ${getActionColor(log.action)}`}>
                         {log.action}
                       </span>
                     </td>
