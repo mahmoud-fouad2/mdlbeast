@@ -23,8 +23,27 @@ export default function TenantManagement({ companies, onUpdate }: TenantManageme
       const result = await apiClient.uploadFile(file, 3, 'signatures')
       const url = result?.url || result?.file?.url
       if (!url) throw new Error('Upload did not return a URL')
-      setNewCompany(prev => ({ ...prev, signatureUrl: url }))
+      
+      // Extract key from URL for signed URL generation
+      let displayUrl = url
+      if (url.includes('r2.cloudflarestorage.com')) {
+        try {
+          const urlParts = url.split('/')
+          const key = urlParts.slice(-3).join('/') // uploads/signatures/filename.ext
+          const signedResult = await apiClient.getSignedUrl(key)
+          displayUrl = signedResult.url
+        } catch (err) {
+          console.warn('Failed to get signed URL, using direct URL:', err)
+        }
+      }
+      
+      setNewCompany(prev => ({ ...prev, signatureUrl: url })) // Save original URL to DB
       alert('✅ تم رفع التوقيع بنجاح')
+      
+      // Force re-render with signed URL for display
+      setTimeout(() => {
+        setNewCompany(prev => ({ ...prev, signatureUrl: displayUrl }))
+      }, 100)
     } catch (err) {
       console.error('Tenant signature upload failed', err)
       alert('❌ فشل رفع توقيع المؤسسة')

@@ -54,6 +54,7 @@ export interface ApprovalRequest {
   attachment_url: string
   signed_attachment_url?: string
   rejection_reason?: string
+  approval_number?: string
   created_at: string
   updated_at: string
   requester?: User

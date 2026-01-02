@@ -120,4 +120,22 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   }
 })
 
+// Get signed URL for a file key
+router.get('/signed-url', async (req: Request, res: Response) => {
+  try {
+    const { key } = req.query
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ error: 'Missing key parameter' })
+    }
+    
+    const { getSignedDownloadUrl } = await import('../lib/r2-storage')
+    const signedUrl = await getSignedDownloadUrl(key)
+    
+    res.json({ url: signedUrl })
+  } catch (err: any) {
+    console.error('Get signed URL error:', err)
+    res.status(500).json({ error: err.message || 'Failed to generate signed URL' })
+  }
+})
+
 export default router

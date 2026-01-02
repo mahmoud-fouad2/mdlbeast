@@ -521,6 +521,11 @@ class ApiClient {
     return attemptUpload(1)
   }
 
+  // Get signed URL for R2 file
+  async getSignedUrl(key: string) {
+    return this.request<{ url: string }>(`/uploads/signed-url?key=${encodeURIComponent(key)}`)
+  }
+
   // Tenants
   async getTenants() {
     return this.request<any[]>(`/tenants`)

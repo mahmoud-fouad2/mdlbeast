@@ -350,7 +350,14 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                        <Clock size={24} />}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-black text-slate-900 text-lg mb-1">{req.title}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-black text-slate-900 text-lg">{req.title}</h4>
+                        {req.approval_number && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-mono font-bold rounded-lg">
+                            {req.approval_number}
+                          </span>
+                        )}
+                      </div>
                       {req.description && (
                         <p className="text-sm text-slate-600 mb-2 line-clamp-2">{req.description}</p>
                       )}
@@ -446,6 +453,11 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-black text-slate-900 text-xl">{req.title}</h4>
+                        {req.approval_number && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-mono font-bold rounded-lg">
+                            {req.approval_number}
+                          </span>
+                        )}
                         <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-black rounded-full">جديد</span>
                       </div>
                       {req.description && (

@@ -148,9 +148,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'المستخدم المحدد ليس مديراً' })
     }
 
+    // Generate unique approval number
+    const numResult = await query("SELECT 'APV-' || LPAD(nextval('approval_number_seq')::TEXT, 6, '0') AS approval_number")
+    const approvalNumber = numResult.rows[0].approval_number
+
     const ins = await query(
-      'INSERT INTO approval_requests (requester_id, manager_id, title, description, attachment_url) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [requesterId, manager_id, title, description || null, attachment_url]
+      'INSERT INTO approval_requests (requester_id, manager_id, title, description, attachment_url, approval_number) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [requesterId, manager_id, title, description || null, attachment_url, approvalNumber]
     )
     
     // Audit log
@@ -159,7 +163,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       action: 'CREATE_APPROVAL_REQUEST',
       entityType: 'approval_request',
       entityId: String(ins.rows[0].id),
-      details: `Created approval request: ${title}`,
+      details: `Created approval request: ${title} (${approvalNumber})`,
       ipAddress: req.ip || req.socket.remoteAddress,
       userAgent: req.get('user-agent')
     })
