@@ -421,13 +421,14 @@ export default function DashboardPage() {
                           onChange={async (e) => {
                             const f = e.target.files?.[0]
                             if (!f) return
+                            const target = e.currentTarget
                             try {
                               await uploadTenantSignature(f)
                             } catch (err) {
                               console.error(err)
                               alert('فشل رفع توقيع المؤسسة')
                             } finally {
-                              e.currentTarget.value = ''
+                              if (target) target.value = ''
                             }
                           }}
                         />
@@ -474,13 +475,14 @@ export default function DashboardPage() {
                                 onChange={async (e) => {
                                   const f = e.target.files?.[0]
                                   if (!f) return
+                                  const target = e.currentTarget
                                   try {
                                     await uploadTenantSignature(f, t.id)
                                   } catch (err) {
                                     console.error(err)
                                     alert('فشل رفع توقيع المؤسسة')
                                   } finally {
-                                    e.currentTarget.value = ''
+                                    if (target) target.value = ''
                                   }
                                 }}
                               />
