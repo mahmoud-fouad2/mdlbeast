@@ -3,8 +3,32 @@ import type { Request, Response } from "express"
 import { query } from "../config/database"
 import { authenticateToken, isAdmin, isManager } from "../middleware/auth"
 import type { AuthRequest } from "../types"
+import { getSignedDownloadUrl } from "../lib/r2-storage"
 
 const router = express.Router()
+
+// Helper function to convert R2 URLs to signed URLs
+async function convertToSignedUrls(user: any) {
+  if (user.signature_url && user.signature_url.includes('r2.cloudflarestorage.com')) {
+    try {
+      const urlParts = user.signature_url.split('/')
+      const key = urlParts.slice(-2).join('/') // signatures/filename.ext
+      user.signature_url = await getSignedDownloadUrl(key)
+    } catch (err) {
+      console.error('Failed to generate signed URL for signature:', err)
+    }
+  }
+  if (user.stamp_url && user.stamp_url.includes('r2.cloudflarestorage.com')) {
+    try {
+      const urlParts = user.stamp_url.split('/')
+      const key = urlParts.slice(-2).join('/') // stamps/filename.ext
+      user.stamp_url = await getSignedDownloadUrl(key)
+    } catch (err) {
+      console.error('Failed to generate signed URL for stamp:', err)
+    }
+  }
+  return user
+}
 
 // All routes require authentication
 router.use(authenticateToken)
@@ -32,7 +56,11 @@ router.get("/", isManager, async (req: AuthRequest, res: Response) => {
     }
 
     const result = await query(`SELECT ${select} FROM users ORDER BY created_at DESC`)
-    res.json(result.rows)
+    
+    // Convert R2 URLs to signed URLs
+    const usersWithSignedUrls = await Promise.all(result.rows.map(convertToSignedUrls))
+    
+    res.json(usersWithSignedUrls)
   } catch (error) {
     console.error("Get users error:", error)
     res.status(500).json({ error: "Failed to fetch users" })
@@ -76,7 +104,11 @@ router.put('/:id', isManager, async (req: AuthRequest, res: Response) => {
     const q = `UPDATE users SET ${parts.join(', ')} WHERE id = $${idx} RETURNING id, username, full_name, role, created_at, manager_id, signature_url, stamp_url`
     const r = await query(q, values)
     if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' })
-    res.json(r.rows[0])
+    
+    // Convert R2 URLs to signed URLs
+    const userWithSignedUrls = await convertToSignedUrls(r.rows[0])
+    
+    res.json(userWithSignedUrls)
   } catch (err: any) {
     console.error('Update user error:', err)
     res.status(500).json({ error: 'Failed to update user' })
@@ -122,7 +154,10 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "User not found" })
     }
 
-    res.json(result.rows[0])
+    // Convert R2 URLs to signed URLs
+    const userWithSignedUrls = await convertToSignedUrls(result.rows[0])
+
+    res.json(userWithSignedUrls)
   } catch (error) {
     console.error("Get user error:", error)
     res.status(500).json({ error: "Failed to fetch user" })

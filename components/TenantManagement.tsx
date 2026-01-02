@@ -24,9 +24,10 @@ export default function TenantManagement({ companies, onUpdate }: TenantManageme
       const url = result?.url || result?.file?.url
       if (!url) throw new Error('Upload did not return a URL')
       setNewCompany(prev => ({ ...prev, signatureUrl: url }))
+      alert('✅ تم رفع التوقيع بنجاح')
     } catch (err) {
       console.error('Tenant signature upload failed', err)
-      alert('فشل رفع توقيع المؤسسة')
+      alert('❌ فشل رفع توقيع المؤسسة')
     }
   }
 

@@ -2,6 +2,7 @@ import express from "express"
 import { query } from "../config/database"
 import type { Request, Response } from "express"
 import { authenticateToken, isAdmin } from "../middleware/auth"
+import { getSignedDownloadUrl } from "../lib/r2-storage"
 const router = express.Router()
 
 // Require authentication for tenant operations
@@ -26,7 +27,25 @@ router.post("/", isAdmin, async (req: Request, res: Response) => {
 router.get("/", async (_req: Request, res: Response) => {
   try {
     const r = await query("SELECT * FROM tenants ORDER BY created_at DESC")
-    res.json(r.rows)
+    
+    // Convert signature_url to signed URL if it exists
+    const tenantsWithSignedUrls = await Promise.all(
+      r.rows.map(async (tenant) => {
+        if (tenant.signature_url && tenant.signature_url.includes('r2.cloudflarestorage.com')) {
+          try {
+            // Extract key from URL: signatures/XXX.png
+            const urlParts = tenant.signature_url.split('/')
+            const key = urlParts.slice(-2).join('/') // signatures/filename.ext
+            tenant.signature_url = await getSignedDownloadUrl(key)
+          } catch (err) {
+            console.error('Failed to generate signed URL for tenant signature:', err)
+          }
+        }
+        return tenant
+      })
+    )
+    
+    res.json(tenantsWithSignedUrls)
   } catch (err: any) {
     console.error("List tenants error:", err)
     res.status(500).json({ error: "Failed to list tenants" })
