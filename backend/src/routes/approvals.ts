@@ -286,6 +286,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const actorId = Number(req.user?.id)
     const { status, rejection_reason, signature_type, signature_position } = req.body || {}
 
+    console.log('[PUT /:id] Request received:', { id, actorId, status, signature_type, hasPosition: !!signature_position })
+
     const existing = await query('SELECT * FROM approval_requests WHERE id = $1 LIMIT 1', [id])
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Approval request not found' })
     const row = existing.rows[0]
@@ -360,8 +362,11 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     })
 
     if (!signatureUrl) {
-      console.error('No signature/stamp found for manager', actorId)
-      return res.status(400).json({ error: 'لا يوجد توقيع أو ختم مُعد. الرجاء رفع توقيع أو ختم أولاً.' })
+      console.error('[PUT /:id] No signature/stamp available for manager', actorId)
+      return res.status(400).json({ 
+        error: 'لا يوجد توقيع أو ختم مُعد. الرجاء رفع توقيع أو ختم أولاً من صفحة الملف الشخصي.',
+        needsSignature: true
+      })
     }
 
     // Use transaction to ensure consistency
@@ -400,10 +405,11 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.json(upd.rows[0])
     } catch (err) {
       await query('ROLLBACK')
+      console.error('[PUT /:id] Transaction error:', err)
       throw err
     }
   } catch (err: any) {
-    console.error('Update approval error:', err)
+    console.error('[PUT /:id] Update approval error:', err)
     return res.status(500).json({ error: String(err?.message || err) })
   }
 })

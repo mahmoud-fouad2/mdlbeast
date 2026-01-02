@@ -130,9 +130,14 @@ export default function ApprovalSigner({
       onSuccess();
     } catch (error: any) {
       console.error('Approval failed:', error);
+      
+      // Check if error is about missing signature/stamp
+      const errorMsg = error?.response?.data?.error || error.message || "فشل اعتماد المستند";
+      const needsSignature = error?.response?.data?.needsSignature;
+      
       toast({ 
-        title: "❌ خطأ", 
-        description: error.message || "فشل اعتماد المستند", 
+        title: needsSignature ? "⚠️ توقيع مطلوب" : "❌ خطأ", 
+        description: errorMsg, 
         variant: "destructive" 
       });
     } finally {
