@@ -36,6 +36,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   
   const { toast } = useToast();
 
@@ -44,6 +45,22 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
     fetchManagers();
     fetchNotifications();
   }, [activeTab]);
+
+  // Fetch signed URL when sign modal opens
+  useEffect(() => {
+    const fetchPreviewUrl = async () => {
+      if (showSignModal && selectedRequest) {
+        try {
+          const { url } = await apiClient.getApprovalAttachmentUrl(selectedRequest.id);
+          setPreviewUrl(url);
+        } catch (error) {
+          console.error('Failed to fetch preview URL:', error);
+          toast({ title: "خطأ", description: "فشل تحميل المعاينة", variant: "destructive" });
+        }
+      }
+    };
+    fetchPreviewUrl();
+  }, [showSignModal, selectedRequest]);
 
   const fetchNotifications = async () => {
     try {
@@ -579,30 +596,39 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
               <button onClick={() => setShowSignModal(false)} className="text-slate-400 hover:text-red-500"><XCircle size={24}/></button>
             </div>
             
-            <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden relative mb-6 flex items-center justify-center border border-slate-200">
-              {/* Placeholder for PDF/Image Viewer & Canvas */}
-              <div className="text-center p-8">
-                <FileSignature size={48} className="mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-500 font-bold">معاينة المستند والتوقيع</p>
-                <p className="text-xs text-slate-400 mt-2">في النسخة الكاملة، سيظهر هنا المستند مع إمكانية سحب وإفلات التوقيع</p>
-                
-                <div className="mt-8 flex justify-center gap-4">
+            <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden relative mb-6 flex flex-col border border-slate-200">
+              {/* PDF Preview */}
+              <div className="flex-1 overflow-auto">
+                {previewUrl ? (
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-full min-h-[500px]"
+                    title="معاينة المستند"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <FileSignature size={48} className="mx-auto text-slate-300 mb-4 animate-pulse" />
+                      <p className="text-slate-500 font-bold">جاري تحميل المعاينة...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Signatures Display */}
+              <div className="p-4 bg-white border-t border-slate-200">
+                <p className="text-xs text-slate-500 font-bold mb-3 text-center">سيتم استخدام أحد التوقيعات التالية (حسب الأولوية):</p>
+                <div className="flex justify-center gap-4">
                   {tenantSignatureUrl && (
-                    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                      <img src={tenantSignatureUrl} alt="Tenant Signature" className="h-12 object-contain" />
-                      <p className="text-[10px] text-center mt-2 text-slate-400 font-bold">توقيع المؤسسة</p>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+                      <img src={tenantSignatureUrl} alt="Tenant Signature" className="h-10 object-contain" />
+                      <p className="text-[10px] text-center mt-2 text-slate-400 font-bold">توقيع المؤسسة (أولوية 1)</p>
                     </div>
                   )}
                   {currentUser.signature_url && (
-                    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                      <img src={currentUser.signature_url} alt="Signature" className="h-12 object-contain" />
-                      <p className="text-[10px] text-center mt-2 text-slate-400 font-bold">توقيعك</p>
-                    </div>
-                  )}
-                  {currentUser.stamp_url && (
-                    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                      <img src={currentUser.stamp_url} alt="Stamp" className="h-12 object-contain" />
-                      <p className="text-[10px] text-center mt-2 text-slate-400 font-bold">الختم</p>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+                      <img src={currentUser.signature_url} alt="Signature" className="h-10 object-contain" />
+                      <p className="text-[10px] text-center mt-2 text-slate-400 font-bold">توقيعك (أولوية 2)</p>
                     </div>
                   )}
                 </div>
