@@ -221,9 +221,11 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
       <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print h-full">
-        <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex flex-col items-center text-center">
-           {currentCompany && <img src={currentCompany.logoUrl} className="h-20 w-auto mb-4 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />}
-           <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">مركز الأرشفة الرقمي الموحد</div>
+        <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+           <div className="flex flex-col items-center text-center w-full">
+             {currentCompany && <img src={currentCompany.logoUrl} className="h-20 w-auto mb-4 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />}
+             <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">مركز الإتصالات الإدارية</div>
+           </div>
            
            <div className="space-y-2 w-full flex flex-col items-center">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">

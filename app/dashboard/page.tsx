@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server, Lock, Shield } from "lucide-react"
+import { LayoutDashboard, FilePlus, FileMinus, Search, Users, LogOut, Scan, FileText, Briefcase, Database, Server, Lock, Shield, FileSignature } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import AsyncButton from '@/components/ui/async-button'
 import type { Correspondence, User, SystemSettings } from "@/types"
@@ -17,6 +17,7 @@ import AdminStatus from '@/components/AdminStatus'
 import AuditLogs from '@/components/AuditLogs'
 import UserManagement from "@/components/UserManagement"
 import ChangePassword from '@/components/ChangePassword'
+import Approvals from '@/components/Approvals'
 import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardPage() {
@@ -34,15 +35,21 @@ export default function DashboardPage() {
   const [newTenant, setNewTenant] = useState({ name: '', slug: '', logo_url: '', signature_url: '' })
 
   const uploadTenantSignature = async (file: File, tenantId?: number | string) => {
-    const result = await apiClient.uploadFile(file, 3, 'signatures')
-    const url = result?.url || result?.file?.url
-    if (!url) throw new Error('Upload did not return a URL')
+    try {
+      const result = await apiClient.uploadFile(file, 3, 'signatures')
+      const url = result?.url || result?.file?.url
+      if (!url) throw new Error('Upload did not return a URL')
 
-    if (tenantId) {
-      await apiClient.updateTenant(tenantId, { signature_url: url })
-      setTenants(await apiClient.getTenants())
-    } else {
-      setNewTenant(prev => ({ ...prev, signature_url: url }))
+      if (tenantId) {
+        await apiClient.updateTenant(tenantId, { signature_url: url })
+        setTenants(await apiClient.getTenants())
+      } else {
+        setNewTenant(prev => ({ ...prev, signature_url: url }))
+      }
+    } catch (err: any) {
+      console.error('Signature upload error:', err)
+      alert('فشل رفع التوقيع: ' + (err.message || 'خطأ غير معروف'))
+      throw err
     }
   }
 
@@ -308,10 +315,13 @@ export default function DashboardPage() {
       {/* Sidebar hidden on small screens - mobile users will use the top selector */}
       <aside className="hidden md:flex w-72 bg-white border-l border-slate-200 flex-col shrink-0 z-20 shadow-sm no-print">
         <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-          <img src={settings.logoUrl || "/placeholder.svg"} className="h-12 w-auto mb-5 object-contain" alt="Logo" />
-          <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">
-            مركز الأرشفة الرقمي الموحد
-          </div>           <div className="mt-4 px-2">
+          <div className="flex flex-col items-center text-center w-full mb-5">
+            <img src={settings.logoUrl || "/placeholder.svg"} className="h-12 w-auto mb-4 object-contain" alt="Logo" />
+            <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] leading-relaxed">
+              مركز الإتصالات الإدارية
+            </div>
+          </div>
+          <div className="mt-4 px-2">
              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">المؤسسة الحالية</label>
              <select className="w-full p-3 bg-white border border-slate-200 rounded-2xl text-xs font-black" value={selectedTenantId ?? ''} onChange={(e) => setSelectedTenantId(e.target.value ? Number(e.target.value) : null)}>
                <option value="">جميع المؤسسات</option>
@@ -325,6 +335,8 @@ export default function DashboardPage() {
           <NavItem id="incoming" label="قيد وارد جديد" icon={FilePlus} />
           <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
           <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
+          <div className="h-px bg-slate-100 my-4 mx-4"></div>
+          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
@@ -367,6 +379,7 @@ export default function DashboardPage() {
             <option value="incoming">قيد وارد جديد</option>
             <option value="outgoing">قيد صادر جديد</option>
             <option value="list">الأرشيف والبحث</option>
+            <option value="approvals">نظام الإعتمادات</option>
             <option value="scanner">تتبع الباركود</option>
             <option value="reports">مركز التقارير</option>
             <option value="users">إدارة المستخدمين</option>
@@ -385,6 +398,7 @@ export default function DashboardPage() {
           {activeTab === "outgoing" && <DocumentForm type="OUTGOING" onSave={handleSaveDoc} companies={tenants} />}
           {activeTab === "list" && <DocumentList docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === selectedTenantId) : docs} settings={settings} currentUser={currentUser} users={users} tenants={tenants} />}
           {activeTab === "scanner" && <BarcodeScanner />}
+          {activeTab === "approvals" && <Approvals currentUser={currentUser} tenantSignatureUrl={currentTenant?.signature_url || ''} />}
           {activeTab === "reports" && <ReportGenerator docs={selectedTenantId ? docs.filter(d => Number(d.companyId) === Number(selectedTenantId)) : docs} settings={reportSettings} /> }
           {activeTab === "users" && <UserManagement users={users} onUpdateUsers={async () => { const u = await apiClient.getUsers().catch(()=>[]); setUsers(u); }} currentUserEmail={currentUser?.username || ''} currentUserRole={currentUser?.role || ''} />}
           {activeTab === "change-password" && <ChangePassword />}
