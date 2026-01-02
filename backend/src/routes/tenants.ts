@@ -38,10 +38,39 @@ router.put('/:id', isAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const { name, slug, logo_url, signature_url } = req.body
-    const r = await query(
-      'UPDATE tenants SET name = $1, slug = $2, logo_url = $3, signature_url = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [name, slug, logo_url, signature_url, id]
-    )
+    
+    // Build dynamic update query to only update provided fields
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+    
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex++}`)
+      values.push(name)
+    }
+    if (slug !== undefined) {
+      updates.push(`slug = $${paramIndex++}`)
+      values.push(slug)
+    }
+    if (logo_url !== undefined) {
+      updates.push(`logo_url = $${paramIndex++}`)
+      values.push(logo_url)
+    }
+    if (signature_url !== undefined) {
+      updates.push(`signature_url = $${paramIndex++}`)
+      values.push(signature_url)
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' })
+    }
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`)
+    values.push(id)
+    
+    const sql = `UPDATE tenants SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`
+    const r = await query(sql, values)
+    
     if (r.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' })
     res.json(r.rows[0])
   } catch (err: any) {
