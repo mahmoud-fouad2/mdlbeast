@@ -15,14 +15,17 @@ interface PdfStamperProps {
 }
 
 export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) {
+  const BASE_STAMP_WIDTH = 220
   const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isSaving, setIsSaving] = useState(false)
-  const [stampWidth, setStampWidth] = useState<number>(150)
+  // stampWidth is the *visual* target width in px (we scale a fixed base layout to this value)
+  const [stampWidth, setStampWidth] = useState<number>(160)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const [attachmentIndex, setAttachmentIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const stampRef = useRef<HTMLDivElement>(null)
   
   const currentAttachment = doc.attachments && doc.attachments[attachmentIndex] ? doc.attachments[attachmentIndex] : doc.attachments?.[0]
   const pagesCount = ((currentAttachment && (currentAttachment as any).pageCount) ? (currentAttachment as any).pageCount : (doc.attachmentCount ?? 1))
@@ -49,8 +52,12 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
     if (!isDragging || !containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
 
-    const newX = Math.max(0, Math.min(e.clientX - rect.left - dragOffset.x, rect.width - stampWidth))
-    const newY = Math.max(0, Math.min(e.clientY - rect.top - dragOffset.y, rect.height - (stampWidth * 0.5)))
+    const stampRect = stampRef.current?.getBoundingClientRect()
+    const stampW = stampRect?.width ?? stampWidth
+    const stampH = stampRect?.height ?? Math.max(60, stampWidth * 0.45)
+
+    const newX = Math.max(0, Math.min(e.clientX - rect.left - dragOffset.x, rect.width - stampW))
+    const newY = Math.max(0, Math.min(e.clientY - rect.top - dragOffset.y, rect.height - stampH))
 
     setPos({ x: newX, y: newY })
   }
@@ -152,13 +159,21 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
 
             {/* Professional Stamp Design */}
             <div
+              ref={stampRef}
               onMouseDown={handleMouseDown}
-              style={{ left: pos.x, top: pos.y, width: stampWidth }}
+              style={{
+                left: pos.x,
+                top: pos.y,
+                width: BASE_STAMP_WIDTH,
+                transform: `scale(${Math.max(0.2, Math.min(3, stampWidth / BASE_STAMP_WIDTH))})`,
+                transformOrigin: 'top left',
+                willChange: 'transform',
+              }}
               className={`absolute bg-white border-2 ${
                 isDragging
-                  ? "border-blue-600 ring-4 ring-blue-500/10 scale-105 rotate-1 cursor-grabbing shadow-2xl"
+                  ? "border-blue-600 ring-4 ring-blue-500/10 cursor-grabbing shadow-2xl"
                   : "border-slate-900 shadow-lg"
-              } cursor-grab rounded-lg flex flex-col items-center justify-center p-2 z-50 transition-all duration-75 select-none`}
+              } cursor-grab rounded-lg flex flex-col items-center justify-center p-2 z-50 transition-[border-color,box-shadow] duration-75 select-none`}
             >
               {/* Header */}
               <div className="text-[6px] font-bold text-slate-900 mb-0.5 text-center leading-tight w-full border-b border-slate-100 pb-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
