@@ -222,15 +222,15 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
       <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print h-full">
         <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex flex-col items-center text-center">
-           {currentCompany && <img src={currentCompany.logoUrl} className="h-16 w-auto mb-6 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />}
+           {currentCompany && <img src={currentCompany.logoUrl} className="h-20 w-auto mb-4 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />}
            <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">مركز الأرشفة الرقمي الموحد</div>
            
-           <div className="space-y-2 w-full text-right">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+           <div className="space-y-2 w-full flex flex-col items-center">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                 <Building2 size={12} /> المؤسسة الحالية
               </label>
               <select 
-                className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-black appearance-none cursor-pointer focus:border-slate-900 outline-none shadow-sm transition-all"
+                className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black appearance-none cursor-pointer focus:border-slate-900 outline-none shadow-sm transition-all text-center"
                 value={selectedCompanyId} 
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
               >
@@ -241,6 +241,7 @@ const App: React.FC = () => {
 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
           <NavItem id="dashboard" label="لوحة التحكم" icon={LayoutDashboard} />
+          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="incoming" label="قيد وارد جديد" icon={FilePlus} />
           <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
@@ -248,7 +249,6 @@ const App: React.FC = () => {
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />
-          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
           <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
           <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
           <NavItem id="companies" label="إدارة المؤسسات" icon={Briefcase} adminOnly />
@@ -258,12 +258,17 @@ const App: React.FC = () => {
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/30">
           <button onClick={() => { localStorage.removeItem('archivx_session_user'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-4"><LogOut size={16} /> تسجيل الخروج</button>
-          <div className="p-4 bg-slate-900 rounded-[1.5rem] flex items-center gap-3 text-white shadow-2xl">
+          <div className="p-4 bg-slate-900 rounded-[1.5rem] flex items-center gap-3 text-white shadow-2xl mb-6">
              <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center font-black text-sm">{currentUser.full_name?.substring(0, 1) || 'U'}</div>
              <div className="overflow-hidden">
                <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير تنفيذي' : currentUser.role === 'supervisor' ? 'مدير مباشر' : 'مستخدم'}</div>
              </div>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 transition-all">
+            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
+            <img src="/dev.png" className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
           </div>
         </div>
       </aside>

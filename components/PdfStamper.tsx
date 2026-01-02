@@ -207,9 +207,9 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight">حجم الختم</label>
                 <input 
                   type="range" 
-                  min={100} 
-                  max={300} 
-                  step={10}
+                  min={50} 
+                  max={500} 
+                  step={5}
                   value={stampWidth} 
                   onChange={(e) => setStampWidth(Number(e.target.value))} 
                   className="w-32 accent-slate-900" 
