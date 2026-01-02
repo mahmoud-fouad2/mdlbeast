@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [loadingError, setLoadingError] = useState<string | null>(null)
   const [loadStartedAt, setLoadStartedAt] = useState<number | null>(null)
   const [newTenant, setNewTenant] = useState({ name: '', slug: '', logo_url: '', signature_url: '' })
+  const [approvalsNotificationCount, setApprovalsNotificationCount] = useState(0)
 
   const uploadTenantSignature = async (file: File, tenantId?: number | string) => {
     try {
@@ -172,7 +173,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData()
+    fetchApprovalsNotifications()
+    
+    // Poll notifications every 30 seconds
+    const interval = setInterval(fetchApprovalsNotifications, 30000)
+    return () => clearInterval(interval)
   }, [loadData])
+
+  const fetchApprovalsNotifications = async () => {
+    try {
+      const data = await apiClient.getApprovalsNotificationCount()
+      setApprovalsNotificationCount(data?.count || 0)
+    } catch (error) {
+      // Ignore errors silently
+    }
+  }
 
   // When tenant selection changes, re-fetch docs scoped to that tenant
   useEffect(() => {
@@ -293,19 +308,24 @@ export default function DashboardPage() {
 
   if (!currentUser) return null
 
-  const NavItem = ({ id, label, icon: Icon, adminOnly = false }: any) => {
+  const NavItem = ({ id, label, icon: Icon, adminOnly = false, badge = 0 }: any) => {
     if (adminOnly && String(currentUser?.role || '').toLowerCase() !== 'admin') return null
     return (
       <button
         onClick={() => setActiveTab(id)}
-        className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-black transition-all ${
+        className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-black transition-all relative ${
           activeTab === id
             ? "bg-slate-900 text-white shadow-xl scale-[1.02]"
             : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
         }`}
       >
         <Icon size={18} />
-        <span>{label}</span>
+        <span className="flex-1 text-right">{label}</span>
+        {badge > 0 && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full min-w-[20px] flex items-center justify-center">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </button>
     )
   }
@@ -336,7 +356,7 @@ export default function DashboardPage() {
           <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
           <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
-          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
+          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} badge={approvalsNotificationCount} />
           <div className="h-px bg-slate-100 my-4 mx-4"></div>
           <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
           <NavItem id="reports" label="مركز التقارير" icon={FileText} />

@@ -20,6 +20,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
   const [isLoading, setIsLoading] = useState(true);
   const [showNewRequestForm, setShowNewRequestForm] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
+  const [notificationCount, setNotificationCount] = useState(0);
   
   // New Request State
   const [newRequest, setNewRequest] = useState({
@@ -41,7 +42,17 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
   useEffect(() => {
     fetchData();
     fetchManagers();
+    fetchNotifications();
   }, [activeTab]);
+
+  const fetchNotifications = async () => {
+    try {
+      const data = await apiClient.getApprovalsNotificationCount();
+      setNotificationCount(data?.count || 0);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -49,6 +60,19 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
       if (activeTab === 'my-requests') {
         const data = await apiClient.getMyApprovalRequests();
         setMyRequests(data || []);
+        
+        // Mark all non-pending requests as seen
+        const unseenRequests = (data || []).filter((r: ApprovalRequest) => r.status !== 'PENDING');
+        for (const req of unseenRequests) {
+          try {
+            await apiClient.markApprovalAsSeen(req.id);
+          } catch (err) {
+            // Ignore errors (column might not exist yet)
+          }
+        }
+        
+        // Refresh notification count after marking as seen
+        fetchNotifications();
       } else {
         const data = await apiClient.getPendingApprovals();
         setPendingApprovals(data || []);
@@ -62,9 +86,23 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
 
   const fetchManagers = async () => {
     try {
-      // Use dedicated managers endpoint (available for all authenticated users)
-      const users = await apiClient.getManagers();
-      setManagers(users.filter(u => String(u.id) !== String(currentUser.id)));
+      const myRole = String(currentUser.role || '').toLowerCase();
+      
+      // If user is admin/manager/supervisor, show all managers
+      if (['admin', 'manager', 'supervisor'].includes(myRole)) {
+        const users = await apiClient.getManagers();
+        setManagers(users.filter(u => String(u.id) !== String(currentUser.id)));
+      } else {
+        // Regular users: only show their assigned manager (from manager_id)
+        if (currentUser.manager_id) {
+          const users = await apiClient.getManagers();
+          const assignedManager = users.find(u => String(u.id) === String(currentUser.manager_id));
+          setManagers(assignedManager ? [assignedManager] : []);
+        } else {
+          // No manager assigned
+          setManagers([]);
+        }
+      }
     } catch (error) {
       console.error('Error fetching managers:', error);
       setManagers([]);
@@ -230,10 +268,10 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                       <div className="text-amber-800 text-sm font-bold mb-2 flex items-center gap-2">
                         <span>⚠️</span>
-                        <span>لا يوجد مديرون متاحون</span>
+                        <span>لم يتم تعيين مدير مباشر لك</span>
                       </div>
                       <div className="text-amber-700 text-xs">
-                        يرجى التواصل مع الإدارة لإعداد المديرين في النظام.
+                        يرجى التواصل مع الإدارة لتعيين مدير مباشر لك من <strong>إدارة المستخدمين</strong> حتى تتمكن من إنشاء طلبات الاعتماد.
                       </div>
                     </div>
                   ) : (
@@ -299,36 +337,52 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
 
           <div className="grid grid-cols-1 gap-4">
             {myRequests.map(req => (
-              <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                    req.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
-                    req.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
-                    'bg-amber-100 text-amber-600'
-                  }`}>
-                    {req.status === 'APPROVED' ? <CheckCircle2 size={24} /> :
-                     req.status === 'REJECTED' ? <XCircle size={24} /> :
-                     <Clock size={24} />}
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-900 text-lg">{req.title}</h4>
-                    <div className="flex items-center gap-3 text-xs font-bold text-slate-400 mt-1">
-                      <span>{new Date(req.created_at).toLocaleDateString('ar-SA')}</span>
-                      <span>•</span>
-                      <span>موجه إلى: {req.manager?.full_name || 'غير معروف'}</span>
+              <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                      req.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                      req.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                      'bg-amber-100 text-amber-600'
+                    }`}>
+                      {req.status === 'APPROVED' ? <CheckCircle2 size={24} /> :
+                       req.status === 'REJECTED' ? <XCircle size={24} /> :
+                       <Clock size={24} />}
+                    </div>
+                  <div className="flex-1">
+                    <h4 className="font-black text-slate-900 text-lg mb-1">{req.title}</h4>
+                    {req.description && (
+                      <p className="text-sm text-slate-600 mb-2 line-clamp-2">{req.description}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <Clock size={14} />
+                        <span>{new Date(req.created_at).toLocaleString('en-GB', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}</span>
+                      </div>
+                      <span className="text-slate-300">•</span>
+                      <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                        <FileSignature size={14} />
+                        <span>موجه إلى: {req.manager?.full_name || 'غير معروف'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className={`px-4 py-2 rounded-xl text-xs font-black text-center flex-1 md:flex-none ${
-                    req.status === 'APPROVED' ? 'bg-green-50 text-green-700' :
-                    req.status === 'REJECTED' ? 'bg-red-50 text-red-700' :
-                    'bg-amber-50 text-amber-700'
+                <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                  <div className={`px-4 py-2 rounded-xl text-xs font-black text-center flex-1 md:flex-none whitespace-nowrap ${
+                    req.status === 'APPROVED' ? 'bg-green-50 text-green-700 border border-green-200' :
+                    req.status === 'REJECTED' ? 'bg-red-50 text-red-700 border border-red-200' :
+                    'bg-amber-50 text-amber-700 border border-amber-200'
                   }`}>
-                    {req.status === 'APPROVED' ? 'تم الاعتماد' :
-                     req.status === 'REJECTED' ? 'مرفوض' :
-                     'قيد المراجعة'}
+                    {req.status === 'APPROVED' ? '✓ تم الاعتماد' :
+                     req.status === 'REJECTED' ? '✕ مرفوض' :
+                     '⏱ قيد المراجعة'}
                   </div>
                   
                   {req.status === 'APPROVED' && req.signed_attachment_url && (
@@ -382,40 +436,62 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4">
             {pendingApprovals.map(req => (
-              <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                      <FileText size={24} />
+              <div key={req.id} className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-md hover:shadow-xl hover:border-blue-200 transition-all">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <FileText size={26} />
                     </div>
-                    <div>
-                      <h4 className="font-black text-slate-900 text-lg">{req.title}</h4>
-                      <div className="flex items-center gap-3 text-xs font-bold text-slate-400 mt-1">
-                        <span>مقدم الطلب: {req.requester?.full_name || 'غير معروف'}</span>
-                        <span>•</span>
-                        <span>{new Date(req.created_at).toLocaleDateString('ar-SA')}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-black text-slate-900 text-xl">{req.title}</h4>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-black rounded-full">جديد</span>
+                      </div>
+                      {req.description && (
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">{req.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
+                        <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg">
+                          <span className="text-lg">👤</span>
+                          <span>مُقدم من: {req.requester?.full_name || 'غير معروف'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Clock size={14} />
+                          <span>{new Date(req.created_at).toLocaleString('en-GB', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 w-full md:w-auto">
-                    <a 
-                      href={req.attachment_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-2"
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const { url } = await apiClient.getApprovalAttachmentUrl(req.id);
+                          window.open(url, '_blank');
+                        } catch (error) {
+                          toast({ title: "خطأ", description: "فشل فتح المعاينة", variant: "destructive" });
+                        }
+                      }}
+                      className="flex-1 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
                     >
-                      <Eye size={16} /> معاينة
-                    </a>
+                      <Eye size={18} /> معاينة المستند
+                    </button>
                     
                     <button 
                       onClick={() => {
                         setSelectedRequest(req);
                         setShowRejectModal(true);
                       }}
-                      className="px-4 py-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-2"
+                      className="flex-1 px-5 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
-                      <XCircle size={16} /> رفض
+                      <XCircle size={18} /> رفض الطلب
                     </button>
                     
                     <button 
@@ -423,9 +499,9 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                         setSelectedRequest(req);
                         setShowSignModal(true);
                       }}
-                      className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-200"
+                      className="flex-1 px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl text-sm font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
                     >
-                      <FileSignature size={16} /> اعتماد وتوقيع
+                      <FileSignature size={18} /> اعتماد و توقيع
                     </button>
                   </div>
                 </div>

@@ -608,6 +608,20 @@ class ApiClient {
     })
   }
 
+  async getApprovalAttachmentUrl(id: number | string) {
+    return this.request<{ url: string }>(`/approvals/${id}/attachment-url`)
+  }
+
+  async getApprovalsNotificationCount() {
+    return this.request<{ count: number }>("/approvals/notifications/count")
+  }
+
+  async markApprovalAsSeen(id: number | string) {
+    return this.request<any>(`/approvals/${id}/mark-seen`, {
+      method: 'POST'
+    })
+  }
+
   async updateRequestAttachment(id: number | string, payload: { attachment_url: string }) {
     return this.request<any>(`/approvals/${id}/attachment`, {
       method: 'PUT',
