@@ -276,11 +276,17 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         WHERE ar.id = $1
       `, [id])
       signatureUrl = sig.rows[0]?.signature || null
+      console.log('Signature resolution for approval', id, ':', {
+        found: !!signatureUrl,
+        signatureUrl,
+        row: sig.rows[0]
+      })
     } catch (e) {
       console.error('Signature resolution error:', e)
     }
 
     if (!signatureUrl) {
+      console.error('No signature found for approval', id, '- requester_id:', row.requester_id, 'manager_id:', row.manager_id)
       return res.status(400).json({ error: 'لا يوجد توقيع مُعد (للمؤسسة أو المستخدم). الرجاء رفع توقيع أولاً.' })
     }
 
