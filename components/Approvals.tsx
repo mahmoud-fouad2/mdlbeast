@@ -349,76 +349,77 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                        req.status === 'REJECTED' ? <XCircle size={24} /> :
                        <Clock size={24} />}
                     </div>
-                  <div className="flex-1">
-                    <h4 className="font-black text-slate-900 text-lg mb-1">{req.title}</h4>
-                    {req.description && (
-                      <p className="text-sm text-slate-600 mb-2 line-clamp-2">{req.description}</p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <Clock size={14} />
-                        <span>{new Date(req.created_at).toLocaleString('en-GB', { 
-                          day: '2-digit', 
-                          month: '2-digit', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</span>
-                      </div>
-                      <span className="text-slate-300">•</span>
-                      <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                        <FileSignature size={14} />
-                        <span>موجه إلى: {req.manager?.full_name || 'غير معروف'}</span>
+                    <div className="flex-1">
+                      <h4 className="font-black text-slate-900 text-lg mb-1">{req.title}</h4>
+                      {req.description && (
+                        <p className="text-sm text-slate-600 mb-2 line-clamp-2">{req.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Clock size={14} />
+                          <span>{new Date(req.created_at).toLocaleString('en-GB', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</span>
+                        </div>
+                        <span className="text-slate-300">•</span>
+                        <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                          <FileSignature size={14} />
+                          <span>موجه إلى: {req.manager?.full_name || 'غير معروف'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                  <div className={`px-4 py-2 rounded-xl text-xs font-black text-center flex-1 md:flex-none whitespace-nowrap ${
-                    req.status === 'APPROVED' ? 'bg-green-50 text-green-700 border border-green-200' :
-                    req.status === 'REJECTED' ? 'bg-red-50 text-red-700 border border-red-200' :
-                    'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}>
-                    {req.status === 'APPROVED' ? '✓ تم الاعتماد' :
-                     req.status === 'REJECTED' ? '✕ مرفوض' :
-                     '⏱ قيد المراجعة'}
+                  <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                    <div className={`px-4 py-2 rounded-xl text-xs font-black text-center flex-1 md:flex-none whitespace-nowrap ${
+                      req.status === 'APPROVED' ? 'bg-green-50 text-green-700 border border-green-200' :
+                      req.status === 'REJECTED' ? 'bg-red-50 text-red-700 border border-red-200' :
+                      'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {req.status === 'APPROVED' ? '✓ تم الاعتماد' :
+                       req.status === 'REJECTED' ? '✕ مرفوض' :
+                       '⏱ قيد المراجعة'}
+                    </div>
+                    
+                    {req.status === 'APPROVED' && req.signed_attachment_url && (
+                      <a 
+                        href={req.signed_attachment_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                        title="تحميل الملف المعتمد"
+                      >
+                        <Download size={18} />
+                      </a>
+                    )}
+
+                    {req.status === 'REJECTED' && (
+                      <button 
+                        onClick={() => {
+                          // Handle edit logic (populate form with this request)
+                          setNewRequest({
+                            title: req.title,
+                            description: req.description || '',
+                            manager_id: String(req.manager_id),
+                            attachment_url: req.attachment_url
+                          });
+                          setShowNewRequestForm(true);
+                        }}
+                        className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                        title="تعديل وإعادة إرسال"
+                      >
+                        <PenTool size={18} />
+                      </button>
+                    )}
                   </div>
-                  
-                  {req.status === 'APPROVED' && req.signed_attachment_url && (
-                    <a 
-                      href={req.signed_attachment_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
-                      title="تحميل الملف المعتمد"
-                    >
-                      <Download size={18} />
-                    </a>
-                  )}
-
-                  {req.status === 'REJECTED' && (
-                    <button 
-                      onClick={() => {
-                        // Handle edit logic (populate form with this request)
-                        setNewRequest({
-                          title: req.title,
-                          description: req.description || '',
-                          manager_id: String(req.manager_id),
-                          attachment_url: req.attachment_url
-                        });
-                        setShowNewRequestForm(true);
-                      }}
-                      className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
-                      title="تعديل وإعادة إرسال"
-                    >
-                      <PenTool size={18} />
-                    </button>
-                  )}
                 </div>
                 
                 {req.status === 'REJECTED' && req.rejection_reason && (
-                  <div className="w-full bg-red-50 p-4 rounded-2xl text-xs font-bold text-red-700 mt-2 md:mt-0">
+                  <div className="w-full bg-red-50 p-4 rounded-2xl text-xs font-bold text-red-700 mt-4">
                     سبب الرفض: {req.rejection_reason}
                   </div>
                 )}

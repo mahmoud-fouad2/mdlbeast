@@ -21,11 +21,13 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isSaving, setIsSaving] = useState(false)
   // stampWidth is the *visual* target width in px (we scale a fixed base layout to this value)
-  const [stampWidth, setStampWidth] = useState<number>(160)
+  const [stampWidth, setStampWidth] = useState<number>(180)
+  const [zoom, setZoom] = useState<number>(1)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const [attachmentIndex, setAttachmentIndex] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const stampRef = useRef<HTMLDivElement>(null)
+  const pdfContainerRef = useRef<HTMLDivElement>(null)
   
   const currentAttachment = doc.attachments && doc.attachments[attachmentIndex] ? doc.attachments[attachmentIndex] : doc.attachments?.[0]
   const pagesCount = ((currentAttachment && (currentAttachment as any).pageCount) ? (currentAttachment as any).pageCount : (doc.attachmentCount ?? 1))
@@ -56,8 +58,9 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
     const stampW = stampRect?.width ?? stampWidth
     const stampH = stampRect?.height ?? Math.max(60, stampWidth * 0.45)
 
-    const newX = Math.max(0, Math.min(e.clientX - rect.left - dragOffset.x, rect.width - stampW))
-    const newY = Math.max(0, Math.min(e.clientY - rect.top - dragOffset.y, rect.height - stampH))
+    // Apply zoom to position calculation for accurate placement
+    const newX = Math.max(0, Math.min((e.clientX - rect.left - dragOffset.x) / zoom, rect.width / zoom - stampW / zoom))
+    const newY = Math.max(0, Math.min((e.clientY - rect.top - dragOffset.y) / zoom, rect.height / zoom - stampH / zoom))
 
     setPos({ x: newX, y: newY })
   }
@@ -79,11 +82,16 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
       const rect = container?.getBoundingClientRect()
       const containerWidth = rect?.width || 800
       const containerHeight = rect?.height || 1131
+      
+      // Account for zoom when calculating position
+      const actualX = pos.x
+      const actualY = pos.y
+      
       const payload = {
-        x: Math.round(pos.x),
-        y: Math.round(pos.y),
-        containerWidth: Math.round(containerWidth),
-        containerHeight: Math.round(containerHeight),
+        x: Math.round(actualX),
+        y: Math.round(actualY),
+        containerWidth: Math.round(containerWidth / zoom),
+        containerHeight: Math.round(containerHeight / zoom),
         stampWidth: Math.round(stampWidth),
         page: pageIndex,
         attachmentIndex: attachmentIndex,
@@ -141,13 +149,43 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
         </header>
 
         <div className="flex-1 overflow-auto bg-[#F1F5F9] p-8 lg:p-16 flex justify-center relative shadow-inner">
-          <div
-            ref={containerRef}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            className="w-full max-w-[800px] aspect-[1/1.414] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
-          >
+          <div className="relative">
+            {/* Zoom controls */}
+            <div className="absolute top-4 right-4 z-50 bg-white rounded-xl shadow-lg border border-slate-200 p-2 flex flex-col gap-2">
+              <button
+                onClick={() => setZoom(z => Math.min(3, z + 0.25))}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs hover:bg-slate-800 transition-all"
+              >
+                + تكبير
+              </button>
+              <div className="text-center text-xs font-black text-slate-600">
+                {Math.round(zoom * 100)}%
+              </div>
+              <button
+                onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-bold text-xs hover:bg-slate-200 transition-all"
+              >
+                - تصغير
+              </button>
+              <button
+                onClick={() => setZoom(1)}
+                className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs hover:bg-blue-100 transition-all"
+              >
+                ↻ إعادة
+              </button>
+            </div>
+
+            <div
+              ref={containerRef}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: 'center center',
+              }}
+              className="w-full max-w-[800px] aspect-[1/1.414] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden transition-transform duration-200"
+            >
             {doc.pdfFile ? (
               <SignedPdfPreview barcode={doc.barcode} fallbackUrl={doc.pdfFile.url} attachmentIndex={attachmentIndex} />
             ) : (
@@ -157,7 +195,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               </div>
             )}
 
-            {/* Professional Stamp Design */}
+            {/* Professional Stamp Design - با حجم وتناسق أفضل */}
             <div
               ref={stampRef}
               onMouseDown={handleMouseDown}
@@ -165,46 +203,48 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                 left: pos.x,
                 top: pos.y,
                 width: BASE_STAMP_WIDTH,
-                transform: `scale(${Math.max(0.2, Math.min(3, stampWidth / BASE_STAMP_WIDTH))})`,
+                transform: `scale(${Math.max(0.3, Math.min(2.5, stampWidth / BASE_STAMP_WIDTH))})`,
                 transformOrigin: 'top left',
                 willChange: 'transform',
               }}
-              className={`absolute bg-white border-2 ${
+              className={`absolute bg-white border-[3px] ${
                 isDragging
-                  ? "border-blue-600 ring-4 ring-blue-500/10 cursor-grabbing shadow-2xl"
-                  : "border-slate-900 shadow-lg"
-              } cursor-grab rounded-lg flex flex-col items-center justify-center p-2 z-50 transition-[border-color,box-shadow] duration-75 select-none`}
+                  ? "border-blue-600 ring-4 ring-blue-500/20 cursor-grabbing shadow-2xl"
+                  : "border-slate-900 shadow-xl"
+              } cursor-grab rounded-xl flex flex-col items-center justify-center p-3 z-50 transition-[border-color,box-shadow] duration-100 select-none`}
             >
-              {/* Header */}
-              <div className="text-[6px] font-bold text-slate-900 mb-0.5 text-center leading-tight w-full border-b border-slate-100 pb-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+              {/* Header - اسم الشركة بحجم مناسب */}
+              <div className="text-[7px] font-black text-slate-900 mb-1 text-center leading-tight w-full border-b-2 border-slate-200 pb-1 overflow-hidden text-ellipsis whitespace-nowrap px-1">
                 {settings?.orgName || "نظام الأرشفة الإلكتروني"}
               </div>
 
               {/* Barcode */}
               <img
                 src={barcodeUrl}
-                style={{ height: '24px', objectFit: 'contain' }}
-                className="w-full pointer-events-none select-none mix-blend-multiply"
+                style={{ height: '28px', objectFit: 'contain' }}
+                className="w-full pointer-events-none select-none mix-blend-multiply my-1"
                 alt="barcode"
               />
 
-              {/* Footer */}
-              <div className="text-[8px] font-black font-mono mt-0.5 text-slate-900 tracking-widest">
+              {/* Footer - رقم المعرف */}
+              <div className="text-[9px] font-black font-mono mt-1 text-slate-900 tracking-wider">
                 {doc.barcode}
               </div>
               
-              <div className="w-full flex justify-between items-center mt-0.5 pt-0.5 border-t border-slate-100 text-[5px] text-slate-500 font-medium">
+              {/* التاريخ والوقت بحجم متناسق */}
+              <div className="w-full flex justify-between items-center mt-1 pt-1 border-t-2 border-slate-200 text-[6px] text-slate-600 font-bold px-1">
                  <span>{new Date().toLocaleDateString('en-GB')}</span>
                  <span>{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
 
               {/* Drag Handle Indicator */}
-              <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white">
-                <Scan size={10} />
+              <div className="absolute -top-3 -right-3 w-6 h-6 bg-blue-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-white">
+                <Scan size={12} />
               </div>
             </div>
 
             {isDragging && <div className="absolute inset-0 z-40"></div>}
+          </div>
           </div>
         </div>
 
@@ -224,15 +264,15 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">حجم الختم</label>
                     <input 
                       type="range" 
-                      min={50} 
-                      max={500} 
-                      step={5}
+                      min={80} 
+                      max={400} 
+                      step={10}
                       value={stampWidth} 
                       onChange={(e) => setStampWidth(Number(e.target.value))} 
-                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900 hover:accent-blue-600 transition-all" 
+                      className="w-40 h-2 bg-gradient-to-r from-slate-200 via-blue-100 to-slate-200 rounded-full appearance-none cursor-pointer accent-slate-900 hover:accent-blue-600 transition-all" 
                     />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 w-8 text-center">{stampWidth}px</span>
+                <span className="text-xs font-black text-slate-700 w-10 text-center bg-slate-100 px-2 py-1 rounded-lg">{stampWidth}</span>
               </div>
 
               <div className="flex flex-col">
