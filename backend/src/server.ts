@@ -57,6 +57,10 @@ console.info('CONFIG: r2 configured=', Boolean(R2_CONFIGURED))
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Trust proxy - Required for Render, Heroku, and other platforms behind reverse proxies
+// This allows express-rate-limit to accurately identify users via X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // Rate Limiters
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
