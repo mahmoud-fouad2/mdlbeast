@@ -209,10 +209,18 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     
     // Send email notification to manager
     try {
-      const requesterData = await query('SELECT full_name FROM users WHERE id=$1 LIMIT 1', [requesterId])
-      const managerData = await query('SELECT full_name, email FROM users WHERE id=$1 LIMIT 1', [manager_id])
+      // Check if email column exists
+      const hasEmailCol = await query(
+        "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email' LIMIT 1"
+      )
       
-      if (managerData.rows[0]?.email) {
+      if (hasEmailCol.rows.length === 0) {
+        console.log('[Approvals] Email column does not exist in users table. Skipping email notification.')
+      } else {
+        const requesterData = await query('SELECT full_name FROM users WHERE id=$1 LIMIT 1', [requesterId])
+        const managerData = await query('SELECT full_name, email FROM users WHERE id=$1 LIMIT 1', [manager_id])
+        
+        if (managerData.rows[0]?.email) {
         const baseUrl = process.env.FRONTEND_URL || 'https://zaco.sa'
         const dashboardUrl = `${baseUrl}/dashboard`
         
@@ -231,7 +239,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           html: emailHtml
         })
         
-        console.log(`[Approvals] Email notification sent to manager ${manager_id}`)
+          console.log(`[Approvals] Email notification sent to manager ${manager_id}`)
+        }
       }
     } catch (emailErr) {
       // Don't fail the request if email fails
@@ -335,6 +344,16 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       
       // Send rejection email to requester
       try {
+        // Check if email column exists
+        const hasEmailCol = await query(
+          "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email' LIMIT 1"
+        )
+        
+        if (hasEmailCol.rows.length === 0) {
+          console.log('[Approvals] Email column does not exist in users table. Skipping email notification.')
+          return res.json(upd.rows[0])
+        }
+        
         const requesterData = await query('SELECT full_name, email FROM users WHERE id=$1 LIMIT 1', [row.requester_id])
         const managerData = await query('SELECT full_name FROM users WHERE id=$1 LIMIT 1', [actorId])
         
@@ -447,6 +466,16 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       
       // Send approval email to requester
       try {
+        // Check if email column exists
+        const hasEmailCol = await query(
+          "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email' LIMIT 1"
+        )
+        
+        if (hasEmailCol.rows.length === 0) {
+          console.log('[Approvals] Email column does not exist in users table. Skipping email notification.')
+          return res.json(upd.rows[0])
+        }
+        
         const requesterData = await query('SELECT full_name, email FROM users WHERE id=$1 LIMIT 1', [row.requester_id])
         const managerData = await query('SELECT full_name FROM users WHERE id=$1 LIMIT 1', [actorId])
         
