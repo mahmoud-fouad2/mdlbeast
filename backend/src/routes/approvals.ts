@@ -113,27 +113,26 @@ async function signPdfAndUpload(params: {
   // If position data provided, use it (interactive mode)
   if (params.signaturePosition) {
     const pos = params.signaturePosition
-    // Convert from container coordinates to PDF coordinates
+    // Convert from container coordinates to PDF coordinates with exact scaling
     const scaleX = pdfWidth / pos.containerWidth
     const scaleY = pdfHeight / pos.containerHeight
     
-    // Use average scale to maintain aspect ratio
-    const avgScale = (scaleX + scaleY) / 2
-    
+    // Use exact X and Y scales for accurate positioning
     x = pos.x * scaleX
-    // PDF coordinates are from bottom-left, so we need to flip Y
-    y = pdfHeight - ((pos.y + pos.height) * scaleY)
+    drawW = pos.width * scaleX
+    drawH = pos.height * scaleY
     
-    // Apply average scale to both width and height to maintain aspect ratio
-    drawW = pos.width * avgScale
-    drawH = pos.height * avgScale
+    // PDF coordinates are from bottom-left, container coordinates are from top-left
+    // So we flip Y: PDF_Y = PDF_HEIGHT - (Container_Y + Container_Height) * ScaleY
+    y = pdfHeight - ((pos.y + pos.height) * scaleY)
     
     console.log('Using interactive signature placement:', { 
       x, y, drawW, drawH, 
       pdfWidth, pdfHeight, 
-      scaleX, scaleY, avgScale,
+      scaleX, scaleY,
       containerSize: `${pos.containerWidth}x${pos.containerHeight}`,
-      signSize: `${pos.width}x${pos.height}`
+      signSize: `${pos.width}x${pos.height}`,
+      posXY: `${pos.x},${pos.y}`
     })
   } else {
     // Fallback to default placement (bottom-left)

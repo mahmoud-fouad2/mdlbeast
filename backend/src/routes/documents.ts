@@ -174,6 +174,13 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     const { status, type, search, limit = 100, offset = 0 } = req.query
 
     const user = (req as any).user
+    
+    console.log('[Documents] GET request from user:', { 
+      userId: user?.id, 
+      userRole: user?.role, 
+      tenantId: user?.tenant_id,
+      filters: { status, type, search }
+    })
 
     let queryText = `SELECT d.*, 
       u.full_name as created_by_name, 
@@ -216,6 +223,12 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 
     queryText += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`
     queryParams.push(limit, offset)
+    
+    console.log('[Documents] Query:', { 
+      queryText: queryText.substring(0, 200) + '...', 
+      paramCount, 
+      paramsLength: queryParams.length 
+    })
 
     const result = await query(queryText, queryParams)
     // attach pdfFile convenience property for UI convenience and compute a displayDate that merges date with creation time when date has midnight only
@@ -241,6 +254,9 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 
       return { ...r, attachments, pdfFile, displayDate }
     })
+    
+    console.log('[Documents] Returning', rows.length, 'documents to user', user?.id)
+    
     res.json(rows)
   } catch (error) {
     console.error("Get documents error:", error)
