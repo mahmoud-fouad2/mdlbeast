@@ -210,9 +210,17 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       queryParams.push(user.id)
       paramCount++
     } else if (user.role === 'supervisor' || user.role === 'manager') {
-      queryText += ` AND d.tenant_id = $${paramCount}`
-      queryParams.push(user.tenant_id)
-      paramCount++
+      // If supervisor/manager has no tenant_id, show only their own documents (fallback to member behavior)
+      if (user.tenant_id) {
+        queryText += ` AND d.tenant_id = $${paramCount}`
+        queryParams.push(user.tenant_id)
+        paramCount++
+      } else {
+        console.log('[Documents] Supervisor/Manager with no tenant_id, showing own documents only')
+        queryText += ` AND d.user_id = $${paramCount}`
+        queryParams.push(user.id)
+        paramCount++
+      }
     }
 
     if (search) {
