@@ -20,8 +20,10 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isSaving, setIsSaving] = useState(false)
-  // stampWidth is the *visual* target width in px (we scale a fixed base layout to this value)
-  const [stampWidth, setStampWidth] = useState<number>(120)
+  // Predefined stamp sizes: tiny, small, medium, large
+  const STAMP_SIZES = { tiny: 70, small: 100, medium: 140, large: 200 }
+  const [stampSize, setStampSize] = useState<'tiny' | 'small' | 'medium' | 'large'>('small')
+  const stampWidth = STAMP_SIZES[stampSize]
   const [zoom, setZoom] = useState<number>(1)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const [attachmentIndex, setAttachmentIndex] = useState<number>(0)
@@ -227,21 +229,53 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
 
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 group hover:border-blue-200 transition-colors">
-                <Scan size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
-                <div className="flex flex-col">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">حجم الختم</label>
-                    <input 
-                      type="range" 
-                      min={60} 
-                      max={300} 
-                      step={5}
-                      value={stampWidth} 
-                      onChange={(e) => setStampWidth(Number(e.target.value))} 
-                      className="w-40 h-2 bg-gradient-to-r from-slate-200 via-blue-100 to-slate-200 rounded-full appearance-none cursor-pointer accent-slate-900 hover:accent-blue-600 transition-all" 
-                    />
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                <Scan size={16} className="text-slate-400" />
+                <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">حجم الختم</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setStampSize('tiny')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          stampSize === 'tiny' 
+                            ? 'bg-slate-900 text-white shadow-md' 
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        صغير جداً
+                      </button>
+                      <button
+                        onClick={() => setStampSize('small')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          stampSize === 'small' 
+                            ? 'bg-slate-900 text-white shadow-md' 
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        صغير
+                      </button>
+                      <button
+                        onClick={() => setStampSize('medium')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          stampSize === 'medium' 
+                            ? 'bg-slate-900 text-white shadow-md' 
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        متوسط
+                      </button>
+                      <button
+                        onClick={() => setStampSize('large')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          stampSize === 'large' 
+                            ? 'bg-slate-900 text-white shadow-md' 
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        كبير
+                      </button>
+                    </div>
                 </div>
-                <span className="text-xs font-black text-slate-700 w-10 text-center bg-slate-100 px-2 py-1 rounded-lg">{stampWidth}</span>
               </div>
 
               <div className="flex flex-col">
