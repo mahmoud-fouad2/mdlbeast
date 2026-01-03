@@ -300,34 +300,25 @@ export default function ApprovalSigner({
               onMouseLeave={handleMouseLeave}
               style={{ cursor: isDragging ? 'grabbing' : 'default', userSelect: 'none' }}
             >
-              <div 
-                style={{ 
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'top left',
-                  width: '100%',
-                  height: '100%',
-                  transition: 'transform 0.2s ease'
-                }}
-              >
-                {previewUrl ? (
-                  <iframe
-                    src={`${previewUrl}#view=FitH`}
-                    className="w-full min-h-[842px]"
-                    style={{ height: '100vh' }}
-                    title="معاينة المستند"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-slate-400 font-bold animate-pulse">جاري التحميل...</p>
-                  </div>
-                )}
+              {previewUrl ? (
+                <iframe
+                  src={`${previewUrl}#view=Fit&toolbar=0&navpanes=0`}
+                  className="w-full h-full"
+                  style={{ minHeight: '85vh', border: 'none' }}
+                  title="معاينة المستند"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-slate-400 font-bold animate-pulse">جاري التحميل...</p>
+                </div>
+              )}
 
-                {/* Signature/Stamp Overlay */}
-                {currentImageUrl && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${signPosition.x}px`,
+              {/* Signature/Stamp Overlay */}
+              {currentImageUrl && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${signPosition.x}px`,
                       top: `${signPosition.y}px`,
                       width: `${signSize}px`,
                       height: `${signSize}px`,
@@ -347,7 +338,6 @@ export default function ApprovalSigner({
                     </div>
                   </div>
                 )}
-              </div>
             </div>
           </div>
 
