@@ -112,6 +112,8 @@ export interface Correspondence {
     storage?: string
   }
   user_id?: number
+  created_by_name?: string
+  created_by_username?: string
 }
 
 export interface SystemSettings {

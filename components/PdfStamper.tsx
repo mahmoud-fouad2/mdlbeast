@@ -182,9 +182,9 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                   : "border-slate-800 shadow-lg"
               } cursor-grab rounded-lg flex flex-col items-center justify-center p-2 z-50 transition-[border-color,box-shadow] duration-100 select-none`}
             >
-              {/* اسم الشركة بالعربي */}
+              {/* Company Name */}
               <div className="text-[8px] font-black text-slate-900 text-center leading-[1.1] w-full border-b border-slate-300 pb-0.5 mb-0.5">
-                {settings?.orgName || "زوايا البناء للهندسة"}
+                {settings?.orgName || "Zaco"}
               </div>
 
               {/* Barcode - Compact */}

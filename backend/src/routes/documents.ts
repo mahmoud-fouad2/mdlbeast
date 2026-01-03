@@ -175,7 +175,12 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 
     const user = (req as any).user
 
-    let queryText = "SELECT * FROM documents WHERE 1=1"
+    let queryText = `SELECT d.*, 
+      u.full_name as created_by_name, 
+      u.username as created_by_username 
+      FROM documents d 
+      LEFT JOIN users u ON d.user_id = u.id 
+      WHERE 1=1`
     const queryParams: any[] = []
     let paramCount = 1
 
@@ -194,11 +199,11 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     // Scope results according to role: members see only their own docs; supervisors/managers see tenant docs; admin sees all
     if (!user) return res.status(401).json({ error: 'Not authenticated' })
     if (user.role === 'member') {
-      queryText += ` AND user_id = $${paramCount}`
+      queryText += ` AND d.user_id = $${paramCount}`
       queryParams.push(user.id)
       paramCount++
     } else if (user.role === 'supervisor' || user.role === 'manager') {
-      queryText += ` AND tenant_id = $${paramCount}`
+      queryText += ` AND d.tenant_id = $${paramCount}`
       queryParams.push(user.tenant_id)
       paramCount++
     }

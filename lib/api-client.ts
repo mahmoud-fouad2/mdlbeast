@@ -576,14 +576,14 @@ class ApiClient {
     return this.request<any[]>("/users/managers")
   }
 
-  async createUser(payload: { username: string; password: string; full_name: string; role: string }) {
+  async createUser(payload: { username: string; password: string; full_name: string; role: string; email?: string }) {
     return this.request<any>("/users", {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   }
 
-  async updateUser(id: number | string, payload: { full_name?: string; role?: string; password?: string; manager_id?: number | null; signature_url?: string; stamp_url?: string }) {
+  async updateUser(id: number | string, payload: { full_name?: string; role?: string; password?: string; email?: string; username?: string; manager_id?: number | null; signature_url?: string; stamp_url?: string }) {
     return this.request<any>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),

@@ -274,6 +274,13 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                               </span>
                             </div>
                           )}
+
+                          {((doc as any).created_by_name || (doc as any).created_by_username) && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-blue-600 bg-blue-50 w-fit px-2 py-1 rounded-md border border-blue-100">
+                              <span className="font-bold">القيد بواسطة:</span>
+                              <span className="font-medium">{(doc as any).created_by_name || (doc as any).created_by_username}</span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
