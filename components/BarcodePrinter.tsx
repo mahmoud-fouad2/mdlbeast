@@ -31,7 +31,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
       ctx.textAlign = "center"
 
       ctx.font = "900 38px Arial"
-      ctx.fillText(settings?.orgName || "ZAWAYA ALBINA", 500, 70)
+      ctx.fillText(settings?.orgName || "زوايا البناء للإستشارات الهندسيه", 500, 70)
 
       ctx.drawImage(barcodeImg, 150, 110, 700, 220)
 
@@ -76,7 +76,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
         </head>
         <body>
           <div class="label-box">
-            <div class="title">${settings?.orgName || "ZAWAYA ALBINA ENGINEERING"}</div>
+            <div class="title">${settings?.orgName || "زوايا البناء للإستشارات الهندسيه"}</div>
             <img class="barcode-img" src="${barcode}">
             <span class="id-text">${doc.barcode}</span>
             <div class="footer-text">${doc.date} | ${doc.type === "INCOMING" ? "وارد" : "صادر"}</div>

@@ -409,7 +409,6 @@ router.post('/:barcode/stamp', async (req, res) => {
 
     // draw centered, styled annotation (company name + barcode text + date)
     const centerX = xPdf + widthPdf / 2
-    const gap = 6
     // Normalize and attempt to repair possible mojibake/mis-encoding for Arabic fields
     const rawCompany = String(doc.company || doc.sender || doc.user || '')
     function repairArabicEncoding(s: string) {
@@ -445,11 +444,9 @@ router.post('/:barcode/stamp', async (req, res) => {
         }
       }
       // fallback to configured org name or a sensible default
-      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
-      // match user's preference for lowercase/relaxed styling
-      companyNameEnglish = String(companyNameEnglish).toLowerCase()
+      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'زوايا البناء للإستشارات الهندسيه'
     } catch (e) {
-      companyNameEnglish = process.env.ORG_NAME_EN || 'ZAWAYA ALBINA ENGINEERING'
+      companyNameEnglish = process.env.ORG_NAME_EN || 'زوايا البناء للإستشارات الهندسيه'
     }
 
     // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
@@ -525,7 +522,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     const displayBarcodeLatin = String(barcode || '')
 
     // Force English company name (avoid Arabic font issues)
-    const displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zawaya Albina Engineering Consultancy').toUpperCase()
+    const displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'زوايا البناء للإستشارات الهندسيه')
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
     let docTypeText = ''
@@ -538,11 +535,14 @@ router.post('/:barcode/stamp', async (req, res) => {
     //   docTypeText = ''
     // }
 
-    // sizes
-    const companySize = 11
-    const typeSize = 10
-    const barcodeSize2 = 9
-    const dateSize2 = 9
+    // sizes - scale proportionally with stampWidth
+    const baseStampWidth = 180 // base size for font calculations
+    const scaleFactor = Number(stampWidth || baseStampWidth) / baseStampWidth
+    const companySize = Math.round(11 * scaleFactor)
+    const typeSize = Math.round(10 * scaleFactor)
+    const barcodeSize2 = Math.round(9 * scaleFactor)
+    const dateSize2 = Math.round(9 * scaleFactor)
+    const gap = Math.round(4 * scaleFactor)
 
     // Recompute widths with chosen fonts
     const companyWidth = helvBold.widthOfTextAtSize(displayCompanyText, companySize)
