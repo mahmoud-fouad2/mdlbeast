@@ -82,6 +82,8 @@ function drawRtlText(page: any, text: string, xRight: number, y: number, size: n
 // POST /:barcode/stamp { x, y, containerWidth, containerHeight, stampWidth, preview }
 router.post('/:barcode/stamp', async (req, res) => {
   try {
+    const stampCodeMarker = 'STAMP_ARABIC_ANCHOR_v2'
+    const stampCodeCommit = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.SOURCE_VERSION || null
     const { barcode } = req.params
     const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0, attachmentIndex = 0, preview = false } = req.body || {}
 
@@ -115,7 +117,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Load storage config: USE_R2_ONLY defaults to true for one-step migration
     const { USE_R2_ONLY, preferR2, R2_CONFIGURED } = await import('../config/storage')
 
-    console.debug('Stamp request start:', { barcode, pdfUrl: pdf?.url, pdfKey: pdf?.key, USE_R2_ONLY, R2_CONFIGURED })
+    console.debug('Stamp request start:', { stampCodeMarker, stampCodeCommit, barcode, pdfUrl: pdf?.url, pdfKey: pdf?.key, USE_R2_ONLY, R2_CONFIGURED })
 
     try {
       const useR2 = preferR2()
@@ -590,12 +592,26 @@ router.post('/:barcode/stamp', async (req, res) => {
     
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')
-    const displayAttachmentCount = processArabicText(anchorNeutralPunctuationForArabic(rawAttachmentLabel))
-    console.debug('Stamp: attachment text processed:', { raw: rawAttachmentLabel, processed: displayAttachmentCount, hex: displayAttachmentCount.split('').map(c => c.charCodeAt(0).toString(16)).join(' ') })
+    const anchoredAttachmentLabel = anchorNeutralPunctuationForArabic(rawAttachmentLabel)
+    const displayAttachmentCount = processArabicText(anchoredAttachmentLabel)
+    console.debug('Stamp: attachment text processed:', {
+      raw: rawAttachmentLabel,
+      anchored: anchoredAttachmentLabel,
+      processed: displayAttachmentCount,
+      anchoredHex: Array.from(anchoredAttachmentLabel).map(c => c.charCodeAt(0).toString(16)).join(' '),
+      hex: Array.from(displayAttachmentCount).map(c => c.charCodeAt(0).toString(16)).join(' ')
+    })
 
     // Use Arabic company name
-    const displayCompanyText = processArabicText(anchorNeutralPunctuationForArabic(companyName))
-    console.debug('Stamp: company text processed:', { processed: displayCompanyText, hex: displayCompanyText.split('').map(c => c.charCodeAt(0).toString(16)).join(' ') })
+    const anchoredCompanyName = anchorNeutralPunctuationForArabic(companyName)
+    const displayCompanyText = processArabicText(anchoredCompanyName)
+    console.debug('Stamp: company text processed:', {
+      companyName,
+      anchoredCompanyName,
+      processed: displayCompanyText,
+      anchoredHex: Array.from(anchoredCompanyName).map(c => c.charCodeAt(0).toString(16)).join(' '),
+      hex: Array.from(displayCompanyText).map(c => c.charCodeAt(0).toString(16)).join(' ')
+    })
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
     let docTypeText = ''

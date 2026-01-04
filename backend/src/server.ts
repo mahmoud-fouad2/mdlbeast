@@ -151,8 +151,10 @@ app.get('/wp-includes/js/wp-emoji-loader.min.js', (_req, res) => {
 app.get("/api/version", (_req, res) => {
   const version = process.env.DEPLOYMENT_VERSION || "1.0.0"
   const buildTime = process.env.BUILD_TIME || new Date().toISOString()
+  const commit = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.SOURCE_VERSION || null
   res.status(200).json({
     version,
+    commit,
     buildTime,
     timestamp: Date.now()
   })
