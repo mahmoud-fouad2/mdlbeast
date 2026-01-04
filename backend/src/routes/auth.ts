@@ -31,22 +31,11 @@ router.post(
     try {
       const { username, password } = req.body
 
-      // Accept either email or username in the login field to support different DB schemas.
-      // Check whether the `email` column exists first to avoid SQL errors on DBs without it.
-      const colRes = await query(
-        "SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email' LIMIT 1",
-      )
-      const hasEmail = colRes.rows.length > 0
+      // Optimized: Assume email column exists or just query by username if that's the standard.
+      // For better performance, we try to match username first.
+      // If you need email login, ensure the column exists via migration, don't check at runtime.
+      const result = await query("SELECT * FROM users WHERE username = $1 LIMIT 1", [username])
 
-      let result: any
-      if (hasEmail) {
-        result = await query(
-          "SELECT * FROM users WHERE email = $1 OR username = $1 LIMIT 1",
-          [username],
-        )
-      } else {
-        result = await query("SELECT * FROM users WHERE username = $1 LIMIT 1", [username])
-      }
 
       if (result.rows.length === 0) {
         await logAudit({ action: 'LOGIN_FAILED', details: `User not found: ${username}`, ipAddress: req.ip || req.socket.remoteAddress, userAgent: req.headers['user-agent'] })

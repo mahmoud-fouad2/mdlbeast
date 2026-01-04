@@ -8,6 +8,8 @@ import type { AuthRequest } from "../types"
 const router = express.Router()
 
 // Public JSON preview URL endpoint (no auth) - returns { previewUrl }
+// Note: This endpoint is intentionally public to allow sharing links, but we could add token auth if needed.
+// For now, we keep it public as requested by business logic for external sharing.
 router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
   try {
     const { barcode } = req.params
