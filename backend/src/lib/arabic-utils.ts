@@ -28,7 +28,7 @@ export function processArabicText(text: string): string {
     const cleaned = String(text)
       .normalize('NFC')
       // remove common bidi controls / isolates that can render as odd glyphs
-      .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+      .replace(/[\u202A-\u202E\u2066-\u2069]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 

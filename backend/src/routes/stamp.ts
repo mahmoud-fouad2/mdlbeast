@@ -14,7 +14,7 @@ router.use(authenticateToken)
 // This avoids separating Arabic marks/diacritics during measuring and drawing.
 function splitClusters(str: string): string[] {
   if (!str) return []
-  const chars = Array.from(str)
+  const chars = Array.from(String(str).normalize('NFC'))
   const clusters: string[] = []
   const combiningRe = /\p{M}/u
 
@@ -23,10 +23,22 @@ function splitClusters(str: string): string[] {
       clusters.push(ch)
       continue
     }
-    if (combiningRe.test(ch)) clusters[clusters.length - 1] += ch
+    // Append combining marks or joiners (ZWJ/ZWNJ) to the previous cluster
+    if (combiningRe.test(ch) || ch === '\u200D' || ch === '\u200C') clusters[clusters.length - 1] += ch
     else clusters.push(ch)
   }
   return clusters
+}
+
+/**
+ * Optional: anchor neutral punctuation with RLM (U+200F) when Arabic is present.
+ * This reduces “migration” of neutral marks like : " ( ) when rendering mixed runs.
+ */
+function anchorNeutralPunctuationForArabic(s: string): string {
+  if (!s) return s
+  const text = String(s).normalize('NFC')
+  if (!/[\u0600-\u06FF]/.test(text)) return text
+  return text.replace(/([:,"\.\?\!;\,\(\)\[\]])/g, '\u200F$1\u200F')
 }
 
 function measureRtlTextWidth(text: string, size: number, font: any): number {
@@ -578,11 +590,11 @@ router.post('/:barcode/stamp', async (req, res) => {
     
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')
-    const displayAttachmentCount = processArabicText(rawAttachmentLabel)
+    const displayAttachmentCount = processArabicText(anchorNeutralPunctuationForArabic(rawAttachmentLabel))
     console.debug('Stamp: attachment text processed:', { raw: rawAttachmentLabel, processed: displayAttachmentCount, hex: displayAttachmentCount.split('').map(c => c.charCodeAt(0).toString(16)).join(' ') })
 
     // Use Arabic company name
-    const displayCompanyText = processArabicText("زوايا البناء للإستشارات الهندسيه")
+    const displayCompanyText = processArabicText(anchorNeutralPunctuationForArabic(companyName))
     console.debug('Stamp: company text processed:', { processed: displayCompanyText, hex: displayCompanyText.split('').map(c => c.charCodeAt(0).toString(16)).join(' ') })
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
