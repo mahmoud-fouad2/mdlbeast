@@ -478,8 +478,7 @@ router.post('/:barcode/stamp', async (req, res) => {
       dateStr = String(dateSource)
     }
 
-    // Attempt Arabic shaping/bi-di for proper glyph forms when possible
-    // Using processArabicText from lib/arabic-utils instead of local function
+    // Arabic rendering: pdf-lib doesn't do shaping/BiDi, so we pre-process via processArabicText.
 
     // Convert digits for display to Arabic-Indic numerals
     const arabicIndicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩']
@@ -507,8 +506,10 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Ensure we have a Latin-digit barcode for machine-readability
     const displayBarcodeLatin = String(barcode || '')
     
-    // Get attachment count/description from the attachment_count field (can be text like "1 اسطوانة")
-    const attachmentText = String(doc.attachment_count || '0')
+    // Get attachment count/description from attachment_count (can be text like "1 اسطوانة")
+    // Convert any Latin digits to Arabic-Indic digits to avoid mixed-direction rendering issues.
+    const attachmentTextRaw = String(doc.attachment_count || '0')
+    const attachmentText = attachmentTextRaw.replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     const rawAttachmentLabel = `نوعية المرفقات: ${attachmentText}`
     
     // Use the new robust Arabic processing utility
@@ -580,7 +581,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     console.debug('Stamp: computed_text', { displayCompanyText, docTypeText, displayBarcodeLatin, displayEnglishDate })
     console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
 
-    // Draw Arabic text using drawText - pdf-lib handles RTL automatically
+    // Draw Arabic text using drawText (already pre-processed via processArabicText)
     if (displayCompanyText) {
       page.drawText(displayCompanyText, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
     }
@@ -594,7 +595,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Draw English Gregorian date centered near the barcode for readability
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
-    // Draw attachment count - pdf-lib handles RTL automatically
+    // Draw attachment count (already pre-processed via processArabicText)
     page.drawText(displayAttachmentCount, { x: attachmentX, y: attachmentY, size: attachmentSize, font: helvBold, color: rgb(0,0,0) })
 
     const outBytes = await pdfDoc.save()
