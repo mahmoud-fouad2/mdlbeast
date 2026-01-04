@@ -61,7 +61,7 @@ export default function DashboardPage() {
     footerText: "مركز الإتصالات الإدارية - جميع الحقوق محفوظة © 2025",
     showStamp: true,
     orgName: "زوايا البناء للإستشارات الهندسية",
-    orgNameEn: "ZAWAYA ALBINA ENGINEERING",
+    orgNameEn: "Zaco",
     logoUrl: "https://www.zaco.sa/logo2.png",
     companies: [],
   })
