@@ -4,6 +4,7 @@ import { body, validationResult } from "express-validator"
 import { query } from "../config/database"
 import { authenticateToken } from "../middleware/auth"
 import type { AuthRequest } from "../types"
+import { PDFDocument } from 'pdf-lib'
 
 const router = express.Router()
 
@@ -175,6 +176,54 @@ router.get('/:barcode/preview', async (req: Request, res: Response) => {
 
 // All routes require authentication
 router.use(authenticateToken)
+
+// Get PDF page count for a specific attachment (auth)
+router.get('/:barcode/page-count', async (req: AuthRequest, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const idx = parseInt(String(req.query.idx || '0'), 10)
+    const r = await query("SELECT attachments FROM documents WHERE lower(barcode) = lower($1) LIMIT 1", [barcode])
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+
+    let attachments: any = r.rows[0].attachments
+    try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch { attachments = Array.isArray(attachments) ? attachments : [] }
+    if (!attachments || !attachments.length) return res.status(404).json({ error: 'No attachment' })
+
+    const pdf = attachments[idx] || attachments[0]
+
+    // Prefer R2 direct download by key when available
+    let pdfBytes: Buffer | null = null
+    const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
+    const { USE_R2_ONLY, preferR2 } = await import('../config/storage')
+
+    if (useR2 && preferR2() && pdf?.key) {
+      try {
+        const { downloadToBuffer } = await import('../lib/r2-storage')
+        pdfBytes = await downloadToBuffer(String(pdf.key))
+      } catch (e) {
+        console.warn('page-count: failed to download from R2 by key; falling back to URL fetch', e)
+      }
+    }
+
+    // Fallback: fetch via URL (may require public access)
+    if (!pdfBytes) {
+      const url = String(pdf?.url || '')
+      if (!url) return res.status(400).json({ error: 'Missing PDF url' })
+      if (USE_R2_ONLY && !useR2) return res.status(500).json({ error: 'R2 storage not configured. Contact the administrator.' })
+      const fetch = (await import('node-fetch')).default as any
+      const resp = await fetch(url)
+      if (!resp.ok) return res.status(500).json({ error: 'Failed to fetch PDF' })
+      pdfBytes = Buffer.from(await resp.arrayBuffer())
+    }
+
+    const pdfDoc = await PDFDocument.load(pdfBytes)
+    const pageCount = pdfDoc.getPageCount()
+    return res.json({ pageCount })
+  } catch (err: any) {
+    console.error('page-count error:', err)
+    return res.status(500).json({ error: 'Failed to read page count' })
+  }
+})
 
 // Get all documents
 router.get("/", async (req: AuthRequest, res: Response) => {

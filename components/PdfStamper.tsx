@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import type { Correspondence, SystemSettings } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 import { useLoading } from './ui/loading-context'
@@ -29,12 +29,33 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
   const [zoom, setZoom] = useState<number>(1)
   const [pageIndex, setPageIndex] = useState<number>(0)
   const [attachmentIndex, setAttachmentIndex] = useState<number>(0)
+  const [pageCount, setPageCount] = useState<number>(1)
+  const [pageRotation, setPageRotation] = useState<0 | 90 | 180 | 270>(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const stampRef = useRef<HTMLDivElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   
   const currentAttachment = doc.attachments && doc.attachments[attachmentIndex] ? doc.attachments[attachmentIndex] : doc.attachments?.[0]
-  const pagesCount = ((currentAttachment && (currentAttachment as any).pageCount) ? (currentAttachment as any).pageCount : (doc.attachmentCount ?? 1))
+  const pagesCount = Math.max(1, Number(pageCount || 1))
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        const api = (await import("@/lib/api-client")).apiClient
+        const n = await api.getPdfPageCount(doc.barcode, attachmentIndex)
+        if (!mounted) return
+        setPageCount(n)
+        setPageIndex((prev) => Math.min(Math.max(0, prev), Math.max(0, n - 1)))
+      } catch (e) {
+        if (!mounted) return
+        setPageCount(1)
+        setPageIndex(0)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [doc.barcode, attachmentIndex])
 
   // Cleaner barcode URL - text rendered manually
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${doc.barcode}&scale=2&rotate=N&includetext=false`
@@ -97,6 +118,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
         stampWidth: Math.round(stampWidth),
         page: pageIndex,
         attachmentIndex: attachmentIndex,
+        pageRotation,
         compact: false,
         preview: false, // Save mode - will save to storage
       }
@@ -140,6 +162,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
         stampWidth: Math.round(stampWidth),
         page: pageIndex,
         attachmentIndex: attachmentIndex,
+        pageRotation,
         compact: false,
         preview: true, // Preview mode - won't save to storage
       }
@@ -343,7 +366,17 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               </div>
 
               <div className="flex flex-col">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">صفحة</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">تدوير</label>
+                <select value={pageRotation} onChange={(e) => setPageRotation(Number(e.target.value) as any)} className="p-2.5 rounded-xl border bg-white text-sm font-black outline-none focus:ring-2 focus:ring-blue-500/20">
+                  <option value={0}>0°</option>
+                  <option value={90}>90°</option>
+                  <option value={180}>180°</option>
+                  <option value={270}>270°</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight mr-1">صفحة ({pagesCount})</label>
                 <select value={pageIndex} onChange={(e) => setPageIndex(Number(e.target.value))} className="p-2.5 rounded-xl border bg-white text-sm font-black outline-none focus:ring-2 focus:ring-blue-500/20">
                   {Array.from({ length: Math.max(1, pagesCount) }, (_, i) => i).map((i) => (
                     <option key={i} value={i}>صفحة {i+1}</option>

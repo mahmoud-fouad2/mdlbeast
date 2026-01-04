@@ -1,7 +1,7 @@
 import express from 'express'
 import { query } from '../config/database'
 import fetch from 'node-fetch'
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../middleware/auth'
@@ -95,7 +95,17 @@ router.post('/:barcode/stamp', async (req, res) => {
     const stampCodeMarker = 'STAMP_ARABIC_ANCHOR_v2'
     const stampCodeCommit = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.SOURCE_VERSION || null
     const { barcode } = req.params
-    const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0, attachmentIndex = 0, preview = false } = req.body || {}
+    const {
+      x = 20,
+      y = 20,
+      containerWidth,
+      containerHeight,
+      stampWidth = 180,
+      page: pageIndex = 0,
+      attachmentIndex = 0,
+      preview = false,
+      pageRotation,
+    } = req.body || {}
 
     const d = await query('SELECT * FROM documents WHERE barcode = $1 LIMIT 1', [barcode])
     if (d.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
@@ -452,6 +462,15 @@ router.post('/:barcode/stamp', async (req, res) => {
     }
     const pages = pdfDoc.getPages()
     const page = pages[Math.max(0, Math.min(pageIndex, pages.length - 1))]
+
+    // Optional page rotation (metadata). Useful for scanned PDFs that are sideways.
+    if (pageRotation === 0 || pageRotation === 90 || pageRotation === 180 || pageRotation === 270) {
+      try {
+        page.setRotation(degrees(pageRotation))
+      } catch (e) {
+        console.warn('Stamp: failed to set page rotation', e)
+      }
+    }
     const { width: pageWidth, height: pageHeight } = page.getSize()
 
     // compute image size in PDF units based on provided stampWidth (px) and container size

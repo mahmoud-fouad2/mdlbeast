@@ -319,7 +319,7 @@ class ApiClient {
   }
 
   // Stamp a document PDF by placing a barcode image at provided coordinates (server overwrites original file)
-  async stampDocument(barcode: string, payload: { x: number; y: number; containerWidth?: number; containerHeight?: number; stampWidth?: number }) {
+  async stampDocument(barcode: string, payload: { x: number; y: number; containerWidth?: number; containerHeight?: number; stampWidth?: number; pageRotation?: 0 | 90 | 180 | 270 }) {
     // Longer timeout for stamping operations (server can take time to fetch/embed/overwrite)
     const controller = new AbortController()
     const timeoutMs = 60_000
@@ -350,6 +350,13 @@ class ApiClient {
     return res?.previewUrl || null
   }
 
+  async getPdfPageCount(barcode: string, index?: number): Promise<number> {
+    const qp = (typeof index === 'number') ? `?idx=${encodeURIComponent(String(index))}` : ''
+    const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/page-count${qp}`)
+    const n = Number(res?.pageCount)
+    return Number.isFinite(n) && n > 0 ? n : 1
+  }
+
   // Add an attachment to an existing document: uploadFile should be used first,
   // then call this method with the uploaded file metadata. This will fetch the
   // current document attachments and update the document with the new list.
@@ -357,7 +364,7 @@ class ApiClient {
     // Fetch current doc to get existing attachments
     const doc = await this.getDocumentByBarcode(barcode).catch(() => null)
     const existing = (doc && Array.isArray(doc.attachments)) ? doc.attachments : []
-    const newAttachments = [uploaded, ...existing]
+    const newAttachments = [...existing, uploaded]
     return this.updateDocument(barcode, { attachments: newAttachments })
   }
 
