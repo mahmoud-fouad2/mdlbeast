@@ -208,6 +208,11 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                  <span dir="ltr">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
               </div>
 
+              {/* Attachment Count */}
+              <div className="w-full text-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5px] text-slate-700 font-bold" dir="ltr">
+                Attachment: {doc.attachmentCount || '0'}
+              </div>
+
               {/* Drag Handle - Smaller */}
               <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white">
                 <MousePointer2 size={10} />

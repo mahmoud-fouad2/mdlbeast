@@ -33,9 +33,15 @@ router.get('/:barcode/preview-url', async (req: Request, res: Response) => {
         try {
           const signed = await getSignedDownloadUrl(pdf.key, 60 * 5)
           return res.json({ previewUrl: signed })
-        } catch (e) {
-          // fallback to public URL
-          try { return res.json({ previewUrl: getPublicUrl(pdf.key) }) } catch (err) {}
+        } catch (signedErr) {
+          console.warn('R2 signed URL failed, trying public URL:', signedErr)
+          try {
+            const publicUrl = getPublicUrl(pdf.key)
+            return res.json({ previewUrl: publicUrl })
+          } catch (publicErr) {
+            console.error('R2 public URL also failed:', publicErr)
+            // Continue to next fallback
+          }
         }
       } catch (e) {
         console.warn('R2 preview-url error:', e)
@@ -203,17 +209,29 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       paramCount++
     }
 
-    // Scope results: member/supervisor see own documents, manager/admin see everything
+    // Scope results based on user role and tenant
     if (!user) return res.status(401).json({ error: 'Not authenticated' })
     
-    // Manager and Admin can see all documents, others see their own only
-    if (user.role !== 'admin' && user.role !== 'manager') {
+    if (user.role === 'admin') {
+      // Admin can see all documents
+      console.log('[Documents] Admin - showing all documents')
+    } else if (user.role === 'manager') {
+      // Manager can see documents in their tenant only (if tenant assigned)
+      if (user.tenant_id) {
+        queryText += ` AND (d.tenant_id = $${paramCount} OR d.tenant_id IS NULL)`
+        queryParams.push(user.tenant_id)
+        paramCount++
+        console.log('[Documents] Manager - showing documents for tenant:', user.tenant_id)
+      } else {
+        // Manager without tenant can see all documents
+        console.log('[Documents] Manager (no tenant) - showing all documents')
+      }
+    } else {
+      // Member/Supervisor/other roles see their own documents only
       queryText += ` AND d.user_id = $${paramCount}`
       queryParams.push(user.id)
       paramCount++
       console.log('[Documents] Member/Supervisor - showing own documents only:', user.id)
-    } else {
-      console.log('[Documents] Manager/Admin - showing all documents')
     }
 
     if (search) {
@@ -307,13 +325,10 @@ router.get("/:barcode", async (req: Request, res: Response) => {
 
     const row = result.rows[0]
 
-    // Check if user can access this document
+    // Check if user can access this document using unified RBAC function
     const user = (req as any).user
-    const isOwner = row.user_id && user?.id && Number(row.user_id) === Number(user.id)
-    const isAdmin = user?.role === 'admin'
-    const isManager = user?.role === 'manager'
-    
-    if (!isOwner && !isAdmin && !isManager) {
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, row)) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
@@ -594,17 +609,11 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     const authReq = req as any
     const user = authReq.user
     
-    // Allow document owner, manager, or admin to edit
-    const isOwner = doc.user_id && user?.id && Number(doc.user_id) === Number(user.id)
-    const isAdmin = user?.role === 'admin'
-    const isManager = user?.role === 'manager'
-    
-    if (!isOwner && !isAdmin && !isManager) {
-      return res.status(403).json({ error: 'Only document owner, manager, or administrator can edit this document' })
+    // Use unified RBAC function to check access
+    const { canAccessDocument } = await import('../lib/rbac')
+    if (!canAccessDocument(user, doc)) {
+      return res.status(403).json({ error: 'You do not have permission to edit this document' })
     }
-    
-    // Document owner can now edit all fields of their own document
-    // No need for additional RBAC check since we already verified ownership above
 
     // Prepare values for partial update (use existing if new value is undefined)
     const newType = type !== undefined ? type : doc.type

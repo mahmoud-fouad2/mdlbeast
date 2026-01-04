@@ -146,6 +146,47 @@ const App: React.FC = () => {
     }
   }, [selectedCompanyId]);
 
+  const refreshDocuments = async () => {
+    try {
+      const fetchedDocs = await apiClient.getDocuments().catch(() => [])
+      const normalized = (fetchedDocs || []).map((d: any) => ({
+        id: d.id,
+        barcode: d.barcode || d.barcode_id || '',
+        companyId: d.tenant_id || d.companyId || null,
+        type: (String(d.type || '').toLowerCase().startsWith('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+        title: d.subject || d.title || '',
+        sender: d.sender || '',
+        receiver: d.receiver || d.recipient || '',
+        recipient: d.receiver || d.recipient || '',
+        referenceNumber: d.referenceNumber || '',
+        internalRef: d.internalRef || '',
+        documentDate: d.date || '',
+        archiveDate: d.archived_at || '',
+        date: d.date ? d.date.split('T')?.[0] : (d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : ''),
+        subject: d.subject || '',
+        description: d.description || d.notes || '',
+        status: d.status || '',
+        security: d.security || '',
+        priority: (d.priority === 'عادي') ? 'عاديه' : (d.priority === 'عاجل') ? 'عاجله' : (d.priority === 'عاجل جداً' ? 'عاجل' : (d.priority || '')),
+        category: d.category || '',
+        physicalLocation: d.physical_location || '',
+        attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
+        attachments: d.attachments || [],
+        signatory: d.signatory || '',
+        tags: d.tags || [],
+        created_at: d.created_at ? new Date(d.created_at) : new Date(),
+        createdBy: d.created_by || d.createdBy || '',
+        pdfFile: d.pdf || d.pdfFile || undefined,
+        user_id: d.user_id || null,
+        updated_at: d.updated_at ? new Date(d.updated_at) : new Date(),
+        notes: d.notes || ''
+      }))
+      setDocs(normalized as any)
+    } catch (e) {
+      console.error('Refresh documents failed', e)
+    }
+  }
+
   const currentCompany = companies.find(c => c.id === selectedCompanyId) || companies[0];
 
   const handleSaveDoc = async (data: any) => {
@@ -284,7 +325,7 @@ const App: React.FC = () => {
           {activeTab === 'dashboard' && <Dashboard docs={docs} />}
           {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} companies={companies} />}
           {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={companies} />}
-          {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: currentCompany?.nameAr, logoUrl: currentCompany?.logoUrl, orgNameEn: currentCompany?.nameEn}} currentUser={currentUser} users={users} /> }
+          {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: currentCompany?.nameAr, logoUrl: currentCompany?.logoUrl, orgNameEn: currentCompany?.nameEn}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} /> }
           {activeTab === 'scanner' && <BarcodeScanner />}
           {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl={(currentCompany as any)?.signatureUrl || (currentCompany as any)?.signature_url || ''} />}
           {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: currentCompany?.nameAr || '', logoUrl: currentCompany?.logoUrl || ''}} />}

@@ -18,9 +18,10 @@ interface DocumentListProps {
   currentUser?: any
   users?: any[]
   tenants?: any[]
+  onRefresh?: () => void | Promise<void>
 }
 
-export default function DocumentList({ docs, settings, currentUser, users, tenants }: DocumentListProps) {
+export default function DocumentList({ docs, settings, currentUser, users, tenants, onRefresh }: DocumentListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -366,8 +367,8 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                                       receiver: doc.receiver || doc.recipient || '',
                                       type: doc.type || '',
                                       date: doc.date || '',
-                                      priority: doc.priority || 'عاديه',
-                                      classification: doc.security || 'عادي',
+                                      priority: doc.priority || 'عادي',
+                                      classification: doc.classification || doc.security || 'عادي',
                                       notes: doc.notes || '',
                                       attachmentCount: doc.attachmentCount || '0'
                                     })
@@ -513,8 +514,8 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                               receiver: doc.receiver || doc.recipient || '',
                               type: doc.type || '',
                               date: doc.date || '',
-                              priority: doc.priority || 'عاديه',
-                              classification: doc.security || 'عادي',
+                              priority: doc.priority || 'عادي',
+                              classification: doc.classification || doc.security || 'عادي',
                               notes: doc.notes || '',
                               attachmentCount: doc.attachmentCount || '0'
                             })
@@ -596,6 +597,8 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                   if (updated) {
                     setLocalDocs((prev:any[]) => prev.map((d:any) => (d.barcode === editingDoc.barcode ? updated : d)))
                   }
+                  // Also refresh the main documents list to ensure consistency
+                  onRefresh()
                   setEditingDoc(null)
                   alert('تم حفظ التعديلات بنجاح')
                 } catch (err: any) {

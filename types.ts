@@ -92,7 +92,7 @@ export interface Correspondence {
   priority: string
   category?: string
   physicalLocation?: string
-  attachmentCount?: number
+  attachmentCount?: string | number // Can be text like "1 اسطوانة" or numeric
   attachments: Attachment[]
   signatory?: string
   tags?: string[]
