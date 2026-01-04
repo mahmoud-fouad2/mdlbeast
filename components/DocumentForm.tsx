@@ -277,7 +277,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
             />
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-500 uppercase mr-1 tracking-widest">
-                عدد المرفقات
+                نوعية المرفقات
               </label>
               <input
                 type="text"

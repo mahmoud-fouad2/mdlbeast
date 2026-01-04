@@ -20,6 +20,8 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isSaving, setIsSaving] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [hasPreview, setHasPreview] = useState(false)
   // Predefined stamp sizes: tiny, small, medium, large
   const STAMP_SIZES = { tiny: 70, small: 100, medium: 140, large: 200 }
   const [stampSize, setStampSize] = useState<'tiny' | 'small' | 'medium' | 'large'>('small')
@@ -96,6 +98,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
         page: pageIndex,
         attachmentIndex: attachmentIndex,
         compact: false,
+        preview: false, // Save mode - will save to storage
       }
 
       const api = (await import("@/lib/api-client")).apiClient
@@ -118,6 +121,48 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
       setIsSaving(false)
       loading.hide()
     }
+  }
+
+  const handlePreview = async () => {
+    setIsSaving(true)
+    loading.show()
+    try {
+      const container = containerRef.current
+      const rect = container?.getBoundingClientRect()
+      const containerWidth = rect?.width || 800
+      const containerHeight = rect?.height || 1131
+      
+      const payload = {
+        x: Math.round(pos.x),
+        y: Math.round(pos.y),
+        containerWidth: Math.round(containerWidth),
+        containerHeight: Math.round(containerHeight),
+        stampWidth: Math.round(stampWidth),
+        page: pageIndex,
+        attachmentIndex: attachmentIndex,
+        compact: false,
+        preview: true, // Preview mode - won't save to storage
+      }
+
+      const api = (await import("@/lib/api-client")).apiClient
+      const res = await api.stampDocument(doc.barcode, payload)
+
+      if (res && res.previewData) {
+        setPreviewUrl(res.previewData)
+        setHasPreview(true)
+      }
+    } catch (e: any) {
+      console.error('Preview failed', e)
+      alert('فشل إنشاء المعاينة: ' + (e?.message || e))
+    } finally {
+      setIsSaving(false)
+      loading.hide()
+    }
+  }
+
+  const handleClearPreview = () => {
+    setPreviewUrl(null)
+    setHasPreview(false)
   }
 
   return (
@@ -157,7 +202,9 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               onMouseLeave={handleMouseUp}
               className="w-full aspect-[1/1.414] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
             >
-            {doc.pdfFile ? (
+            {hasPreview && previewUrl ? (
+              <iframe src={previewUrl} className="w-full h-full border-none" title="Stamp Preview" />
+            ) : doc.pdfFile ? (
               <SignedPdfPreview barcode={doc.barcode} fallbackUrl={doc.pdfFile.url} attachmentIndex={attachmentIndex} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-slate-300 flex flex-col gap-4">
@@ -166,7 +213,8 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               </div>
             )}
 
-            {/* Compact Professional Stamp - High Precision */}
+            {/* Show stamp overlay only when NOT in preview mode */}
+            {!hasPreview && (
             <div
               ref={stampRef}
               onMouseDown={handleMouseDown}
@@ -209,8 +257,8 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               </div>
 
               {/* Attachment Count */}
-              <div className="w-full text-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5px] text-slate-700 font-bold" dir="ltr">
-                Attachment: {doc.attachmentCount || '0'}
+              <div className="w-full text-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5px] text-slate-700 font-bold" dir="rtl">
+                نوعية المرفقات: {doc.attachmentCount || '0'}
               </div>
 
               {/* Drag Handle - Smaller */}
@@ -218,6 +266,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
                 <MousePointer2 size={10} />
               </div>
             </div>
+            )}
 
             {isDragging && <div className="absolute inset-0 z-40"></div>}
           </div>
@@ -312,18 +361,45 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
               >
                 إلغاء
               </button>
-              <button
-                onClick={handleFinalize}
-                disabled={isSaving}
-                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                ) : (
-                  <Save size={16} />
-                )}
-                ختم وحفظ
-              </button>
+              
+              {!hasPreview && (
+                <button
+                  onClick={handlePreview}
+                  disabled={isSaving}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                  عرض الختم
+                </button>
+              )}
+              
+              {hasPreview && (
+                <>
+                  <button
+                    onClick={handleClearPreview}
+                    className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-orange-700 transition-all shadow-lg hover:shadow-xl active:scale-95"
+                  >
+                    <X size={16} />
+                    مسح الختم
+                  </button>
+                  <button
+                    onClick={handleFinalize}
+                    disabled={isSaving}
+                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-green-700 transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    حفظ الختم
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </footer>

@@ -43,7 +43,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
       ctx.fillText(`${doc.date} | ${doc.type === "INCOMING" ? "وارد" : "صادر"}`, 500, 440)
       
       ctx.font = "bold 22px Arial"
-      ctx.fillText(`Attachment: ${doc.attachmentCount || '0'}`, 500, 470)
+      ctx.fillText(`نوعية المرفقات: ${doc.attachmentCount || '0'}`, 500, 470)
 
       const link = document.createElement("a")
       link.download = `STICKER-${doc.barcode}.png`

@@ -9,11 +9,11 @@ import { authenticateToken } from '../middleware/auth'
 const router = express.Router()
 router.use(authenticateToken)
 
-// POST /:barcode/stamp { x, y, containerWidth, containerHeight, stampWidth }
+// POST /:barcode/stamp { x, y, containerWidth, containerHeight, stampWidth, preview }
 router.post('/:barcode/stamp', async (req, res) => {
   try {
     const { barcode } = req.params
-    const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0, attachmentIndex = 0 } = req.body || {}
+    const { x = 20, y = 20, containerWidth, containerHeight, stampWidth = 180, page: pageIndex = 0, attachmentIndex = 0, preview = false } = req.body || {}
 
     const d = await query('SELECT * FROM documents WHERE barcode = $1 LIMIT 1', [barcode])
     if (d.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
@@ -526,9 +526,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Ensure we have a Latin-digit barcode for machine-readability
     const displayBarcodeLatin = String(barcode || '')
     
-    // Get attachment count/description from the attachmentCount field (can be text like "1 اسطوانة")
-    const attachmentText = String(doc.attachmentCount || '0')
-    const displayAttachmentCount = `Attachment: ${attachmentText}`
+    // Get attachment count/description from the attachment_count field (can be text like "1 اسطوانة")
+    const attachmentText = String(doc.attachment_count || '0')
+    const displayAttachmentCount = `نوعية المرفقات: ${attachmentText}`
 
     // Force English company name (avoid Arabic font issues)
     const displayCompanyText = String(companyNameEnglish || process.env.ORG_NAME_EN || 'Zaco')
@@ -613,6 +613,17 @@ router.post('/:barcode/stamp', async (req, res) => {
     // normalize to Buffer for consistency when uploading/verifying
     const outBuf = Buffer.from(outBytes)
 
+    // If preview mode, return the stamped PDF without saving to storage
+    if (preview) {
+      const base64Pdf = outBuf.toString('base64')
+      return res.json({ 
+        preview: true, 
+        previewData: `data:application/pdf;base64,${base64Pdf}`,
+        message: 'Preview generated - not saved to storage'
+      })
+    }
+
+    // Otherwise, save to storage (original behavior)
     // Overwrite original file when possible (Supabase key or local file), otherwise create a new local file and replace the first attachment
     try {
       // If pdf.key not present, try to extract key and bucket from a Supabase public URL
