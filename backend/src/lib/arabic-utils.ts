@@ -8,15 +8,20 @@ import ArabicReshaper from 'arabic-reshaper';
  * 2. Return the reshaped text WITHOUT reordering
  * 
  * pdf-lib will handle the RTL display correctly.
+ * 
+ * IMPORTANT: Do NOT use bidi-js or any reordering here - pdf-lib does it automatically!
+ * Previous versions caused double-reversal by reordering before pdf-lib's internal handling.
  */
 export function processArabicText(text: string): string {
   if (!text) return '';
 
   try {
-    // Only reshape - DO NOT reorder!
-    // pdf-lib handles BiDi automatically, so reordering here causes double-reversal
+    // Only reshape Arabic letters - DO NOT reorder!
+    // pdf-lib handles BiDi text direction automatically
     const convert = (ArabicReshaper as any).convertArabic || (ArabicReshaper as any).reshape || ((s: string) => s);
-    return convert(String(text));
+    const reshaped = convert(String(text));
+    console.debug('processArabicText:', { input: text, output: reshaped });
+    return reshaped;
   } catch (error) {
     console.error('Error processing Arabic text:', error);
     return text;
