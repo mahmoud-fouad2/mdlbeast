@@ -45,7 +45,8 @@ function anchorNeutralPunctuationForArabic(s: string): string {
   if (!s) return s
   const text = String(s).normalize('NFC')
   if (!/[\u0600-\u06FF]/.test(text)) return text
-  return text.replace(/([:,"\.\?\!;\,\(\)\[\]])/g, '\u200F$1\u200F')
+  // NOTE: We intentionally do NOT anchor ':' because it can render as duplicated ": :" in some PDF flows.
+  return text.replace(/([,"\.\?\!;\,\(\)\[\]])/g, '\u200F$1\u200F')
 }
 
 function measureRtlTextWidth(text: string, size: number, font: any): number {
@@ -611,11 +612,12 @@ router.post('/:barcode/stamp', async (req, res) => {
       hex: Array.from(displayAttachmentCount).map(c => c.charCodeAt(0).toString(16)).join(' ')
     })
 
-    // Use Arabic company name
-    const anchoredCompanyName = anchorNeutralPunctuationForArabic(companyName)
+    // Use a fixed Arabic company name on the stamp (as requested)
+    const fixedCompanyName = 'زوايا البناء للإستشارات الهندسيه'
+    const anchoredCompanyName = anchorNeutralPunctuationForArabic(fixedCompanyName)
     const displayCompanyText = processArabicText(anchoredCompanyName)
     console.debug('Stamp: company text processed:', {
-      companyName,
+      companyName: fixedCompanyName,
       anchoredCompanyName,
       processed: displayCompanyText,
       anchoredHex: Array.from(anchoredCompanyName).map(c => c.charCodeAt(0).toString(16)).join(' '),
