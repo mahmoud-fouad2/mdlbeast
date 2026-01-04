@@ -84,7 +84,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
             <img class="barcode-img" src="${barcode}">
             <span class="id-text">${doc.barcode}</span>
             <div class="footer-text">${doc.date} | ${doc.type === "INCOMING" ? "وارد" : "صادر"}</div>
-            <div class="attachment-text">Attachment: ${doc.attachmentCount || '0'}</div>
+            <div class="attachment-text">نوعية المرفقات: ${doc.attachmentCount || '0'}</div>
           </div>
           <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 600); }</script>
         </body>
