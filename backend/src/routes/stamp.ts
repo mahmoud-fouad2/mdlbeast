@@ -19,10 +19,15 @@ router.post('/:barcode/stamp', async (req, res) => {
     if (d.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
     const doc = d.rows[0]
 
-    // Enforce RBAC for stamping (stamp is an edit)
+    // Check if user can stamp (document owner, manager, or admin)
     const user = (req as any).user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
+    const isOwner = doc.user_id && user?.id && Number(doc.user_id) === Number(user.id)
+    const isAdmin = user?.role === 'admin'
+    const isManager = user?.role === 'manager'
+    
+    if (!isOwner && !isAdmin && !isManager) {
+      return res.status(403).json({ error: 'Only document owner, manager, or administrator can stamp this document' })
+    }
 
     // find pdf url in attachments (use the specified attachment index)
     const attachments = doc.attachments || []
