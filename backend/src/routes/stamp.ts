@@ -405,6 +405,11 @@ router.post('/:barcode/stamp', async (req, res) => {
       heightPdf = scaled.height
     }
 
+    // Reduce stamp/barcode height to make the overall stamp less tall.
+    // Keep width unchanged; only scale vertically.
+    const heightScale = 0.72
+    heightPdf = heightPdf * heightScale
+
     // compute coordinates: x,y are in pixels from top-left of preview; convert to PDF coords
     let xPdf: number
     let yPdf: number
@@ -526,7 +531,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Convert any Latin digits to Arabic-Indic digits to avoid mixed-direction rendering issues.
     const attachmentTextRaw = String(doc.attachment_count || '0')
     const attachmentText = attachmentTextRaw.replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
-    const rawAttachmentLabel = `نوعية المرفقات: ${attachmentText}`
+    // NOTE: For RTL manual drawing, a space AFTER ':' tends to show up as a space BEFORE ':' visually.
+    // So we avoid the space after ':' here.
+    const rawAttachmentLabel = `نوعية المرفقات:${attachmentText}`
     
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')

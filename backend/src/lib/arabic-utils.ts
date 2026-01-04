@@ -13,7 +13,15 @@ export function processArabicText(text: string): string {
 
   try {
     const convert = (ArabicReshaper as any).convertArabic || (ArabicReshaper as any).reshape || ((s: string) => s);
-    const reshaped = convert(String(text).normalize('NFC'));
+    const cleaned = String(text)
+      .normalize('NFC')
+      // remove common bidi controls / isolates that can render as odd glyphs
+      .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+      // drop ASCII quotes if they sneak in (they often look wrong in RTL)
+      .replace(/"/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const reshaped = convert(cleaned);
     console.debug('processArabicText:', { input: text, output: reshaped });
     return reshaped;
   } catch (error) {
