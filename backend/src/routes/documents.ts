@@ -307,10 +307,15 @@ router.get("/:barcode", async (req: Request, res: Response) => {
 
     const row = result.rows[0]
 
-    // enforce read access on returned single doc
+    // Check if user can access this document
     const user = (req as any).user
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, row)) return res.status(403).json({ error: 'Forbidden' })
+    const isOwner = row.user_id && user?.id && Number(row.user_id) === Number(user.id)
+    const isAdmin = user?.role === 'admin'
+    const isManager = user?.role === 'manager'
+    
+    if (!isOwner && !isAdmin && !isManager) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
 
     let attachments = row.attachments
     try {
