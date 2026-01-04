@@ -548,7 +548,7 @@ router.post(
       // Insert document with optional tenant_id
       const dbType = (typeof type === 'string' && type) ? type : (direction || 'UNKNOWN')
       const result = await query(
-        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id, tenant_id, attachmentCount)
+        `INSERT INTO documents (barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id, tenant_id, attachment_count)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [
@@ -640,7 +640,7 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     const result = await query(
       `UPDATE documents 
        SET type = $1, sender = $2, receiver = $3, date = $4, subject = $5, 
-           priority = $6, status = $7, classification = $8, notes = $9, attachments = $10, attachmentCount = $11
+           priority = $6, status = $7, classification = $8, notes = $9, attachments = $10, attachment_count = $11
        WHERE barcode = $12
        RETURNING *`,
       [
