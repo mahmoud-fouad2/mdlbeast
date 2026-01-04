@@ -597,9 +597,7 @@ router.put("/:barcode", async (req: Request, res: Response) => {
     }
     
     // Document owner can now edit all fields of their own document
-
-    const { canAccessDocument } = await import('../lib/rbac')
-    if (!canAccessDocument(user, doc)) return res.status(403).json({ error: 'Forbidden' })
+    // No need for additional RBAC check since we already verified ownership above
 
     // Prepare values for partial update (use existing if new value is undefined)
     const newType = type !== undefined ? type : doc.type
