@@ -1,27 +1,21 @@
+import ArabicReshaper from 'arabic-reshaper';
+
 /**
  * Process Arabic text for PDF rendering.
  *
- * NotoSansArabic relies on OpenType shaping (GSUB/GPOS) to connect letters.
- * Converting to Arabic Presentation Forms (via arabic-reshaper) can *break* that and
- * lead to visible gaps between letters.
+ * pdf-lib does not implement complex text shaping for Arabic. We use arabic-reshaper to
+ * convert Arabic letters to presentation forms so they render connected.
  *
- * So we keep the original Arabic text and only add lightweight direction marks
- * to stabilize punctuation (e.g. ':') in RTL context.
+ * IMPORTANT: Do not reorder or reverse here. RTL layout is handled at draw-time.
  */
 export function processArabicText(text: string): string {
   if (!text) return '';
 
   try {
-    const s = String(text).normalize('NFC');
-    const hasArabic = /[\u0600-\u06FF]/.test(s);
-    if (!hasArabic) return s;
-
-    // ALM (Arabic Letter Mark) helps keep neutral punctuation in the right place.
-    const ALM = '\u061C';
-    const stabilized = `${ALM}${s.replace(/:/g, `${ALM}:${ALM}`)}${ALM}`;
-
-    console.debug('processArabicText:', { input: text, output: stabilized });
-    return stabilized;
+    const convert = (ArabicReshaper as any).convertArabic || (ArabicReshaper as any).reshape || ((s: string) => s);
+    const reshaped = convert(String(text).normalize('NFC'));
+    console.debug('processArabicText:', { input: text, output: reshaped });
+    return reshaped;
   } catch (error) {
     console.error('Error processing Arabic text:', error);
     return text;

@@ -10,6 +10,22 @@ import { processArabicText } from '../lib/arabic-utils'
 const router = express.Router()
 router.use(authenticateToken)
 
+function drawRtlText(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
+  // Draw text right-to-left by positioning each glyph manually.
+  // Keep the string order as-is; RTL is achieved by decreasing x.
+  let cursorX = xRight;
+  for (const ch of Array.from(text || '')) {
+    let w = 0;
+    try {
+      w = font.widthOfTextAtSize(ch, size);
+    } catch {
+      w = size * 0.5;
+    }
+    cursorX -= w;
+    page.drawText(ch, { x: cursorX, y, size, font, color });
+  }
+}
+
 // POST /:barcode/stamp { x, y, containerWidth, containerHeight, stampWidth, preview }
 router.post('/:barcode/stamp', async (req, res) => {
   try {
@@ -581,9 +597,10 @@ router.post('/:barcode/stamp', async (req, res) => {
     console.debug('Stamp: computed_text', { displayCompanyText, docTypeText, displayBarcodeLatin, displayEnglishDate })
     console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
 
-    // Draw Arabic text using drawText (already pre-processed via processArabicText)
+    // Draw Arabic text RTL (manual positioning)
     if (displayCompanyText) {
-      page.drawText(displayCompanyText, { x: companyX, y: companyY, size: companySize, font: helvBold, color: rgb(0,0,0) })
+      const companyRight = centerX2 + (companyWidth / 2)
+      drawRtlText(page, displayCompanyText, companyRight, companyY, companySize, helvBold, rgb(0,0,0))
     }
     if (docTypeText) {
       page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
@@ -595,8 +612,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Draw English Gregorian date centered near the barcode for readability
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
-    // Draw attachment count (already pre-processed via processArabicText)
-    page.drawText(displayAttachmentCount, { x: attachmentX, y: attachmentY, size: attachmentSize, font: helvBold, color: rgb(0,0,0) })
+    // Draw Arabic attachment text RTL (manual positioning)
+    const attachmentRight = centerX2 + (attachmentWidth / 2)
+    drawRtlText(page, displayAttachmentCount, attachmentRight, attachmentY, attachmentSize, helvBold, rgb(0,0,0))
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying
