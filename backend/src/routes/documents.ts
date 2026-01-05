@@ -823,19 +823,20 @@ router.delete("/:id/attachments/:index", async (req: AuthRequest, res: Response)
 
     // Log in audit log
     await query(
-      `INSERT INTO audit_logs (user_id, action, details, tenant_id) 
-       VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) 
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         user.id,
         "delete_attachment",
+        "DOCUMENT",
+        doc.barcode,
         JSON.stringify({
           document_id: id,
           barcode: doc.barcode,
           attachment_index: attachmentIndex,
           attachment_url: deletedAttachment,
           remaining_attachments: attachments.length
-        }),
-        doc.tenant_id || null
+        })
       ]
     )
 
