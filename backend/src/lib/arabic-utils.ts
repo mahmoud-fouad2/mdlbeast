@@ -70,58 +70,60 @@ export function processArabicText(text: string): string {
 }
 
 /**
- * Process Arabic text for PDF rendering when the PDF renderer applies BiDi on its own.
- *
- * In some PDF renderers, providing a pre-reordered (visual order) string can cause a
- * second BiDi pass, resulting in reversed/jumbled output (especially with digits and ':' ).
- *
- * This variant:
- * - keeps the logical order
- * - applies Arabic shaping (presentation forms)
- * - optionally applies character mirroring (parentheses, etc.)
+ * Process Arabic text for PDF rendering - CORRECT ORDER.
+ * 
+ * The key insight: we must reorder BEFORE shaping, not after!
+ * 1. Apply BiDi reordering to get visual order (on original unshaped text)
+ * 2. Then apply Arabic shaping to the visual-order text
+ * 
+ * This ensures that letter connections are correct in the final output.
  */
 export function processArabicTextForPdf(text: string): string {
   if (!text) return ''
 
   try {
-    const convert = (ArabicReshaper as any).convertArabic || (ArabicReshaper as any).reshape || ((s: string) => s)
     const cleaned = String(text)
       .normalize('NFC')
-      // remove common bidi controls / isolates that can render as odd glyphs
       .replace(/[\u202A-\u202E\u2066-\u2069]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
 
-    const reshaped = convert(cleaned)
-
     const bidi = getBidi()
-    if (!bidi || typeof bidi.getEmbeddingLevels !== 'function') {
-      console.warn('processArabicTextForPdf: bidi-js unavailable; returning reshaped only')
-      console.debug('processArabicTextForPdf:', { input: text, reshaped, output: reshaped })
-      return reshaped
-    }
-
-    const embedding = bidi.getEmbeddingLevels(reshaped, 'rtl')
-
-    // Apply mirroring (e.g., parentheses). Do NOT reorder to visual order.
-    let mirroredText = reshaped
-    try {
-      if (typeof bidi.getMirroredCharactersMap === 'function') {
-        const map: Map<number, string> = bidi.getMirroredCharactersMap(reshaped, embedding)
-        if (map && map.size) {
-          const arr = Array.from(reshaped)
-          for (const [idx, rep] of map.entries()) {
-            if (idx >= 0 && idx < arr.length) arr[idx] = rep
+    
+    // Step 1: Apply BiDi reordering to ORIGINAL (unshaped) text
+    let visualOrder = cleaned
+    if (bidi && typeof bidi.getEmbeddingLevels === 'function' && typeof bidi.getReorderedString === 'function') {
+      const embedding = bidi.getEmbeddingLevels(cleaned, 'rtl')
+      
+      // Apply mirroring before reordering
+      let mirroredText = cleaned
+      try {
+        if (typeof bidi.getMirroredCharactersMap === 'function') {
+          const map: Map<number, string> = bidi.getMirroredCharactersMap(cleaned, embedding)
+          if (map && map.size) {
+            const arr = Array.from(cleaned)
+            for (const [idx, rep] of map.entries()) {
+              if (idx >= 0 && idx < arr.length) arr[idx] = rep
+            }
+            mirroredText = arr.join('')
           }
-          mirroredText = arr.join('')
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
+      
+      visualOrder = bidi.getReorderedString(mirroredText, embedding)
+    } else {
+      // Fallback: simple reverse for RTL
+      visualOrder = Array.from(cleaned).reverse().join('')
     }
 
-    console.debug('processArabicTextForPdf:', { input: text, reshaped, output: mirroredText })
-    return mirroredText
+    // Step 2: Apply Arabic shaping to the visual-order text
+    const convert = (ArabicReshaper as any).convertArabic || (ArabicReshaper as any).reshape || ((s: string) => s)
+    const shaped = convert(visualOrder)
+
+    console.debug('processArabicTextForPdf:', { input: text, visualOrder, shaped })
+    return shaped
   } catch (error) {
     console.error('Error processing Arabic text for PDF:', error)
     return text

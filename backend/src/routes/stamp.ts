@@ -66,9 +66,9 @@ function measureRtlTextWidth(text: string, size: number, font: any): number {
 
 /**
  * drawRtlTextFinal
- * - expects `text` to be **shaped** Arabic (presentation forms from processArabicTextForPdf)
- * - text is in LOGICAL order (not visual)
- * - we reverse it manually and draw from calculated start position
+ * - expects `text` to be **visual-order shaped** Arabic (from processArabicTextForPdf)
+ * - text is ALREADY in visual order with correct shaping
+ * - just draw it at the correct position (right-aligned)
  */
 function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
   if (!text) return
@@ -95,9 +95,6 @@ function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, si
   // Starting X such that the text's right edge is at xRight
   const startX = xRight - totalWidth
 
-  // Reverse the text for RTL display (shaped text is in logical LTR order)
-  const reversedText = Array.from(cleanText).reverse().join('')
-
   console.debug('drawRtlTextFinal:', { 
     text: text.substring(0, 50), 
     xRight, 
@@ -106,9 +103,9 @@ function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, si
     cleanTextLength: cleanText.length
   })
 
-  // Draw the reversed shaped text
-  if (reversedText) {
-    page.drawText(reversedText, { x: startX, y, size, font, color })
+  // Draw the visual-order shaped text as-is (NO reversal needed!)
+  if (cleanText) {
+    page.drawText(cleanText, { x: startX, y, size, font, color })
   }
 }
 
