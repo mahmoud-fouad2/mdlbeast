@@ -60,32 +60,43 @@ async function renderArabicTextToImage(text: string, fontSize: number, fontWeigh
 }
 
 /**
- * Draw Arabic text using canvas-rendered image
+ * Render Arabic text to image and return buffer with dimensions
  */
-async function drawRtlTextAsImage(pdfDoc: any, page: any, text: string, xRight: number, y: number, size: number): Promise<void> {
-  if (!text) return
+async function renderArabicTextToImageWithDimensions(text: string, size: number): Promise<{ buffer: Buffer; width: number; height: number }> {
+  if (!text) return { buffer: Buffer.from(''), width: 0, height: 0 }
+  
+  const buffer = await renderArabicTextToImage(text, size, 'bold')
+  const { loadImage } = await import('canvas')
+  const img = await loadImage(buffer)
+  
+  const scale = 4
+  return {
+    buffer,
+    width: img.width / scale,
+    height: img.height / scale
+  }
+}
+
+/**
+ * Draw Arabic text using canvas-rendered image (centered)
+ */
+async function drawRtlTextAsImageCentered(pdfDoc: any, page: any, imageBuffer: Buffer, centerX: number, y: number, width: number, height: number): Promise<void> {
+  if (!imageBuffer || imageBuffer.length === 0) return
   
   try {
-    const imageBuffer = await renderArabicTextToImage(text, size, 'bold')
     const pngImage = await pdfDoc.embedPng(imageBuffer)
     
-    // Image is rendered at 4x scale, so we need to scale it down to original size
-    const scale = 4
-    const { width: scaledWidth, height: scaledHeight } = pngImage.scale(1)
-    const width = scaledWidth / scale
-    const height = scaledHeight / scale
-    
-    // Draw image right-aligned with proper scaling
+    // Draw image centered
     page.drawImage(pngImage, {
-      x: xRight - width,
-      y: y - height * 0.2, // Adjust for baseline
+      x: centerX - (width / 2),
+      y: y,
       width,
       height
     })
     
-    console.debug('drawRtlTextAsImage:', { 
-      text: text.substring(0, 50), 
-      xRight, 
+    console.debug('drawRtlTextAsImageCentered:', { 
+      centerX,
+      y,
       imageWidth: width,
       imageHeight: height
     })
@@ -707,50 +718,53 @@ router.post('/:barcode/stamp', async (req, res) => {
     const attachmentSize = Math.round(8 * scaleFactor)
     const gap = Math.round(4 * scaleFactor)
 
-    // Estimate widths for layout calculations (canvas-rendered text)
-    const companyWidth = companyName.length * companySize * 0.6
+    // Get actual widths for layout calculations (render once, use for both dimensions and drawing)
+    const companyData = await renderArabicTextToImageWithDimensions(companyName, companySize)
+    const attachmentData = await renderArabicTextToImageWithDimensions(rawAttachmentLabel, attachmentSize)
+    const companyWidth = companyData.width
+    const companyHeight = companyData.height
+    const attachmentWidth = attachmentData.width
+    const attachmentHeight = attachmentData.height
+    
     const typeWidth = helv.widthOfTextAtSize(docTypeText || '', typeSize)
     const barcodeWidth2 = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize2)
     const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDate, dateSize2)
-    const attachmentWidth = rawAttachmentLabel.length * attachmentSize * 0.6
 
     const centerX2 = xPdf + widthPdf / 2
 
-    // Start stacking above the barcode image: company -> type (if any)
-    let companyX = centerX2 - (companyWidth / 2)
-    let companyY = yPdf + heightPdf + gap
+    // Start stacking above the barcode image with proper spacing
+    let companyY = yPdf + heightPdf + gap * 3
     let typeX = centerX2 - (typeWidth / 2)
-    let typeY = companyY - companySize - 2
+    let typeY = companyY - companyHeight - gap * 2
 
     // Barcode text and date below image (preferred), but if there's no room, place them above image
     let barcodeX = centerX2 - (barcodeWidth2 / 2)
-    let barcodeY = yPdf - barcodeSize2 - gap
+    let barcodeY = yPdf - barcodeSize2 - gap * 2
     let dateX = centerX2 - (dateWidth2 / 2)
-    let dateY = barcodeY - dateSize2 - 2
-    let attachmentX = centerX2 - (attachmentWidth / 2)
-    let attachmentY = dateY - attachmentSize - 2
+    let dateY = barcodeY - dateSize2 - gap
+    let attachmentY = dateY - attachmentHeight - gap
 
     // If text is off-canvas at bottom, move barcode texts above the image (between company and image)
     if (barcodeY < 0 || attachmentY < 0) {
       // place barcode text immediately above image
-      barcodeY = yPdf + heightPdf + gap + 2
-      dateY = barcodeY + dateSize2 + 2
-      attachmentY = dateY + attachmentSize + 2
+      barcodeY = yPdf + heightPdf + gap * 2
+      dateY = barcodeY + dateSize2 + gap
+      attachmentY = dateY + attachmentHeight + gap
       // if company or type would collide, push company up
       if (typeY <= attachmentY) {
-        companyY = attachmentY + companySize + typeSize + gap + 4
-        typeY = companyY - companySize - 2
+        companyY = attachmentY + companyHeight + typeSize + gap * 3
+        typeY = companyY - companyHeight - gap * 2
       }
     }
 
     console.debug('Stamp: computed_text', { companyName, docTypeText, displayBarcodeLatin, displayEnglishDate, rawAttachmentLabel })
-    console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
+    console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, centerX2, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
+    console.debug('Stamp: dimensions', { companyWidth, companyHeight, attachmentWidth, attachmentHeight })
 
     // Draw Arabic text as images (canvas-rendered for correct Arabic shaping)
-    if (companyName) {
-      const companyRight = centerX2 + (companyWidth / 2)
-      // Draw company name as image (canvas-rendered for correct Arabic)
-      await drawRtlTextAsImage(pdfDoc, page, companyName, companyRight, companyY, companySize)
+    if (companyName && companyData.buffer) {
+      // Draw company name centered
+      await drawRtlTextAsImageCentered(pdfDoc, page, companyData.buffer, centerX2, companyY, companyWidth, companyHeight)
     }
     if (docTypeText) {
       page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
@@ -763,8 +777,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
     // Draw Arabic attachment text as image (canvas-rendered for correct Arabic)
-    const attachmentRight = centerX2 + (attachmentWidth / 2)
-    await drawRtlTextAsImage(pdfDoc, page, rawAttachmentLabel, attachmentRight, attachmentY, attachmentSize)
+    if (attachmentData.buffer) {
+      await drawRtlTextAsImageCentered(pdfDoc, page, attachmentData.buffer, centerX2, attachmentY, attachmentWidth, attachmentHeight)
+    }
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying
