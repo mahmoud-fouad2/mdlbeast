@@ -5,7 +5,7 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../middleware/auth'
-import { processArabicText } from '../lib/arabic-utils'
+import { processArabicTextForPdf } from '../lib/arabic-utils'
 
 const router = express.Router()
 router.use(authenticateToken)
@@ -66,56 +66,47 @@ function measureRtlTextWidth(text: string, size: number, font: any): number {
 
 /**
  * drawRtlTextFinal
- * - expects `text` to be **visual-order** (result of processArabicText)
- * - calculates total width to align text from right edge
- * - draws entire text at once to preserve Arabic letter connections
- * 
- * CRITICAL: pdf-lib renders text left-to-right. Our visual-order text starts
- * with the rightmost character. We reverse it so pdf-lib renders it correctly.
+ * - expects `text` to be **shaped** Arabic (presentation forms from processArabicTextForPdf)
+ * - text is in LOGICAL order (not visual)
+ * - we reverse it manually and draw from calculated start position
  */
 function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
   if (!text) return
   const s = String(text).normalize('NFC')
-  const clusters = splitClusters(s)
-
-  // Build clean text (remove BiDi controls) and calculate total width
-  let cleanText = ''
-  let totalWidth = 0
   
+  // Build clean text (remove BiDi controls)
+  let cleanText = ''
+  const clusters = splitClusters(s)
   for (const cl of clusters) {
-    // Skip BiDi controls
-    if (isSkippableBidiControl(cl)) continue
-    
-    cleanText += cl
-    
-    let w = 0
-    try {
-      w = font.widthOfTextAtSize(cl, size)
-      if (!w || w <= 0) w = Math.max(size * 0.45, cl.length * (size * 0.5))
-    } catch (e) {
-      w = Math.max(size * 0.45, cl.length * (size * 0.5))
+    if (!isSkippableBidiControl(cl)) {
+      cleanText += cl
     }
-    totalWidth += w
+  }
+  
+  // Calculate total width
+  let totalWidth = 0
+  try {
+    totalWidth = font.widthOfTextAtSize(cleanText, size)
+  } catch (e) {
+    // Fallback: estimate width
+    totalWidth = cleanText.length * size * 0.5
   }
 
   // Starting X such that the text's right edge is at xRight
   const startX = xRight - totalWidth
 
-  // Reverse the visual-order text so it renders correctly LTR in pdf-lib
-  // Use grapheme-aware reversal to preserve multi-codepoint characters
-  const graphemes = splitClusters(cleanText)
-  const reversedText = graphemes.reverse().join('')
+  // Reverse the text for RTL display (shaped text is in logical LTR order)
+  const reversedText = Array.from(cleanText).reverse().join('')
 
   console.debug('drawRtlTextFinal:', { 
     text: text.substring(0, 50), 
     xRight, 
     totalWidth, 
     startX, 
-    cleanTextLength: cleanText.length,
-    graphemeCount: graphemes.length
+    cleanTextLength: cleanText.length
   })
 
-  // Draw the reversed text
+  // Draw the reversed shaped text
   if (reversedText) {
     page.drawText(reversedText, { x: startX, y, size, font, color })
   }
@@ -654,7 +645,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')
     const anchoredAttachmentLabel = anchorNeutralPunctuationForArabic(rawAttachmentLabel)
-    const displayAttachmentCount = processArabicText(anchoredAttachmentLabel)
+    const displayAttachmentCount = processArabicTextForPdf(anchoredAttachmentLabel)
     console.debug('Stamp: attachment text processed:', {
       raw: rawAttachmentLabel,
       anchored: anchoredAttachmentLabel,
@@ -666,7 +657,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use a fixed Arabic company name on the stamp (as requested)
     const fixedCompanyName = 'زوايا البناء للإستشارات الهندسيه'
     const anchoredCompanyName = anchorNeutralPunctuationForArabic(fixedCompanyName)
-    const displayCompanyText = processArabicText(anchoredCompanyName)
+    const displayCompanyText = processArabicTextForPdf(anchoredCompanyName)
     console.debug('Stamp: company text processed:', {
       companyName: fixedCompanyName,
       anchoredCompanyName,
