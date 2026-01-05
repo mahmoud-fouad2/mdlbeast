@@ -69,6 +69,9 @@ function measureRtlTextWidth(text: string, size: number, font: any): number {
  * - expects `text` to be **visual-order** (result of processArabicText)
  * - calculates total width to align text from right edge
  * - draws entire text at once to preserve Arabic letter connections
+ * 
+ * CRITICAL: pdf-lib renders text left-to-right. Our visual-order text starts
+ * with the rightmost character. We reverse it so pdf-lib renders it correctly.
  */
 function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
   if (!text) return
@@ -98,10 +101,10 @@ function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, si
   // Starting X such that the text's right edge is at xRight
   const startX = xRight - totalWidth
 
-  // CRITICAL FIX: pdf-lib applies BiDi reversal automatically on Arabic text!
-  // Since our text is already in visual order, we need to reverse it back
-  // so that when pdf-lib reverses it again, it displays correctly.
-  const reversedText = cleanText.split('').reverse().join('')
+  // Reverse the visual-order text so it renders correctly LTR in pdf-lib
+  // Use grapheme-aware reversal to preserve multi-codepoint characters
+  const graphemes = splitClusters(cleanText)
+  const reversedText = graphemes.reverse().join('')
 
   console.debug('drawRtlTextFinal:', { 
     text: text.substring(0, 50), 
@@ -109,10 +112,10 @@ function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, si
     totalWidth, 
     startX, 
     cleanTextLength: cleanText.length,
-    reversedLength: reversedText.length
+    graphemeCount: graphemes.length
   })
 
-  // Draw reversed text - pdf-lib will reverse it back to correct visual order
+  // Draw the reversed text
   if (reversedText) {
     page.drawText(reversedText, { x: startX, y, size, font, color })
   }
