@@ -5,7 +5,7 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../middleware/auth'
-import { processArabicText } from '../lib/arabic-utils'
+import { processArabicTextForPdf } from '../lib/arabic-utils'
 
 const router = express.Router()
 router.use(authenticateToken)
@@ -622,7 +622,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')
     const anchoredAttachmentLabel = anchorNeutralPunctuationForArabic(rawAttachmentLabel)
-    const displayAttachmentCount = processArabicText(anchoredAttachmentLabel)
+    const displayAttachmentCount = processArabicTextForPdf(anchoredAttachmentLabel)
     console.debug('Stamp: attachment text processed:', {
       raw: rawAttachmentLabel,
       anchored: anchoredAttachmentLabel,
@@ -634,7 +634,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use a fixed Arabic company name on the stamp (as requested)
     const fixedCompanyName = 'زوايا البناء للإستشارات الهندسيه'
     const anchoredCompanyName = anchorNeutralPunctuationForArabic(fixedCompanyName)
-    const displayCompanyText = processArabicText(anchoredCompanyName)
+    const displayCompanyText = processArabicTextForPdf(anchoredCompanyName)
     console.debug('Stamp: company text processed:', {
       companyName: fixedCompanyName,
       anchoredCompanyName,
