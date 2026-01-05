@@ -5,7 +5,7 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../middleware/auth'
-import { processArabicTextForPdf } from '../lib/arabic-utils'
+import { processArabicText } from '../lib/arabic-utils'
 
 const router = express.Router()
 router.use(authenticateToken)
@@ -66,9 +66,10 @@ function measureRtlTextWidth(text: string, size: number, font: any): number {
 
 /**
  * drawRtlTextFinal
- * - expects `text` to be **visual-order shaped** Arabic (from processArabicTextForPdf)
- * - text is ALREADY in visual order with correct shaping
- * - just draw it at the correct position (right-aligned)
+ * - expects `text` to be **visual-order shaped** Arabic (from processArabicText)
+ * - processArabicText does: shape (logical) → BiDi reorder (visual)
+ * - text is ALREADY in visual order with CORRECT letter forms
+ * - just draw it at the correct position (right-aligned), NO reversal!
  */
 function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
   if (!text) return
@@ -103,7 +104,9 @@ function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, si
     cleanTextLength: cleanText.length
   })
 
-  // Draw the visual-order shaped text as-is (NO reversal needed!)
+  // Draw the visual-order shaped text as-is
+  // processArabicText already did: shape → BiDi reorder
+  // So the text is in visual order with correct letter forms - NO reversal needed!
   if (cleanText) {
     page.drawText(cleanText, { x: startX, y, size, font, color })
   }
@@ -642,7 +645,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use the new robust Arabic processing utility
     // const { processArabicText } = await import('../lib/arabic-utils')
     const anchoredAttachmentLabel = anchorNeutralPunctuationForArabic(rawAttachmentLabel)
-    const displayAttachmentCount = processArabicTextForPdf(anchoredAttachmentLabel)
+    const displayAttachmentCount = processArabicText(anchoredAttachmentLabel)
     console.debug('Stamp: attachment text processed:', {
       raw: rawAttachmentLabel,
       anchored: anchoredAttachmentLabel,
@@ -654,7 +657,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Use a fixed Arabic company name on the stamp (as requested)
     const fixedCompanyName = 'زوايا البناء للإستشارات الهندسيه'
     const anchoredCompanyName = anchorNeutralPunctuationForArabic(fixedCompanyName)
-    const displayCompanyText = processArabicTextForPdf(anchoredCompanyName)
+    const displayCompanyText = processArabicText(anchoredCompanyName)
     console.debug('Stamp: company text processed:', {
       companyName: fixedCompanyName,
       anchoredCompanyName,
