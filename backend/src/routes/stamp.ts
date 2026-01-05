@@ -5,12 +5,86 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../middleware/auth'
-import { processArabicText } from '../lib/arabic-utils'
+import { createCanvas } from 'canvas'
 
 const router = express.Router()
 router.use(authenticateToken)
 
 const BIDI_CONTROL_RE = /[\u200E\u200F\u202A-\u202E\u2066-\u2069]/u
+
+/**
+ * Render Arabic text to PNG image using canvas
+ * This solves the Arabic text shaping issue by using canvas which handles Arabic correctly
+ */
+async function renderArabicTextToImage(text: string, fontSize: number, fontWeight: 'bold' | 'normal' = 'bold'): Promise<Buffer> {
+  // Estimate canvas size based on text length
+  const estimatedWidth = Math.max(300, text.length * fontSize * 0.7)
+  const height = Math.ceil(fontSize * 2)
+  
+  const canvas = createCanvas(estimatedWidth, height)
+  const ctx = canvas.getContext('2d')
+  
+  // Set transparent background
+  ctx.clearRect(0, 0, estimatedWidth, height)
+  
+  // Configure text rendering
+  ctx.font = `${fontWeight} ${fontSize}px "Noto Sans Arabic", Arial, sans-serif`
+  ctx.fillStyle = 'black'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'top'
+  ctx.direction = 'rtl'
+  
+  // Draw text (RTL will be handled automatically by canvas)
+  ctx.fillText(text, estimatedWidth - 10, fontSize * 0.2)
+  
+  // Get actual text width
+  const metrics = ctx.measureText(text)
+  const actualWidth = Math.ceil(metrics.width + 20)
+  
+  // Create a properly sized canvas
+  const finalCanvas = createCanvas(actualWidth, height)
+  const finalCtx = finalCanvas.getContext('2d')
+  finalCtx.clearRect(0, 0, actualWidth, height)
+  finalCtx.font = `${fontWeight} ${fontSize}px "Noto Sans Arabic", Arial, sans-serif`
+  finalCtx.fillStyle = 'black'
+  finalCtx.textAlign = 'right'
+  finalCtx.textBaseline = 'top'
+  finalCtx.direction = 'rtl'
+  finalCtx.fillText(text, actualWidth - 10, fontSize * 0.2)
+  
+  return finalCanvas.toBuffer('image/png')
+}
+
+/**
+ * Draw Arabic text using canvas-rendered image
+ */
+async function drawRtlTextAsImage(pdfDoc: any, page: any, text: string, xRight: number, y: number, size: number): Promise<void> {
+  if (!text) return
+  
+  try {
+    const imageBuffer = await renderArabicTextToImage(text, size, 'bold')
+    const pngImage = await pdfDoc.embedPng(imageBuffer)
+    
+    const { width, height } = pngImage.scale(1)
+    
+    // Draw image right-aligned
+    page.drawImage(pngImage, {
+      x: xRight - width,
+      y: y - height * 0.2, // Adjust for baseline
+      width,
+      height
+    })
+    
+    console.debug('drawRtlTextAsImage:', { 
+      text: text.substring(0, 50), 
+      xRight, 
+      imageWidth: width,
+      imageHeight: height
+    })
+  } catch (e) {
+    console.error('Error rendering Arabic text as image:', e)
+  }
+}
 
 function isSkippableBidiControl(cluster: string): boolean {
   if (!cluster) return true
@@ -64,53 +138,7 @@ function measureRtlTextWidth(text: string, size: number, font: any): number {
   return total
 }
 
-/**
- * drawRtlTextFinal
- * - expects `text` to be **visual-order shaped** Arabic (from processArabicText)
- * - processArabicText does: shape (logical) → BiDi reorder (visual)
- * - text is ALREADY in visual order with CORRECT letter forms
- * - just draw it at the correct position (right-aligned), NO reversal!
- */
-function drawRtlTextFinal(page: any, text: string, xRight: number, y: number, size: number, font: any, color: any) {
-  if (!text) return
-  const s = String(text).normalize('NFC')
-  
-  // Build clean text (remove BiDi controls)
-  let cleanText = ''
-  const clusters = splitClusters(s)
-  for (const cl of clusters) {
-    if (!isSkippableBidiControl(cl)) {
-      cleanText += cl
-    }
-  }
-  
-  // Calculate total width
-  let totalWidth = 0
-  try {
-    totalWidth = font.widthOfTextAtSize(cleanText, size)
-  } catch (e) {
-    // Fallback: estimate width
-    totalWidth = cleanText.length * size * 0.5
-  }
-
-  // Starting X such that the text's right edge is at xRight
-  const startX = xRight - totalWidth
-
-  console.debug('drawRtlTextFinal:', { 
-    text: text.substring(0, 50), 
-    xRight, 
-    totalWidth, 
-    startX, 
-    cleanTextLength: cleanText.length
-  })
-
-  // Draw the visual-order shaped text as-is
-  // processArabicText already did: shape → BiDi reorder
-  // So the text is in visual order with correct letter forms - NO reversal needed!
-  if (cleanText) {
-    page.drawText(cleanText, { x: startX, y, size, font, color })
-  }
-}
+// Old function removed - now using canvas-based image rendering above
 
 // POST /:barcode/stamp { x, y, containerWidth, containerHeight, stampWidth, preview }
 router.post('/:barcode/stamp', async (req, res) => {
@@ -561,7 +589,7 @@ router.post('/:barcode/stamp', async (req, res) => {
       return s.normalize('NFC')
     }
 
-    const companyName = repairArabicEncoding(rawCompany)
+    const companyNameOriginal = repairArabicEncoding(rawCompany)
 
     // Prefer an English company name for the stamp when possible (avoid Arabic shaping issues)
     let companyNameEnglish = ''
@@ -642,28 +670,12 @@ router.post('/:barcode/stamp', async (req, res) => {
     // So we avoid the space after ':' here.
     const rawAttachmentLabel = `نوعية المرفقات: ${attachmentText}`
     
-    // Use the new robust Arabic processing utility
-    // const { processArabicText } = await import('../lib/arabic-utils')
-    const anchoredAttachmentLabel = anchorNeutralPunctuationForArabic(rawAttachmentLabel)
-    const displayAttachmentCount = processArabicText(anchoredAttachmentLabel)
-    console.debug('Stamp: attachment text processed:', {
-      raw: rawAttachmentLabel,
-      anchored: anchoredAttachmentLabel,
-      processed: displayAttachmentCount,
-      anchoredHex: Array.from(anchoredAttachmentLabel).map(c => c.charCodeAt(0).toString(16)).join(' '),
-      hex: Array.from(displayAttachmentCount).map(c => c.charCodeAt(0).toString(16)).join(' ')
-    })
-
-    // Use a fixed Arabic company name on the stamp (as requested)
-    const fixedCompanyName = 'زوايا البناء للإستشارات الهندسيه'
-    const anchoredCompanyName = anchorNeutralPunctuationForArabic(fixedCompanyName)
-    const displayCompanyText = processArabicText(anchoredCompanyName)
-    console.debug('Stamp: company text processed:', {
-      companyName: fixedCompanyName,
-      anchoredCompanyName,
-      processed: displayCompanyText,
-      anchoredHex: Array.from(anchoredCompanyName).map(c => c.charCodeAt(0).toString(16)).join(' '),
-      hex: Array.from(displayCompanyText).map(c => c.charCodeAt(0).toString(16)).join(' ')
+    // Use company name directly (canvas will handle all Arabic processing)
+    const companyName = 'زوايا البناء للإستشارات الهندسيه'
+    
+    console.debug('Stamp: texts to render:', {
+      companyName,
+      attachmentLabel: rawAttachmentLabel
     })
 
     // Do not render Arabic incoming/outgoing label to avoid font/shaping issues; keep empty or English if required
@@ -687,12 +699,12 @@ router.post('/:barcode/stamp', async (req, res) => {
     const attachmentSize = Math.round(8 * scaleFactor)
     const gap = Math.round(4 * scaleFactor)
 
-    // Recompute widths with chosen fonts
-    const companyWidth = measureRtlTextWidth(displayCompanyText, companySize, helvBold)
+    // Estimate widths for layout calculations (canvas-rendered text)
+    const companyWidth = companyName.length * companySize * 0.6
     const typeWidth = helv.widthOfTextAtSize(docTypeText || '', typeSize)
     const barcodeWidth2 = helv.widthOfTextAtSize(displayBarcodeLatin, barcodeSize2)
     const dateWidth2 = helv.widthOfTextAtSize(displayEnglishDate, dateSize2)
-    const attachmentWidth = measureRtlTextWidth(displayAttachmentCount, attachmentSize, helvBold)
+    const attachmentWidth = rawAttachmentLabel.length * attachmentSize * 0.6
 
     const centerX2 = xPdf + widthPdf / 2
 
@@ -723,13 +735,14 @@ router.post('/:barcode/stamp', async (req, res) => {
       }
     }
 
-    console.debug('Stamp: computed_text', { displayCompanyText, docTypeText, displayBarcodeLatin, displayEnglishDate })
+    console.debug('Stamp: computed_text', { companyName, docTypeText, displayBarcodeLatin, displayEnglishDate, rawAttachmentLabel })
     console.debug('Stamp: coords', { xPdf, yPdf, widthPdf, heightPdf, companyX, companyY, typeX, typeY, barcodeX, barcodeY, dateX, dateY })
 
-    // Draw Arabic text in visual order (already shaped + BiDi processed)
-    if (displayCompanyText) {
+    // Draw Arabic text as images (canvas-rendered for correct Arabic shaping)
+    if (companyName) {
       const companyRight = centerX2 + (companyWidth / 2)
-      drawRtlTextFinal(page, displayCompanyText, companyRight, companyY, companySize, helvBold, rgb(0,0,0))
+      // Draw company name as image (canvas-rendered for correct Arabic)
+      await drawRtlTextAsImage(pdfDoc, page, companyName, companyRight, companyY, companySize)
     }
     if (docTypeText) {
       page.drawText(docTypeText, { x: typeX, y: typeY, size: typeSize, font: helv, color: rgb(0,0,0) })
@@ -741,9 +754,9 @@ router.post('/:barcode/stamp', async (req, res) => {
     // Draw English Gregorian date centered near the barcode for readability
     page.drawText(displayEnglishDate, { x: dateX, y: dateY, size: dateSize2, font: helv, color: rgb(0,0,0) })
 
-    // Draw Arabic attachment text in visual order (already shaped + BiDi processed)
+    // Draw Arabic attachment text as image (canvas-rendered for correct Arabic)
     const attachmentRight = centerX2 + (attachmentWidth / 2)
-    drawRtlTextFinal(page, displayAttachmentCount, attachmentRight, attachmentY, attachmentSize, helvBold, rgb(0,0,0))
+    await drawRtlTextAsImage(pdfDoc, page, rawAttachmentLabel, attachmentRight, attachmentY, attachmentSize)
 
     const outBytes = await pdfDoc.save()
     // normalize to Buffer for consistency when uploading/verifying
