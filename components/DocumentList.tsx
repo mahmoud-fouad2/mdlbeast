@@ -294,20 +294,38 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                           <div className="flex flex-wrap gap-1.5">
                             {(doc.attachments || []).length > 0 ? (
                               (doc.attachments || []).map((_, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={async () => {
-                                    try {
-                                      const url = await apiClient.getPreviewUrl(doc.barcode, idx)
-                                      if (url) window.open(url, '_blank')
-                                      else alert('لا يوجد ملف لعرضه')
-                                    } catch(e) { alert('فشل فتح المرفق') }
-                                  }}
-                                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 text-[10px] font-black flex items-center justify-center transition-all border border-slate-200 shadow-sm"
-                                  title={`عرض المرفق ${idx + 1}`}
-                                >
-                                  {idx + 1}
-                                </button>
+                                <div key={idx} className="relative group">
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const url = await apiClient.getPreviewUrl(doc.barcode, idx)
+                                        if (url) window.open(url, '_blank')
+                                        else alert('لا يوجد ملف لعرضه')
+                                      } catch(e) { alert('فشل فتح المرفق') }
+                                    }}
+                                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 text-[10px] font-black flex items-center justify-center transition-all border border-slate-200 shadow-sm"
+                                    title={`عرض المرفق ${idx + 1}`}
+                                  >
+                                    {idx + 1}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`هل تريد حذف المرفق ${idx + 1}؟`)) return
+                                      try {
+                                        await apiClient.deleteAttachment(doc.id, idx)
+                                        alert('تم حذف المرفق بنجاح')
+                                        // Refresh the document list
+                                        if (onRefresh) await onRefresh()
+                                      } catch(e: any) {
+                                        alert('فشل حذف المرفق: ' + (e?.message || e))
+                                      }
+                                    }}
+                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                    title="حذف المرفق"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
                               ))
                             ) : (
                               <span className="text-[10px] text-slate-300 font-bold">—</span>
@@ -470,22 +488,39 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
                     <div className="flex gap-1">
                       {(doc.attachments || []).length > 0 ? (
                         (doc.attachments || []).map((_, idx) => (
-                          <button
-                            key={idx}
-                            onClick={async () => {
-                              try {
-                                const url = await apiClient.getPreviewUrl(doc.barcode, idx)
-                                if (url) {
-                                  window.open(url, '_blank')
-                                  apiClient.logAction('VIEW_DOCUMENT', `Opened attachment ${idx + 1} for document ${doc.barcode}`, 'DOCUMENT', doc.barcode)
+                          <div key={idx} className="relative group">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const url = await apiClient.getPreviewUrl(doc.barcode, idx)
+                                  if (url) {
+                                    window.open(url, '_blank')
+                                    apiClient.logAction('VIEW_DOCUMENT', `Opened attachment ${idx + 1} for document ${doc.barcode}`, 'DOCUMENT', doc.barcode)
+                                  }
+                                  else alert('لا يوجد ملف لعرضه')
+                                } catch(e) { alert('فشل فتح المرفق') }
+                              }}
+                              className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 text-xs font-black flex items-center justify-center border border-slate-200"
+                            >
+                              {idx + 1}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`هل تريد حذف المرفق ${idx + 1}؟`)) return
+                                try {
+                                  await apiClient.deleteAttachment(doc.id, idx)
+                                  alert('تم حذف المرفق بنجاح')
+                                  if (onRefresh) await onRefresh()
+                                } catch(e: any) {
+                                  alert('فشل حذف المرفق: ' + (e?.message || e))
                                 }
-                                else alert('لا يوجد ملف لعرضه')
-                              } catch(e) { alert('فشل فتح المرفق') }
-                            }}
-                            className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 text-xs font-black flex items-center justify-center border border-slate-200"
-                          >
-                            {idx + 1}
-                          </button>
+                              }}
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                              title="حذف المرفق"
+                            >
+                              ×
+                            </button>
+                          </div>
                         ))
                       ) : (
                         <span className="text-[10px] text-slate-300 font-bold">لا يوجد مرفقات</span>
@@ -673,7 +708,7 @@ export default function DocumentList({ docs, settings, currentUser, users, tenan
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 block">نوعية المرفقات</label>
+                <label className="text-sm font-black text-slate-700 block">المرفقات</label>
                 <input
                   type="text"
                   value={editFormData.attachmentCount || ''}

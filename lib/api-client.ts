@@ -368,6 +368,12 @@ class ApiClient {
     return this.updateDocument(barcode, { attachments: newAttachments })
   }
 
+  async deleteAttachment(documentId: number, attachmentIndex: number) {
+    return this.request<any>(`/documents/${documentId}/attachments/${attachmentIndex}`, {
+      method: 'DELETE'
+    })
+  }
+
   async getStatement(barcode: string) {
     return this.request<any>(`/documents/${encodeURIComponent(barcode)}/statement`)
   }

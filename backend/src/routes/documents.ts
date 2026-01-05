@@ -785,4 +785,69 @@ router.get("/stats/summary", async (req: Request, res: Response) => {
   }
 })
 
+// Delete attachment - available to all authenticated users
+router.delete("/:id/attachments/:index", async (req: AuthRequest, res: Response) => {
+  const user = req.user
+  if (!user) return res.status(401).json({ error: "Unauthorized" })
+
+  const { id, index } = req.params
+  const attachmentIndex = parseInt(index, 10)
+
+  if (isNaN(attachmentIndex) || attachmentIndex < 0) {
+    return res.status(400).json({ error: "Invalid attachment index" })
+  }
+
+  try {
+    // Get current document
+    const docResult = await query("SELECT * FROM documents WHERE id = $1", [id])
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: "Document not found" })
+    }
+
+    const doc = docResult.rows[0]
+    const attachments = doc.attachments || []
+
+    if (attachmentIndex >= attachments.length) {
+      return res.status(404).json({ error: "Attachment not found" })
+    }
+
+    // Remove attachment from array
+    const deletedAttachment = attachments[attachmentIndex]
+    attachments.splice(attachmentIndex, 1)
+
+    // Update document with new attachments array
+    await query(
+      "UPDATE documents SET attachments = $1, attachment_count = $2 WHERE id = $3",
+      [JSON.stringify(attachments), attachments.length, id]
+    )
+
+    // Log in audit log
+    await query(
+      `INSERT INTO audit_logs (user_id, action, details, tenant_id) 
+       VALUES ($1, $2, $3, $4)`,
+      [
+        user.id,
+        "delete_attachment",
+        JSON.stringify({
+          document_id: id,
+          barcode: doc.barcode,
+          attachment_index: attachmentIndex,
+          attachment_url: deletedAttachment,
+          remaining_attachments: attachments.length
+        }),
+        doc.tenant_id || null
+      ]
+    )
+
+    res.json({ 
+      message: "Attachment deleted successfully",
+      attachments,
+      attachmentCount: attachments.length
+    })
+  } catch (error) {
+    console.error("Delete attachment error:", error)
+    res.status(500).json({ error: "Failed to delete attachment" })
+  }
+})
+
 export default router

@@ -281,7 +281,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
 
               {/* Attachment Count */}
               <div className="w-full text-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5px] text-slate-700 font-bold" dir="rtl">
-                نوعية المرفقات: {doc.attachmentCount || '0'}
+                المرفقات: {doc.attachmentCount || '0'}
               </div>
 
               {/* Drag Handle - Smaller */}

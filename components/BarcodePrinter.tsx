@@ -43,7 +43,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
       ctx.fillText(`${doc.date} | ${doc.type === "INCOMING" ? "وارد" : "صادر"}`, 500, 440)
       
       ctx.font = "bold 22px Arial"
-      ctx.fillText(`نوعية المرفقات: ${doc.attachmentCount || '0'}`, 500, 470)
+      ctx.fillText(`المرفقات: ${doc.attachmentCount || '0'}`, 500, 470)
 
       const link = document.createElement("a")
       link.download = `STICKER-${doc.barcode}.png`
@@ -84,7 +84,7 @@ export default function BarcodePrinter({ doc, settings }: BarcodePrinterProps) {
             <img class="barcode-img" src="${barcode}">
             <span class="id-text">${doc.barcode}</span>
             <div class="footer-text">${doc.date} | ${doc.type === "INCOMING" ? "وارد" : "صادر"}</div>
-            <div class="attachment-text">نوعية المرفقات: ${doc.attachmentCount || '0'}</div>
+            <div class="attachment-text">المرفقات: ${doc.attachmentCount || '0'}</div>
           </div>
           <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 600); }</script>
         </body>

@@ -687,7 +687,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     const attachmentText = attachmentTextRaw.replace(/[0-9]/g, (d) => arabicIndicDigits[Number(d)])
     // NOTE: For RTL manual drawing, a space AFTER ':' tends to show up as a space BEFORE ':' visually.
     // So we avoid the space after ':' here.
-    const rawAttachmentLabel = `نوعية المرفقات: ${attachmentText}`
+    const rawAttachmentLabel = `المرفقات: ${attachmentText}`
     
     // Use company name directly (canvas will handle all Arabic processing)
     const companyName = 'زوايا البناء للإستشارات الهندسيه'
