@@ -14,6 +14,37 @@ export default function Dashboard({ docs }: DashboardProps) {
   const urgent = docs.filter((d) => d.priority === "عاجل جداً" || d.priority === "عاجل" || d.priority === "عاجله").length
   const total = docs.length
 
+  const parseDocDate = (d: Correspondence) => {
+    const raw = (d.documentDate || (d as any).date || (d as any).created_at || '') as any
+    if (!raw) return null
+    const dt = raw instanceof Date ? raw : new Date(String(raw))
+    if (Number.isNaN(dt.getTime())) return null
+    return dt
+  }
+
+  const buildMonthlyTrend = () => {
+    const now = new Date()
+    const months: { key: string; month: string; incoming: number; outgoing: number }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const monthLabel = d.toLocaleDateString('ar-SA', { month: 'long' })
+      months.push({ key, month: monthLabel, incoming: 0, outgoing: 0 })
+    }
+    const idx = new Map(months.map((m, i) => [m.key, i] as const))
+
+    for (const doc of docs) {
+      const dt = parseDocDate(doc)
+      if (!dt) continue
+      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+      const i = idx.get(key)
+      if (i === undefined) continue
+      if (doc.type === 'INCOMING') months[i].incoming += 1
+      if (doc.type === 'OUTGOING') months[i].outgoing += 1
+    }
+    return months.map(({ month, incoming, outgoing }) => ({ month, incoming, outgoing }))
+  }
+
   const typeData = [
     { name: "الوارد", value: incoming, color: "#3b82f6" },
     { name: "الصادر", value: outgoing, color: "#8b5cf6" },
@@ -26,15 +57,8 @@ export default function Dashboard({ docs }: DashboardProps) {
     { name: "عاجل", value: urgentCount, color: "#ef4444" },
   ]
 
-  // Mock monthly trend data (you can replace with real data)
-  const monthlyTrend = [
-    { month: "يناير", incoming: 12, outgoing: 8 },
-    { month: "فبراير", incoming: 15, outgoing: 10 },
-    { month: "مارس", incoming: 18, outgoing: 14 },
-    { month: "أبريل", incoming: 22, outgoing: 18 },
-    { month: "مايو", incoming: 25, outgoing: 20 },
-    { month: "يونيو", incoming, outgoing },
-  ]
+  // Real monthly trend data (last 6 months)
+  const monthlyTrend = buildMonthlyTrend()
 
   // Status distribution for pie chart
   const statusData = [

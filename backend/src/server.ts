@@ -10,6 +10,8 @@ import documentRoutes from "./routes/documents"
 import userRoutes from "./routes/users"
 import barcodeRoutes from "./routes/barcodes"
 import approvalRoutes from "./routes/approvals"
+import notificationRoutes from "./routes/notifications"
+import internalMessagesRoutes from "./routes/internalMessages"
 import { errorHandler } from "./middleware/errorHandler"
 import { query } from "./config/database"
 import { logBuffer } from "./lib/logBuffer"
@@ -150,6 +152,8 @@ app.use('/api/users', userRoutes)
 // New module routes
 app.use('/api/barcodes', barcodeRoutes)
 app.use('/api/approvals', approvalRoutes)
+app.use('/api/notifications', notificationRoutes)
+app.use('/api/internal', internalMessagesRoutes)
 
 // Uploads route (accepts PDF via multipart/form-data) with rate limiting
 import uploadRoutes from './routes/uploads'

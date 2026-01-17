@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FilePlus, FileMinus, Search, Scan,
   Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
   AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check, Menu, FileSignature,
-  ChevronDown, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign
+  ChevronDown, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign, Stamp
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, User } from './types';
 import { apiClient } from './lib/api-client';
@@ -21,6 +21,9 @@ import AdminBackups from './components/AdminBackups';
 import Approvals from './components/Approvals';
 import UserProfile from './components/UserProfile';
 import UserSettingsModal from './components/UserSettingsModal';
+import NotificationCenter from './components/NotificationCenter';
+import InternalCommunication from './components/InternalCommunication';
+import PdfStamper from './components/PdfStamper';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -325,10 +328,13 @@ const App: React.FC = () => {
             <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
             <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
             <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
+            <NavItem id="stamper" label="ختم وتوقيع PDF" icon={Stamp} />
           </SidebarSection>
           
           <SidebarSection id="workflow" title="سير العمل" icon={FileSignature}>
             <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
+            <NavItem id="notifications" label="مركز الإشعارات" icon={AlertCircle} />
+            <NavItem id="internal" label="التواصل الداخلي" icon={FileText} />
           </SidebarSection>
           
           <div className="h-px bg-slate-100 my-3"></div>
@@ -379,7 +385,10 @@ const App: React.FC = () => {
           {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={[]} />}
           {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png', orgNameEn: 'MDLBEAST'}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} pagination={pagination} /> }
           {activeTab === 'scanner' && <BarcodeScanner />}
+          {activeTab === 'stamper' && <PdfStamper />}
           {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
+          {activeTab === 'notifications' && <NotificationCenter />}
+          {activeTab === 'internal' && <InternalCommunication />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}
           {activeTab === 'admin-status' && <AdminStatus />}
           {activeTab === 'backup' && <AdminBackups />}

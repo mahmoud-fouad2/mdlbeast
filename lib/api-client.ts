@@ -339,6 +339,13 @@ class ApiClient {
     return res?.previewUrl || null
   }
 
+  async stampDocument(barcode: string, payload: { idx?: number; signatureType?: 'signature' | 'stamp'; position?: any }) {
+    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/stamp`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    })
+  }
+
   // Add an attachment to an existing document: uploadFile should be used first,
   // then call this method with the uploaded file metadata. This will fetch the
   // current document attachments and update the document with the new list.
@@ -619,6 +626,64 @@ class ApiClient {
 
   async getApprovalsNotificationCount() {
     return this.request<{ count: number }>("/approvals/notifications/count")
+  }
+
+  // Notifications
+  async getNotifications(params?: { limit?: number; offset?: number; unreadOnly?: boolean }) {
+    const qs = new URLSearchParams()
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit))
+    if (params?.offset !== undefined) qs.set('offset', String(params.offset))
+    if (params?.unreadOnly !== undefined) qs.set('unreadOnly', String(params.unreadOnly))
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request<{ data: any[]; meta?: any }>(`/notifications${suffix}`)
+  }
+
+  async getNotificationsCount() {
+    return this.request<{ count: number }>(`/notifications/count`)
+  }
+
+  async markNotificationRead(id: number | string) {
+    return this.request<any>(`/notifications/${id}/read`, { method: 'POST' })
+  }
+
+  async markAllNotificationsRead() {
+    return this.request<any>(`/notifications/read-all`, { method: 'POST' })
+  }
+
+  async deleteNotification(id: number | string) {
+    return this.request<any>(`/notifications/${id}`, { method: 'DELETE' })
+  }
+
+  // Internal communications (channel-based)
+  async listInternalChannels() {
+    return this.request<{ data: any[] }>(`/internal/channels`)
+  }
+
+  async listInternalMessages(params?: { channel?: string; limit?: number; offset?: number }) {
+    const qs = new URLSearchParams()
+    if (params?.channel) qs.set('channel', params.channel)
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit))
+    if (params?.offset !== undefined) qs.set('offset', String(params.offset))
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request<{ data: any[]; meta?: any }>(`/internal${suffix}`)
+  }
+
+  async postInternalMessage(payload: { channel?: string; content: string; attachments?: any[] }) {
+    return this.request<any>(`/internal`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async pinInternalMessage(id: number | string, pinned: boolean) {
+    return this.request<any>(`/internal/${id}/pin`, {
+      method: 'POST',
+      body: JSON.stringify({ pinned }),
+    })
+  }
+
+  async deleteInternalMessage(id: number | string) {
+    return this.request<any>(`/internal/${id}`, { method: 'DELETE' })
   }
 
   async markApprovalAsSeen(id: number | string) {

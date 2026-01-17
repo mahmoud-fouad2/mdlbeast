@@ -1,6 +1,8 @@
 import express from "express"
 import type { Request, Response } from "express"
+import fetch from 'node-fetch'
 import { body, validationResult } from "express-validator"
+import { PDFDocument } from 'pdf-lib'
 import { query } from "../config/database"
 import { authenticateToken } from "../middleware/auth"
 import type { AuthRequest } from "../types"
@@ -92,6 +94,61 @@ async function resolveAuthorizedPreviewUrl(params: { barcode: string; idx: numbe
   throw err
 }
 
+function tryDeriveR2KeyFromUrl(rawUrl: string): { key: string | null; bucket: string | null } {
+  try {
+    const u = new URL(String(rawUrl))
+    const bucket = String(process.env.CF_R2_BUCKET || 'mdlbeast')
+    let pathname = u.pathname.replace(/^\//, '')
+    if (pathname.startsWith(bucket + '/')) pathname = pathname.slice(bucket.length + 1)
+    const key = decodeURIComponent(pathname)
+    return { key: key || null, bucket }
+  } catch {
+    return { key: null, bucket: null }
+  }
+}
+
+async function fetchBytes(url: string): Promise<Buffer> {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Failed to fetch: ${r.status}`)
+  return Buffer.from(await r.arrayBuffer())
+}
+
+async function loadPdfBytesFromAttachment(attachment: any): Promise<Buffer> {
+  const { preferR2 } = await import('../config/storage')
+  const useR2 = preferR2()
+
+  const directKey = attachment?.key ? String(attachment.key) : ''
+  if (useR2 && directKey) {
+    const { downloadToBuffer } = await import('../lib/r2-storage')
+    return downloadToBuffer(directKey)
+  }
+
+  const url = attachment?.url ? String(attachment.url) : ''
+  if (useR2 && url) {
+    const derived = tryDeriveR2KeyFromUrl(url)
+    if (derived.key) {
+      const { downloadToBuffer } = await import('../lib/r2-storage')
+      return downloadToBuffer(derived.key)
+    }
+  }
+
+  if (!url) throw new Error('No attachment URL')
+  return fetchBytes(url)
+}
+
+async function loadImageBytesFromUrl(imageUrl: string): Promise<Buffer> {
+  const { preferR2 } = await import('../config/storage')
+  const useR2 = preferR2()
+  if (useR2) {
+    const derived = tryDeriveR2KeyFromUrl(imageUrl)
+    if (derived.key) {
+      const { downloadToBuffer } = await import('../lib/r2-storage')
+      return downloadToBuffer(derived.key)
+    }
+  }
+  return fetchBytes(imageUrl)
+}
+
 // All routes require authentication
 router.use(authenticateToken)
 
@@ -120,6 +177,114 @@ router.get('/:barcode/preview', async (req: AuthRequest, res: Response) => {
     const status = Number(err?.status) || 500
     if (status >= 500) console.error('preview error:', err)
     return res.status(status).send(err?.message || 'Preview failed')
+  }
+})
+
+// Stamp/sign a document PDF and append the stamped output as a new attachment
+router.post('/:barcode/stamp', async (req: AuthRequest, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const idx = Number.isFinite(Number(req.body?.idx)) ? Number(req.body.idx) : 0
+    const signatureType = String(req.body?.signatureType || req.body?.signature_type || 'stamp').toLowerCase()
+    const position = req.body?.position || req.body?.signature_position || null
+
+    const user = req.user
+    if (!user?.id) return res.status(401).json({ error: 'Not authenticated' })
+
+    const docRes = await query('SELECT user_id, attachments, attachment_count FROM documents WHERE lower(barcode)=lower($1) LIMIT 1', [barcode])
+    if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found' })
+
+    const docRow = docRes.rows[0]
+    const { canAccessDocument } = await import('../lib/rbac')
+    const userForRbac = { id: user.id, username: user.username, role: user.role as any }
+    if (!canAccessDocument(userForRbac, docRow)) return res.status(403).json({ error: 'Forbidden' })
+
+    let attachments: any = docRow.attachments
+    try { if (typeof attachments === 'string') attachments = JSON.parse(attachments || '[]') } catch { attachments = Array.isArray(attachments) ? attachments : [] }
+    if (!Array.isArray(attachments) || attachments.length === 0) return res.status(400).json({ error: 'Document has no attachments' })
+    const attachment = attachments[idx] || attachments[0]
+    if (!attachment) return res.status(400).json({ error: 'Attachment not found' })
+
+    // Get current user's signature/stamp URL
+    const uRes = await query('SELECT signature_url, stamp_url FROM users WHERE id = $1 LIMIT 1', [user.id])
+    const uRow = uRes.rows[0] || {}
+    const imageUrl = (signatureType === 'signature' ? uRow.signature_url : uRow.stamp_url) || null
+    if (!imageUrl) {
+      return res.status(400).json({ error: signatureType === 'signature' ? 'No signature uploaded for this user' : 'No stamp uploaded for this user' })
+    }
+
+    const pdfBytes = await loadPdfBytesFromAttachment(attachment)
+    const imageBytes = await loadImageBytesFromUrl(String(imageUrl))
+
+    const pdfDoc = await PDFDocument.load(pdfBytes)
+    const pages = pdfDoc.getPages()
+    if (!pages.length) return res.status(400).json({ error: 'PDF has no pages' })
+    const page = pages[0]
+
+    let image: any
+    try { image = await pdfDoc.embedPng(imageBytes) } catch { image = await pdfDoc.embedJpg(imageBytes) }
+
+    const { width: pdfWidth, height: pdfHeight } = page.getSize()
+    let x: number, y: number, drawW: number, drawH: number
+
+    if (position && typeof position === 'object') {
+      const pos = position
+      const containerWidth = Number(pos.containerWidth || pos.container_width)
+      const containerHeight = Number(pos.containerHeight || pos.container_height)
+      const px = Number(pos.x)
+      const py = Number(pos.y)
+      const pw = Number(pos.width)
+      const ph = Number(pos.height)
+      if ([containerWidth, containerHeight, px, py, pw, ph].some((n) => !Number.isFinite(n) || n <= 0)) {
+        return res.status(400).json({ error: 'Invalid position payload' })
+      }
+
+      const scaleX = pdfWidth / containerWidth
+      const scaleY = pdfHeight / containerHeight
+
+      x = px * scaleX
+      drawW = pw * scaleX
+      drawH = ph * scaleY
+      y = pdfHeight - ((py + ph) * scaleY)
+    } else {
+      // Default bottom-left placement
+      const margin = 36
+      const maxW = Math.min(220, pdfWidth * 0.4)
+      const scale = maxW / image.width
+      drawW = image.width * scale
+      drawH = image.height * scale
+      x = margin
+      y = margin
+    }
+
+    page.drawImage(image, { x, y, width: drawW, height: drawH })
+
+    const out = Buffer.from(await pdfDoc.save())
+
+    const { uploadBuffer } = await import('../lib/r2-storage')
+    const safeBarcode = String(barcode).replace(/[^a-z0-9\-_.]/gi, '_')
+    const key = `uploads/documents/stamped/${safeBarcode}-${Date.now()}.pdf`
+    const stampedUrl = await uploadBuffer(key, out, 'application/pdf', 'public, max-age=0')
+
+    const newAttachment = {
+      url: stampedUrl,
+      name: `${safeBarcode}-stamped.pdf`,
+      size: out.length,
+      storage: 'r2',
+      key,
+      bucket: process.env.CF_R2_BUCKET || null,
+      kind: 'stamped',
+      createdAt: new Date().toISOString(),
+    }
+    const nextAttachments = [...attachments, newAttachment]
+    const nextCount = String(nextAttachments.length)
+
+    await query('UPDATE documents SET attachments = $1, attachment_count = $2 WHERE lower(barcode) = lower($3)', [JSON.stringify(nextAttachments), nextCount, barcode])
+
+    return res.json({ stampedUrl, attachment: newAttachment, attachments: nextAttachments, attachmentCount: nextCount })
+  } catch (err: any) {
+    console.error('stamp error:', err)
+    return res.status(500).json({ error: err?.message || 'Stamp failed' })
   }
 })
 
