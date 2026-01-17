@@ -1,7 +1,9 @@
 // Prefer same-origin API (Bluehost can proxy /mdlbeast/api -> Render via .htaccess).
-// Use a relative base so this works when the app is deployed under a subpath (e.g. /mdlbeast).
+// IMPORTANT: Use an absolute path. A relative base like "api" breaks on nested routes
+// (e.g. /mdlbeast/dashboard -> /mdlbeast/dashboard/api).
 // Override with NEXT_PUBLIC_API_URL when running locally or without proxy.
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "api"
+const DEFAULT_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '/mdlbeast'
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || `${DEFAULT_BASE_PATH}/api`).replace(/\/+$/, '')
 
 interface ApiResponse<T> {
   data?: T
