@@ -90,7 +90,7 @@ app.locals.loginLimiter = loginLimiter;
 app.use(helmet())
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "https://mdlbeast.com",
+    origin: process.env.FRONTEND_URL || "https://zaco.sa",
     credentials: true,
   }),
 )

@@ -185,7 +185,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
           <header className="text-center mb-6 mt-4">
             <img
               src={logoUrl || '/mdlbeast/logo.png'}
-              className="h-12 mx-auto mb-4 object-contain"
+              className="h-16 mx-auto mb-4 object-contain"
               alt="MDLBEAST Logo"
             />
             <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">{t.title}</h1>
@@ -269,7 +269,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
               <p className="text-[10px] font-bold text-slate-400">{t.copyright}</p>
               
               <div className="pt-4 flex justify-center">
-                <img src="/mdlbeast/dev.png" alt="Developer" className="h-8 opacity-70 hover:opacity-100 transition-all" />
+                <img src="/mdlbeast/dev.png" alt="Developer" className="h-12 opacity-70 hover:opacity-100 transition-all" />
               </div>
             </div>
           </footer>
