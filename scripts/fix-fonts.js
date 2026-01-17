@@ -20,7 +20,7 @@ async function main() {
     path.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Regular.ttf'),
     path.resolve(process.cwd(), 'backend', 'assets', 'fonts', 'NotoSansArabic-Bold.ttf')
   ]
-  for (let t of targets) {
+  for (const t of targets) {
     const which = t.toLowerCase().includes('bold') ? 'bold' : 'regular'
     try {
       const r = await fetchAndWrite(urls[which], t)

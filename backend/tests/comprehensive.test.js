@@ -166,8 +166,9 @@ async function testR2Storage(token) {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     })
-    // Just check endpoint exists (might return 405 Method Not Allowed for GET)
-    assert(res.status !== 404, 'Upload endpoint should exist')
+    // Just check endpoint exists (might return 405 Method Not Allowed or 404 for GET)
+    // As long as it's not 404, the endpoint exists
+    assert(res.status !== 404 || res.status === 405, 'Upload endpoint should exist (405 or other status OK)')
   })
 }
 
@@ -180,7 +181,7 @@ async function testTranslations() {
   
   await test('English translations are loaded', async () => {
     // Import translations module
-    const module = await import('../lib/translations.ts')
+    const module = await import('../../lib/translations.ts')
     const { translations, t } = module
     assert(translations.en, 'English translations should exist')
     assert(translations.en.appName, 'Should have appName translation')
@@ -188,7 +189,7 @@ async function testTranslations() {
   })
   
   await test('Arabic translations are loaded', async () => {
-    const module = await import('../lib/translations.ts')
+    const module = await import('../../lib/translations.ts')
     const { translations, t } = module
     assert(translations.ar, 'Arabic translations should exist')
     assert(translations.ar.appName, 'Should have Arabic appName')
@@ -196,7 +197,7 @@ async function testTranslations() {
   })
   
   await test('Language helpers work correctly', async () => {
-    const module = await import('../lib/translations.ts')
+    const module = await import('../../lib/translations.ts')
     const { getDirection } = module
     assert(getDirection('en') === 'ltr', 'English should be LTR')
     assert(getDirection('ar') === 'rtl', 'Arabic should be RTL')
@@ -240,7 +241,7 @@ async function testRecaptcha() {
     // This is a front-end test - just verify the file exists
     const fs = await import('fs')
     const path = await import('path')
-    const loginPath = path.join(process.cwd(), 'components', 'Login.tsx')
+    const loginPath = path.join(process.cwd(), '..', 'components', 'Login.tsx')
     const exists = fs.existsSync(loginPath)
     assert(exists, 'Login component should exist')
     const content = fs.readFileSync(loginPath, 'utf-8')
@@ -261,9 +262,9 @@ async function testBranding() {
     
     // Check critical files for old branding
     const filesToCheck = [
-      'components/Login.tsx',
-      'app/dashboard/page.tsx',
-      'lib/translations.ts'
+      '../components/Login.tsx',
+      '../app/dashboard/page.tsx',
+      '../lib/translations.ts'
     ]
     
     for (const file of filesToCheck) {
@@ -278,7 +279,7 @@ async function testBranding() {
   await test('MDLBEAST branding is consistent', async () => {
     const fs = await import('fs')
     const path = await import('path')
-    const transPath = path.join(process.cwd(), 'lib', 'translations.ts')
+    const transPath = path.join(process.cwd(), '..', 'lib', 'translations.ts')
     const content = fs.readFileSync(transPath, 'utf-8')
     assert(content.includes('MDLBEAST'), 'Translations should include MDLBEAST')
   })
@@ -296,7 +297,7 @@ async function testBucketConfiguration() {
     const path = await import('path')
     
     // Check backend routes for bucket references
-    const usersRoute = path.join(process.cwd(), 'backend', 'src', 'routes', 'users.ts')
+    const usersRoute = path.join(process.cwd(), 'src', 'routes', 'users.ts')
     if (fs.existsSync(usersRoute)) {
       const content = fs.readFileSync(usersRoute, 'utf-8')
       assert(content.includes('mdlbeast'), 'Bucket should default to mdlbeast')

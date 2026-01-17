@@ -106,7 +106,9 @@ const App: React.FC = () => {
     const tryInit = async () => {
       try {
         await apiClient.getCurrentUser().then(u => { setCurrentUser(u) }).catch(() => null)
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore initialization errors
+      }
       loadInitialData();
     }
     tryInit();

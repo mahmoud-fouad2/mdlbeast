@@ -114,7 +114,11 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
     document.head.appendChild(script)
 
     return () => {
-      try { document.head.removeChild(script) } catch (e) {}
+      try { 
+        document.head.removeChild(script) 
+      } catch (_e) {
+        // Ignore cleanup errors
+      }
     }
   }, [useGoogleRecaptcha, generateMathCaptcha])
 
