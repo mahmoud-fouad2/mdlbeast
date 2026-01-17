@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Login from "@/components/Login"
+import InstallPWA from "@/components/InstallPWA"
 import { apiClient } from "@/lib/api-client"
 
 export default function HomePage() {
@@ -43,5 +44,10 @@ export default function HomePage() {
     )
   }
 
-  return <Login />
+  return (
+    <>
+      <Login />
+      <InstallPWA />
+    </>
+  )
 }

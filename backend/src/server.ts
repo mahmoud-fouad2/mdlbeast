@@ -756,6 +756,60 @@ async function runAllowedMigrationsOnStartup() {
 // Kick off startup migration runner (non-blocking)
 runAllowedMigrationsOnStartup().catch(err => console.error('Startup migrations error:', err))
 
+// ========================================================
+// Auto-create admin and test users from environment variables
+// ========================================================
+async function ensureUsersFromEnv() {
+  try {
+    const bcrypt = await import('bcrypt')
+    
+    // Admin user from environment variables
+    const adminEmail = process.env.SUPER_ADMIN_EMAIL
+    const adminPassword = process.env.SUPER_ADMIN_PASSWORD
+    const adminName = process.env.SUPER_ADMIN_NAME || 'System Administrator'
+    
+    if (adminEmail && adminPassword) {
+      // Check if admin exists
+      const existingAdmin = await query('SELECT id FROM users WHERE username = $1 OR email = $1', [adminEmail])
+      if (existingAdmin.rows.length === 0) {
+        const hashedPassword = await bcrypt.hash(adminPassword, 10)
+        await query(
+          'INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $1, $2, $3, $4)',
+          [adminEmail, hashedPassword, adminName, 'admin']
+        )
+        console.log('✅ Created admin user from SUPER_ADMIN_EMAIL env variable')
+      } else {
+        console.log('ℹ️ Admin user already exists:', adminEmail)
+      }
+    }
+    
+    // Test user from environment variables
+    const testEmail = process.env.TEST_USER_EMAIL
+    const testPassword = process.env.TEST_USER_PASSWORD
+    const testName = process.env.TEST_USER_NAME || 'Test User'
+    
+    if (testEmail && testPassword) {
+      // Check if test user exists
+      const existingTest = await query('SELECT id FROM users WHERE username = $1 OR email = $1', [testEmail])
+      if (existingTest.rows.length === 0) {
+        const hashedPassword = await bcrypt.hash(testPassword, 10)
+        await query(
+          'INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $1, $2, $3, $4)',
+          [testEmail, hashedPassword, testName, 'user']
+        )
+        console.log('✅ Created test user from TEST_USER_EMAIL env variable')
+      } else {
+        console.log('ℹ️ Test user already exists:', testEmail)
+      }
+    }
+  } catch (err: any) {
+    console.error('Failed to create users from environment variables:', err.message)
+  }
+}
+
+// Run user creation after migrations (non-blocking)
+ensureUsersFromEnv().catch(err => console.error('User creation error:', err))
+
 // Debug: stream a pg_dump of the database for backup (protected)
 app.get("/debug/backup-db", async (req, res) => {
   const { allowDebugAccess } = await import('./config/validateEnv')

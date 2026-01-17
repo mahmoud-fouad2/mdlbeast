@@ -1,12 +1,12 @@
 {
-  "name": "zaco-archive-frontend",
+  "name": "mdlbeast-archive-frontend",
   "version": "1.0.0",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/mahmoud-fouad2/zacoback.git"
+    "url": "https://github.com/mfouad-del/mdlbeast.git"
   },
-  "description": "نظام الأرشفة الموحد - زوايا البناء - Frontend",
+  "description": "نظام الاتصالات الإدارية - MDLBEAST - Frontend",
   "scripts": {
     "build": "next build",
     "export": "next build",

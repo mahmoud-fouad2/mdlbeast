@@ -430,7 +430,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                             if (url.includes('r2.cloudflarestorage.com')) {
                               const urlObj = new URL(url);
                               let pathname = urlObj.pathname.replace(/^\//, '');
-                              const bucket = 'zaco';
+                              const bucket = 'mdlbeast';
                               if (pathname.startsWith(bucket + '/')) {
                                 pathname = pathname.slice(bucket.length + 1);
                               }

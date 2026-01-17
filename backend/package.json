@@ -1,10 +1,10 @@
 {
-  "name": "archive-backend",
+  "name": "mdlbeast-backend",
   "version": "1.0.0",
-  "description": "Backend API for Professional Correspondence Management System",
+  "description": "Backend API for MDLBEAST Correspondence Management System",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfouad-del/zacoback"
+    "url": "https://github.com/mfouad-del/mdlbeast"
   },
   "main": "dist/server.js",
   "scripts": {

@@ -1,218 +1,169 @@
-# نظام الأرشفة الموحد - زوايا البناء
-[![Repository](https://img.shields.io/badge/repo-zacoback-blue?logo=github)](https://github.com/mahmoud-fouad2/zacoback.git)  
-Repository: https://github.com/mahmoud-fouad2/zacoback.git
+# MDLBEAST Communications System
+[![Repository](https://img.shields.io/badge/repo-mdlbeast-blue?logo=github)](https://github.com/mfouad-del/mdlbeast.git)  
+Repository: https://github.com/mfouad-del/mdlbeast.git
 
-نظام إدارة المراسلات والأرشفة الرقمية المتكامل مع فصل كامل بين Backend و Frontend.
+> **MDLBEAST** is an entertainment company rooted in music culture. Based in Saudi Arabia and shared globally – we are here to amplify the unseen.
 
-## 📋 المميزات
+## 🚀 Quick Start
 
-- ✅ نظام أرشفة إلكتروني متكامل
-- ✅ إدارة المستندات الواردة والصادرة
-- ✅ طباعة باركود لكل مستند
-- ✅ مسح ضوئي للباركود
-- ✅ ختم PDF بالباركود
-- ✅ إصدار سندات قبض رسمية
-- ✅ لوحة تحكم تحليلية شاملة
-- ✅ نظام مستخدمين متعدد المستويات (Admin/User)
-- ✅ واجهة عربية كاملة مع دعم RTL
-- ✅ تصميم احترافي متجاوب
-
-## 🏗️ البنية التقنية
-
-### Backend
-- **Framework**: Express.js + TypeScript
-- **Database**: PostgreSQL (Render)
-- **Authentication**: JWT + Bcrypt
-- **API**: RESTful API
-
-### Frontend
-- **Framework**: Next.js 16
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui
-- **Font**: Tajawal (Google Fonts)
-- **Language**: Arabic (RTL)
-
-## 🚀 التثبيت والتشغيل
-
-### Backend Setup
-
-1. الانتقال إلى مجلد Backend:
-```bash
-cd backend
-```
-
-2. تثبيت المكتبات:
+### Frontend (Next.js)
 ```bash
 npm install
+npm run dev
 ```
 
-3. إنشاء ملف `.env`:
+### Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+## 📡 Deployment URLs
+
+- **Frontend**: https://zaco.sa/mdlbeast
+- **Backend API**: https://mdlbeast.onrender.com/api
+- **Company Website**: https://mdlbeast.com
+
+## 🔐 Environment Variables
+
+### Backend Environment Variables (Render)
+
 ```env
-DATABASE_URL=postgresql://user:password@host:port/dbname
-JWT_SECRET=your-secret-jwt-key-here-use-strong-random-value
-REFRESH_TOKEN_SECRET=your-refresh-secret-key-here-use-strong-random-value
+# Database
+DATABASE_URL=postgresql://mdlbeastdb_user:mRcP7qtpmSBPLIspOOjUBIhRChC5w7En@dpg-d5lkvkvgi27c738vq8g0-a/mdlbeastdb
+
+# Authentication
+JWT_SECRET=<YOUR_JWT_SECRET>
+REFRESH_TOKEN_SECRET=<YOUR_REFRESH_TOKEN_SECRET>
+SESSION_SECRET=<YOUR_SESSION_SECRET>
+
+# Server
 PORT=3001
 NODE_ENV=production
-FRONTEND_URL=https://zaco.sa
+FRONTEND_URL=https://zaco.sa/mdlbeast
+
+# Cloudflare R2 Storage
+CF_R2_ACCESS_KEY_ID=ce3791c4a9e76c321fa83d91e83af445
+CF_R2_SECRET_ACCESS_KEY=945c78abf90af55ba501fd2a2c82ea40bfedbfc751781a61347a838af621b60e
+CF_R2_ENDPOINT=https://de95c4f37b252fdb5c22a69ed3d7d3a1.r2.cloudflarestorage.com
+CF_R2_BUCKET=mdlbeast
+CF_R2_REGION=auto
+R2_PUBLIC_BASE_URL=https://pub-ca46338c34ee4a7a8eff690474faf0c6.r2.dev
+
+# Storage Provider
+STORAGE_PROVIDER=r2
+
+# Backups
+BACKUPS_ENABLED=true
+BACKUP_ENCRYPTION=true
+BACKUP_ENC_KEY=<YOUR_BACKUP_ENCRYPTION_KEY>
+BACKUP_INTERVAL_DAYS=15
+BACKUP_RETENTION_COUNT=6
+
+# Migrations
+AUTO_RUN_MIGRATIONS=false
+
+# ⭐ Admin User (Created automatically on startup from these env vars)
+SUPER_ADMIN_EMAIL=<ADMIN_EMAIL>
+SUPER_ADMIN_PASSWORD=<ADMIN_PASSWORD>
+SUPER_ADMIN_NAME=MDLBEAST Administrator
+
+# ⭐ Test User (Optional - Created automatically on startup from these env vars)
+TEST_USER_EMAIL=<TEST_USER_EMAIL>
+TEST_USER_PASSWORD=<TEST_USER_PASSWORD>
+TEST_USER_NAME=MDLBEAST Staff
+
+# Debug (Optional)
+DEBUG_SECRET=<YOUR_DEBUG_SECRET>
+
+# Email (Optional)
+EMAIL_SERVICE=gmail
+EMAIL_USER=<YOUR_EMAIL>
+EMAIL_PASS=<YOUR_APP_PASSWORD>
+
+# AI Keys (Optional)
+GEMINI_API_KEY=<YOUR_KEY>
+GROQ_API_KEY=<YOUR_KEY>
 ```
 
-⚠️ **أمان**: لا تستخدم القيم الافتراضية أعلاه! استخدم قيم عشوائية قوية لـ JWT_SECRET و REFRESH_TOKEN_SECRET
+### Frontend Environment Variables
 
-4. تشغيل SQL Scripts لإنشاء الجداول:
-- قم بتنفيذ `scripts/01_create_tables.sql`
-- ثم `scripts/02_seed_data.sql`
-
-5. تشغيل الـ Backend:
-```bash
-# Development
-npm run dev
-
-# Production
-npm run build
-npm start
-```
-
-### Frontend Setup
-
-1. تثبيت المكتبات:
-```bash
-npm install
-```
-
-2. إنشاء ملف `.env.local`:
 ```env
-NEXT_PUBLIC_API_URL=https://zaco-backend.onrender.com/api
-# للإنتاج:
-# NEXT_PUBLIC_API_URL=https://api.zaco.sa/api
+NEXT_PUBLIC_API_URL=https://mdlbeast.onrender.com/api
+NEXT_BASE_PATH=/mdlbeast
 ```
 
-3. تشغيل الـ Frontend:
+## 📦 Database Info
+
+### Connection Details
+- **Host**: dpg-d5lkvkvgi27c738vq8g0-a.virginia-postgres.render.com
+- **Database**: mdlbeastdb
+- **Username**: mdlbeastdb_user
+- **Password**: mRcP7qtpmSBPLIspOOjUBIhRChC5w7En
+- **Port**: 5432
+
+### Internal URL (Render Services)
+```
+postgresql://mdlbeastdb_user:mRcP7qtpmSBPLIspOOjUBIhRChC5w7En@dpg-d5lkvkvgi27c738vq8g0-a/mdlbeastdb
+```
+
+### External URL
+```
+postgresql://mdlbeastdb_user:mRcP7qtpmSBPLIspOOjUBIhRChC5w7En@dpg-d5lkvkvgi27c738vq8g0-a.virginia-postgres.render.com/mdlbeastdb
+```
+
+### PSQL Command
 ```bash
-# Development
-npm run dev
-
-# Production
-npm run build
-npm start
+PGPASSWORD=mRcP7qtpmSBPLIspOOjUBIhRChC5w7En psql -h dpg-d5lkvkvgi27c738vq8g0-a.virginia-postgres.render.com -U mdlbeastdb_user mdlbeastdb
 ```
 
-## 👤 حسابات الدخول
+## 🗄️ R2 Storage Info
 
-### حساب المدير (Admin) - قم بتغييره فوراً!
-- استخدم البريد والرقم السري الذي قمت بإعدادهم أثناء التثبيت
-- ⚠️ لا تستخدم admin@zaco.sa / admin123 في الإنتاج
+### Bucket Details
+- **Bucket Name**: mdlbeast
+- **Endpoint**: https://de95c4f37b252fdb5c22a69ed3d7d3a1.r2.cloudflarestorage.com
+- **Public URL**: https://pub-ca46338c34ee4a7a8eff690474faf0c6.r2.dev
+- **Token**: rYWbTJ-jdUr7YW4V2ZJcGWWwKyUiNwR_ONoxLT2F
+- **Access Key ID**: ce3791c4a9e76c321fa83d91e83af445
+- **Secret Access Key**: 945c78abf90af55ba501fd2a2c82ea40bfedbfc751781a61347a838af621b60e
 
-### حساب مستخدم (User)
-- **البريد الإلكتروني**: user@zaco.sa
-- **كلمة المرور**: user123
+## 👤 Default Users
 
-⚠️ **مهم**: يرجى تغيير كلمات المرور بعد أول تسجيل دخول!
+Users are created automatically from environment variables when the server starts:
 
-## 📦 قاعدة البيانات
+### Admin User
+Set these environment variables on Render:
+- `SUPER_ADMIN_EMAIL` - Admin email/username
+- `SUPER_ADMIN_PASSWORD` - Admin password
+- `SUPER_ADMIN_NAME` - Admin display name (optional)
 
-### معلومات الاتصال
+### Test User (Optional)
+Set these environment variables on Render:
+- `TEST_USER_EMAIL` - Test user email/username
+- `TEST_USER_PASSWORD` - Test user password  
+- `TEST_USER_NAME` - Test user display name (optional)
 
-**External URL** (للاتصال من خارج Render):
-```
-postgresql://zacodb_user:ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO@dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com/zacodb
-```
+## 📱 PWA Installation
 
-**PSQL Command**:
-```bash
-PGPASSWORD=ToKNTzF4XsvJHTxLqYYqCeyk7YAMjICO psql -h dpg-d54jrg6mcj7s73esp1i0-a.oregon-postgres.render.com -U zacodb_user zacodb
-```
+The app supports installation on:
+- Windows (Chrome/Edge)
+- macOS (Chrome/Edge)
+- Android
+- iOS (Add to Home Screen)
 
-### الجداول
+## 🔧 Features
 
-1. **users** - المستخدمين
-   - id, username, password, full_name, role, created_at, updated_at
+- ✅ Document Management System
+- ✅ Approval Workflow
+- ✅ Digital Signatures
+- ✅ Barcode Tracking
+- ✅ Report Generation
+- ✅ User Management
+- ✅ Backup System
+- ✅ PWA Support (Desktop/Mobile Installation)
+- ✅ RTL Arabic Support
 
-2. **documents** - المستندات
-   - id, barcode, type, sender, receiver, date, subject, priority, status, classification, notes, attachments, user_id, created_at, updated_at
+## 📄 License
 
-## 🎨 التصميم
-
-- **الخط**: Tajawal من Google Fonts للعناوين والنصوص العربية
-- **الألوان**: نظام ألوان محايد مع لمسات من الأزرق
-- **التخطيط**: تصميم متجاوب يدعم جميع الأجهزة
-- **الاتجاه**: RTL كامل للعربية
-
-## 📁 هيكل المشروع
-
-```
-.
-├── backend/                 # Backend API
-│   ├── src/
-│   │   ├── config/         # Database config
-│   │   ├── middleware/     # Auth & error handling
-│   │   ├── routes/         # API routes
-│   │   ├── scripts/        # Utility scripts
-│   │   └── server.ts       # Main server
-│   ├── .env.example
-│   └── package.json
-│
-├── scripts/                # SQL scripts
-│   ├── 01_create_tables.sql
-│   └── 02_seed_data.sql
-│
-├── app/                    # Next.js pages
-├── components/             # React components
-├── lib/                    # Utilities & API client
-└── package.json
-```
-
-## 🔧 الأدوات المساعدة
-
-### توليد كلمات مرور مشفرة
-
-```bash
-cd backend
-npx ts-node src/scripts/generate-password.ts
-```
-
-## 🌐 النشر
-
-### Backend
-يمكن نشر Backend على:
-- Render
-- Heroku
-- Railway
-- DigitalOcean
-- أي خادم يدعم Node.js
-
-### Frontend
-يمكن نشر Frontend على:
-- Vercel (موصى به)
-- Netlify
-- zaco.sa/archive (حسب إعدادات النطاق)
-
-### إعدادات النطاق zaco.sa
-
-للنشر على `zaco.sa/archive`:
-1. قم بضبط basePath في `next.config.js` (أو استخدم متغير البيئة `NEXT_BASE_PATH`):
-```javascript
-module.exports = {
-  basePath: '/archive',
-  // ...
-}
-```
-
-2. لتصدير موقع ثابت (لرفع الملفات يدويًا على استضافة مثل Bluehost):
-
-- قم بتعيين `NEXT_BASE_PATH=/archive` في بيئتك إذا كنت ستستخدم المسار الفرعي.
-- ثم شغّل:
-```bash
-# يبني المشروع ثم يصدر ملفات ثابتة إلى مجلد out/
-npm run export
-```
-- مجلد `out/` الناتج يحتوي على HTML، CSS، JS وجاهز للرفع إلى مجلد `public_html/archive` على Bluehost.
-
-3. تأكد من إعداد CORS في Backend للسماح بالاتصال من `https://zaco.sa`
-
-## 📞 الدعم
-
-للمساعدة أو الاستفسارات، يرجى التواصل مع فريق التطوير.
-
-## 📄 الترخيص
-
-جميع الحقوق محفوظة - زوايا البناء © 2025
+All Rights Reserved - MDLBEAST Entertainment Company © 2025

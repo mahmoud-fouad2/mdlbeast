@@ -53,7 +53,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onClose }) =>
         try {
           const urlObj = new URL(uploadedUrl);
           let pathname = urlObj.pathname.replace(/^\//, '');
-          const bucket = 'zaco';
+          const bucket = 'mdlbeast';
           if (pathname.startsWith(bucket + '/')) {
             pathname = pathname.slice(bucket.length + 1);
           }

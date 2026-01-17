@@ -48,7 +48,7 @@ export default function ApprovalSigner({
       
       const urlObj = new URL(r2Url);
       let pathname = urlObj.pathname.replace(/^\//, '');
-      const bucket = 'zaco';
+      const bucket = 'mdlbeast';
       if (pathname.startsWith(bucket + '/')) {
         pathname = pathname.slice(bucket.length + 1);
       }

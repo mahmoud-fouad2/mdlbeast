@@ -62,7 +62,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers, c
           // Extract R2 key from uploaded URL
           const urlObj = new URL(uploadedUrl);
           let pathname = urlObj.pathname.replace(/^\//, ''); // Remove leading slash
-          const bucket = 'zaco';
+          const bucket = 'mdlbeast';
           // If pathname starts with bucket name, remove it
           if (pathname.startsWith(bucket + '/')) {
             pathname = pathname.slice(bucket.length + 1);

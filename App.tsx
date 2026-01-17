@@ -34,12 +34,12 @@ const App: React.FC = () => {
   
   const [settings] = useState<SystemSettings>({
     primaryColor: '#0f172a',
-    footerText: 'مركز الإتصالات الإدارية - جميع الحقوق محفوظة © 2025',
+    footerText: 'MDLBEAST Communications Center - جميع الحقوق محفوظة © 2025',
     showStamp: true,
     companies: []
   });
 
-  const [newCompany, setNewCompany] = useState({ nameAr: '', nameEn: '', logoUrl: 'https://www.zaco.sa/logo2.png', signatureUrl: '' });
+  const [newCompany, setNewCompany] = useState({ nameAr: '', nameEn: '', logoUrl: '/logo.png', signatureUrl: '' });
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -236,7 +236,7 @@ const App: React.FC = () => {
       } else {
         await apiClient.createTenant({ name: newCompany.nameAr, slug, logo_url: newCompany.logoUrl, signature_url: (newCompany as any).signatureUrl || undefined })
       }
-      setNewCompany({ nameAr: '', nameEn: '', logoUrl: 'https://www.zaco.sa/logo2.png', signatureUrl: '' });
+      setNewCompany({ nameAr: '', nameEn: '', logoUrl: '/logo.png', signatureUrl: '' });
       loadInitialData();
     } catch (err) {
       console.error('Tenant upsert failed', err);
@@ -244,7 +244,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('archivx_session_user', JSON.stringify(u)); }} logoUrl={currentCompany?.logoUrl || 'https://www.zaco.sa/logo2.png'} />;
+  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('archivx_session_user', JSON.stringify(u)); }} logoUrl={currentCompany?.logoUrl || '/logo.png'} />;
 
   const NavItem = ({ id, label, icon: Icon, adminOnly = false }: any) => {
     // Show admin-only items for users whose role is 'admin' (case-insensitive)
@@ -348,7 +348,7 @@ const App: React.FC = () => {
                      <div className="space-y-6">
                         <div className="flex justify-between items-center mb-2">
                            <h3 className="text-xl font-black text-slate-900">{editingCompanyId ? 'تعديل مؤسسة' : 'إضافة مؤسسة جديدة'}</h3>
-                           {editingCompanyId && <button onClick={() => { setEditingCompanyId(null); setNewCompany({nameAr:'', nameEn:'', logoUrl:'https://www.zaco.sa/logo2.png', signatureUrl: ''}); }} className="text-slate-400 hover:text-red-500"><X size={20}/></button>}
+                           {editingCompanyId && <button onClick={() => { setEditingCompanyId(null); setNewCompany({nameAr:'', nameEn:'', logoUrl:'/logo.png', signatureUrl: ''}); }} className="text-slate-400 hover:text-red-500"><X size={20}/></button>}
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">اسم المؤسسة (بالعربي)</label>

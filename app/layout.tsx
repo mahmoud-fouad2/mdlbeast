@@ -11,27 +11,35 @@ const tajawal = Tajawal({
 })
 
 export const metadata: Metadata = {
-  title: "مركز الإتصالات الإدارية",
-  description: "نظام إدارة المراسلات والأرشفة الرقمية",
+  title: "MDLBEAST Communications",
+  description: "نظام الاتصالات الإدارية - MDLBEAST Entertainment Company",
   generator: "v0.app",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "MDLBEAST",
+  },
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
+        url: "/icon-light-32x32.jpg",
         media: "(prefers-color-scheme: light)",
       },
       {
-        url: "/icon-dark-32x32.png",
+        url: "/icon-dark-32x32.jpg",
         media: "(prefers-color-scheme: dark)",
       },
       {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },      {
-        url: "/favicon.ico",
-        type: "image/x-icon",
-      },    ],
-    apple: "/apple-icon.png",
+        url: "/icon.jpg",
+        type: "image/jpeg",
+      },
+      {
+        url: "/favicon.jpg",
+        type: "image/jpeg",
+      },
+    ],
+    apple: "/apple-icon.jpg",
   },
 }
 
@@ -54,6 +62,16 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
       <head>
+        {/* PWA Meta Tags */}
+        <meta name="application-name" content="MDLBEAST Communications" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="MDLBEAST" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-TileColor" content="#0f172a" />
+        <meta name="theme-color" content="#0f172a" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-icon.jpg" />
         {/* Prevent aggressive caching of the HTML shell so clients revalidate frequently */}
         <meta httpEquiv="Cache-control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
@@ -63,6 +81,18 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(function() {
   if (typeof window === 'undefined') return;
+  
+  // Register Service Worker for PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js').then(function(registration) {
+        console.log('[PWA] Service Worker registered with scope:', registration.scope);
+      }).catch(function(err) {
+        console.log('[PWA] Service Worker registration failed:', err);
+      });
+    });
+  }
+  
   try {
     // Aggressively disable MessageChannel and BroadcastChannel
     // This forces React to use setTimeout and avoids "Illegal constructor" errors

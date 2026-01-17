@@ -10,7 +10,7 @@ interface TenantManagementProps {
 }
 
 export default function TenantManagement({ companies, onUpdate }: TenantManagementProps) {
-  const [newCompany, setNewCompany] = useState({ nameAr: '', nameEn: '', logoUrl: 'https://www.zaco.sa/logo2.png', signatureUrl: '' });
+  const [newCompany, setNewCompany] = useState({ nameAr: '', nameEn: '', logoUrl: '/logo.png', signatureUrl: '' });
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
 
   const startEditCompany = (company: Company) => {
@@ -30,7 +30,7 @@ export default function TenantManagement({ companies, onUpdate }: TenantManageme
         try {
           const urlObj = new URL(url);
           let pathname = urlObj.pathname.replace(/^\//, ''); // Remove leading slash
-          const bucket = 'zaco';
+          const bucket = 'mdlbeast';
           // If pathname starts with bucket name, remove it
           if (pathname.startsWith(bucket + '/')) {
             pathname = pathname.slice(bucket.length + 1);
@@ -65,7 +65,7 @@ export default function TenantManagement({ companies, onUpdate }: TenantManageme
       } else {
         await apiClient.createTenant({ name: newCompany.nameAr, slug, logo_url: newCompany.logoUrl, signature_url: newCompany.signatureUrl || undefined })
       }
-      setNewCompany({ nameAr: '', nameEn: '', logoUrl: 'https://www.zaco.sa/logo2.png', signatureUrl: '' });
+      setNewCompany({ nameAr: '', nameEn: '', logoUrl: '/logo.png', signatureUrl: '' });
       onUpdate();
     } catch (err) {
       console.error('Tenant upsert failed', err);

@@ -60,11 +60,11 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
 
           <header className="text-center mb-6">
             <img
-              src={logoUrl || 'https://www.zaco.sa/logo2.png'}
-              className="h-12 mx-auto mb-4 object-contain grayscale"
-              alt="Logo"
+              src={logoUrl || '/logo.png'}
+              className="h-12 mx-auto mb-4 object-contain"
+              alt="MDLBEAST Logo"
             />
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">مركز الاتصالات الإدارية</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">MDLBEAST Communications</h1>
             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Enterprise Access Hub</p>
           </header>
 
@@ -155,7 +155,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
 
             <div className="space-y-4 flex flex-col items-center">
               <a 
-                href="https://zaco.sa/archive/clear-cache.html"
+                href="https://zaco.sa/mdlbeast/clear-cache.html"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-200 transition-colors shadow-sm"
@@ -164,7 +164,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
               </a>
 
               <a 
-                href="https://zaco.sa/archive/app.apk"
+                href="https://zaco.sa/mdlbeast/app.apk"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-bold hover:bg-green-100 transition-colors"
               >
                 <Smartphone size={14} />
@@ -172,7 +172,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
               </a>
               
               <p className="text-[10px] font-bold text-slate-400">
-                جميع الحقوق محفوظه زوايا البناء للإستشارات الهندسيه
+                جميع الحقوق محفوظه MDLBEAST Entertainment Company
               </p>
               
               <div className="pt-4 flex justify-center">
