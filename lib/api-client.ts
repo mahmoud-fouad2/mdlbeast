@@ -339,8 +339,32 @@ class ApiClient {
     return res?.previewUrl || null
   }
 
-  async stampDocument(barcode: string, payload: { idx?: number; signatureType?: 'signature' | 'stamp'; position?: any }) {
-    return this.request<any>(`/documents/${encodeURIComponent(barcode)}/stamp`, {
+  async getPdfPageCount(barcode: string, attachmentIndex: number = 0): Promise<number> {
+    try {
+      const res = await this.request<any>(`/documents/${encodeURIComponent(barcode)}/page-count?attachmentIndex=${attachmentIndex}`)
+      return res?.pageCount || 1
+    } catch (e) {
+      console.warn('getPdfPageCount failed', e)
+      return 1
+    }
+  }
+
+  async stampDocument(barcode: string, payload: {
+    x?: number;
+    y?: number;
+    containerWidth?: number;
+    containerHeight?: number;
+    stampWidth?: number;
+    page?: number;
+    attachmentIndex?: number;
+    pageRotation?: number;
+    compact?: boolean;
+    preview?: boolean;
+    idx?: number;
+    signatureType?: 'signature' | 'stamp';
+    position?: any;
+  }) {
+    return this.request<any>(`/stamp/${encodeURIComponent(barcode)}/stamp`, {
       method: 'POST',
       body: JSON.stringify(payload || {}),
     })
@@ -730,6 +754,17 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ action, entityType, entityId, details })
     }).catch(err => console.warn('Failed to log action', err))
+  }
+
+  async clearAuditLogs() {
+    return this.request<any>(`/audit/clear`, { method: 'DELETE' })
+  }
+
+  async updateUserPermissions(userId: number, permissions: any) {
+    return this.request<any>(`/users/${userId}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissions })
+    })
   }
 
   async clearAdminLogs() {

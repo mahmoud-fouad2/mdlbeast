@@ -12,6 +12,7 @@ import barcodeRoutes from "./routes/barcodes"
 import approvalRoutes from "./routes/approvals"
 import notificationRoutes from "./routes/notifications"
 import internalMessagesRoutes from "./routes/internalMessages"
+import stampRoutes from "./routes/stamp"
 import { errorHandler } from "./middleware/errorHandler"
 import { query } from "./config/database"
 import { logBuffer } from "./lib/logBuffer"
@@ -149,6 +150,7 @@ import backupRoutes from "./routes/backups"
 app.use('/api/backups', backupRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/stamp', stampRoutes)
 // New module routes
 app.use('/api/barcodes', barcodeRoutes)
 app.use('/api/approvals', approvalRoutes)

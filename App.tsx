@@ -23,7 +23,8 @@ import UserProfile from './components/UserProfile';
 import UserSettingsModal from './components/UserSettingsModal';
 import NotificationCenter from './components/NotificationCenter';
 import InternalCommunication from './components/InternalCommunication';
-import PdfStamper from './components/PdfStamper';
+import ReportGenerator from './components/ReportGenerator';
+import AuditLogs from './components/AuditLogs';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -328,7 +329,7 @@ const App: React.FC = () => {
             <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
             <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
             <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
-            <NavItem id="stamper" label="ختم وتوقيع PDF" icon={Stamp} />
+            <NavItem id="reports" label="تقارير الأرشيف" icon={BarChart3} />
           </SidebarSection>
           
           <SidebarSection id="workflow" title="سير العمل" icon={FileSignature}>
@@ -341,6 +342,7 @@ const App: React.FC = () => {
           
           <SidebarSection id="system" title="إدارة النظام" icon={Settings}>
             <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
+            <NavItem id="audit" label="مراقبة التفاعل" icon={ShieldCheck} adminOnly />
             <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
             <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
           </SidebarSection>
@@ -383,9 +385,10 @@ const App: React.FC = () => {
           {activeTab === 'dashboard' && <Dashboard docs={docs} />}
           {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} companies={[]} />}
           {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={[]} />}
-          {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png', orgNameEn: 'MDLBEAST'}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} pagination={pagination} /> }
+          {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png', orgNameEn: 'MDLBEAST'}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} /> }
           {activeTab === 'scanner' && <BarcodeScanner />}
-          {activeTab === 'stamper' && <PdfStamper />}
+          {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png'}} />}
+          {activeTab === 'audit' && <AuditLogs />}
           {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
           {activeTab === 'notifications' && <NotificationCenter />}
           {activeTab === 'internal' && <InternalCommunication />}

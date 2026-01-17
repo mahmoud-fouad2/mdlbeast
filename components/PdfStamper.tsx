@@ -1,376 +1,429 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Move, RotateCcw, Save, Search, ZoomIn, ZoomOut } from 'lucide-react'
-import { apiClient } from '@/lib/api-client'
-import { useToast } from '@/hooks/use-toast'
+"use client"
 
-export default function PdfStamper() {
-  const { toast } = useToast()
+import type React from "react"
 
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcode, setBarcode] = useState<string>('')
-  const [attachmentIndex, setAttachmentIndex] = useState(0)
-  const [attachmentsCount, setAttachmentsCount] = useState<number>(0)
+import { useEffect, useState, useRef } from "react"
+import type { Correspondence, SystemSettings } from "@/types"
+import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
+import SignedPdfPreview from './SignedPdfPreview'
 
-  const [previewUrl, setPreviewUrl] = useState<string>('')
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
-  const [isStamping, setIsStamping] = useState(false)
+interface PdfStamperProps {
+  doc: Correspondence
+  settings?: SystemSettings
+  onClose: () => void
+}
 
-  const [signatureUrl, setSignatureUrl] = useState<string>('')
-  const [stampUrl, setStampUrl] = useState<string>('')
-  const [selectedType, setSelectedType] = useState<'signature' | 'stamp'>('stamp')
-
-  const [signSize, setSignSize] = useState(140)
-  const [signPosition, setSignPosition] = useState({ x: 60, y: 60 })
+export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) {
+  const BASE_STAMP_WIDTH = 160
+  const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [gridSnap, setGridSnap] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [hasPreview, setHasPreview] = useState(false)
+  // Predefined stamp sizes: small and default (medium)
+  const STAMP_SIZES = { small: 100, default: 140 }
+  const [stampSize, setStampSize] = useState<'small' | 'default'>('default')
+  const stampWidth = STAMP_SIZES[stampSize]
+  const [_zoom, _setZoom] = useState<number>(1)
+  const [pageIndex, setPageIndex] = useState<number>(0)
+  const [attachmentIndex, setAttachmentIndex] = useState<number>(0)
+  const [pageCount, setPageCount] = useState<number>(1)
+  const [pageRotation, setPageRotation] = useState<0 | 90 | 180 | 270>(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stampRef = useRef<HTMLDivElement>(null)
+  const _pdfContainerRef = useRef<HTMLDivElement>(null)
 
-  const pdfOuterRef = useRef<HTMLDivElement>(null)
-  const pdfInnerRef = useRef<HTMLDivElement>(null)
-
-  const currentImageUrl = useMemo(() => {
-    return selectedType === 'signature' ? signatureUrl : stampUrl
-  }, [selectedType, signatureUrl, stampUrl])
-
-  const loadUserAssets = async () => {
-    const u = await apiClient.getCurrentUser().catch(() => null)
-    setSignatureUrl(String(u?.signature_url || ''))
-    setStampUrl(String(u?.stamp_url || ''))
-  }
-
-  const loadDocument = async (b: string, idx = 0) => {
-    setIsLoadingPreview(true)
-    try {
-      const doc = await apiClient.getDocumentByBarcode(b)
-      const atts = Array.isArray(doc?.attachments) ? doc.attachments : []
-      setAttachmentsCount(atts.length)
-
-      const p = await apiClient.getPreviewUrl(b, idx)
-      if (!p) throw new Error('لا يوجد ملف PDF للمعاينة')
-      setPreviewUrl(p)
-    } finally {
-      setIsLoadingPreview(false)
-    }
-  }
+  const _currentAttachment = doc.attachments && doc.attachments[attachmentIndex] ? doc.attachments[attachmentIndex] : doc.attachments?.[0]
+  const pagesCount = Math.max(1, Number(pageCount || 1))
 
   useEffect(() => {
-    loadUserAssets()
-  }, [])
+    let mounted = true
+    const load = async () => {
+      try {
+        const api = (await import("@/lib/api-client")).apiClient
+        const n = await api.getPdfPageCount(doc.barcode, attachmentIndex)
+        if (!mounted) return
+        setPageCount(n)
+        setPageIndex((prev) => Math.min(Math.max(0, prev), Math.max(0, n - 1)))
+      } catch (_e) {
+        if (!mounted) return
+        setPageCount(1)
+        setPageIndex(0)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [doc.barcode, attachmentIndex])
+
+  // Cleaner barcode URL - text rendered manually
+  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${doc.barcode}&scale=2&rotate=N&includetext=false`
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!pdfOuterRef.current) return
-    const rect = pdfOuterRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / zoom
-    const y = (e.clientY - rect.top) / zoom
+    setIsDragging(true)
+    if (containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const mouseXInContainer = e.clientX - containerRect.left
+      const mouseYInContainer = e.clientY - containerRect.top
 
-    const isOnSign = x >= signPosition.x && x <= signPosition.x + signSize && y >= signPosition.y && y <= signPosition.y + signSize
-    if (isOnSign) {
-      setIsDragging(true)
-      setDragOffset({ x: x - signPosition.x, y: y - signPosition.y })
-      e.preventDefault()
+      setDragOffset({
+          x: mouseXInContainer - pos.x,
+          y: mouseYInContainer - pos.y
+      })
     }
+    e.preventDefault()
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !pdfOuterRef.current) return
-    e.preventDefault()
+    if (!isDragging || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
 
-    const rect = pdfOuterRef.current.getBoundingClientRect()
-    let x = (e.clientX - rect.left - dragOffset.x * zoom) / zoom
-    let y = (e.clientY - rect.top - dragOffset.y * zoom) / zoom
+    const stampRect = stampRef.current?.getBoundingClientRect()
+    const stampW = stampRect?.width ?? stampWidth
+    const stampH = stampRect?.height ?? Math.max(60, stampWidth * 0.45)
 
-    if (gridSnap) {
-      const gridSize = 20
-      x = Math.round(x / gridSize) * gridSize
-      y = Math.round(y / gridSize) * gridSize
-    }
+    const newX = Math.max(0, Math.min(e.clientX - rect.left - dragOffset.x, rect.width - stampW))
+    const newY = Math.max(0, Math.min(e.clientY - rect.top - dragOffset.y, rect.height - stampH))
 
-    const maxX = rect.width / zoom - signSize
-    const maxY = rect.height / zoom - signSize
-    x = Math.max(0, Math.min(x, maxX))
-    y = Math.max(0, Math.min(y, maxY))
-
-    setSignPosition({ x, y })
+    setPos({ x: newX, y: newY })
   }
 
   const handleMouseUp = () => setIsDragging(false)
-  const handleMouseLeave = () => setIsDragging(false)
 
-  const handleCenter = () => {
-    if (!pdfOuterRef.current) return
-    const rect = pdfOuterRef.current.getBoundingClientRect()
-    const centerX = (rect.width / zoom - signSize) / 2
-    const centerY = (rect.height / zoom - signSize) / 2
-    setSignPosition({ x: centerX, y: centerY })
-  }
-
-  const handleApplyStamp = async () => {
-    if (!barcode) {
-      toast({ title: '⚠️ أدخل رقم المعاملة', description: 'اكتب الباركود ثم اضغط تحميل', variant: 'destructive' })
-      return
-    }
-    if (!currentImageUrl) {
-      toast({ title: '⚠️ لا يوجد ختم/توقيع', description: 'ارفع الختم/التوقيع من إعدادات المستخدم ثم أعد المحاولة', variant: 'destructive' })
-      return
-    }
-    if (!pdfOuterRef.current) return
-
-    setIsStamping(true)
+  const handleFinalize = async () => {
+    setIsSaving(true)
     try {
-      const containerWidth = pdfOuterRef.current.offsetWidth / zoom
-      const containerHeight = pdfOuterRef.current.offsetHeight / zoom
+      const container = containerRef.current
+      const rect = container?.getBoundingClientRect()
+      const containerWidth = rect?.width || 800
+      const containerHeight = rect?.height || 1131
+
+      const actualX = pos.x
+      const actualY = pos.y
 
       const payload = {
-        idx: attachmentIndex,
-        signatureType: selectedType,
-        position: {
-          x: signPosition.x,
-          y: signPosition.y,
-          width: signSize,
-          height: signSize,
-          containerWidth: Math.round(containerWidth),
-          containerHeight: Math.round(containerHeight),
-        },
+        x: Math.round(actualX),
+        y: Math.round(actualY),
+        containerWidth: Math.round(containerWidth),
+        containerHeight: Math.round(containerHeight),
+        stampWidth: Math.round(stampWidth),
+        page: pageIndex,
+        attachmentIndex: attachmentIndex,
+        pageRotation,
+        compact: false,
+        preview: false, // Save mode - will save to storage
       }
 
-      const res = await apiClient.stampDocument(barcode, payload)
-      const atts = Array.isArray(res?.attachments) ? res.attachments : []
-      const newIndex = atts.length ? atts.length - 1 : attachmentIndex
-      setAttachmentsCount(atts.length)
-      setAttachmentIndex(newIndex)
+      const api = (await import("@/lib/api-client")).apiClient
+      const res = await api.stampDocument(doc.barcode, payload)
 
-      const p = await apiClient.getPreviewUrl(barcode, newIndex)
-      if (p) setPreviewUrl(p)
+      if (res && (res.previewUrl || res.url)) {
+        const _openUrl = res.previewUrl || res.url
+        // window.open(openUrl, '_blank') // Optional: auto-open
+      }
 
-      toast({ title: '✅ تم الختم', description: 'تم إنشاء نسخة مختومة وإضافتها كمرفق جديد' })
+      // Dispatch event to update list without reload
+      window.dispatchEvent(new CustomEvent('document:stamped', { detail: { barcode: doc.barcode } }))
+
+      alert('تم ختم المستند بنجاح')
+      onClose()
     } catch (e: any) {
-      toast({ title: '❌ فشل الختم', description: String(e?.message || e), variant: 'destructive' })
+      console.error('Stamp failed', e)
+      alert('فشل ختم المستند: ' + (e?.message || e))
     } finally {
-      setIsStamping(false)
+      setIsSaving(false)
     }
   }
 
-  const canUseSignature = Boolean(signatureUrl)
-  const canUseStamp = Boolean(stampUrl)
+  const handlePreview = async () => {
+    setIsSaving(true)
+    try {
+      const container = containerRef.current
+      const rect = container?.getBoundingClientRect()
+      const containerWidth = rect?.width || 800
+      const containerHeight = rect?.height || 1131
+
+      const payload = {
+        x: Math.round(pos.x),
+        y: Math.round(pos.y),
+        containerWidth: Math.round(containerWidth),
+        containerHeight: Math.round(containerHeight),
+        stampWidth: Math.round(stampWidth),
+        page: pageIndex,
+        attachmentIndex: attachmentIndex,
+        pageRotation,
+        compact: false,
+        preview: true, // Preview mode - won't save to storage
+      }
+
+      const api = (await import("@/lib/api-client")).apiClient
+      const res = await api.stampDocument(doc.barcode, payload)
+
+      if (res && res.previewData) {
+        setPreviewUrl(res.previewData)
+        setHasPreview(true)
+      }
+    } catch (e: any) {
+      console.error('Preview failed', e)
+      alert('فشل إنشاء المعاينة: ' + (e?.message || e))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleClearPreview = () => {
+    setPreviewUrl(null)
+    setHasPreview(false)
+  }
 
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900">ختم وتوقيع PDF</h2>
-            <p className="text-xs text-slate-500 font-bold mt-1">حمّل ملف المعاملة ثم اسحب الختم/التوقيع إلى المكان المطلوب واضغط تنفيذ</p>
+    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-2xl z-[100] flex items-center justify-center p-4 lg:p-10">
+      <div className="bg-white w-full max-w-7xl rounded-[3rem] overflow-hidden flex flex-col h-full shadow-3xl border border-white/20 animate-in zoom-in-95 duration-500">
+        <header className="p-8 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md">
+          <div className="flex items-center gap-5">
+            <div className="bg-slate-900 p-4 rounded-3xl text-white shadow-2xl shadow-blue-900/20">
+              <Layers size={28} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 font-heading">تطبيق ختم المستند الرقمي</h3>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                <MousePointer2 size={12} /> قم بسحب الختم لوضعه في المكان المناسب على المستند
+              </p>
+            </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2 shadow-sm">
-              <Search size={16} className="text-slate-400" />
-              <input
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                placeholder="مثال: 1-00000001"
-                className="outline-none text-sm font-bold w-52"
-              />
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-50 text-blue-700 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-blue-100 flex items-center gap-2">
+              <Eye size={14} /> وضع المعاينة والدمغ
             </div>
             <button
-              onClick={async () => {
-                const b = barcodeInput.trim()
-                if (!b) return
-                setBarcode(b)
-                setAttachmentIndex(0)
-                try {
-                  await loadDocument(b, 0)
-                } catch (e: any) {
-                  toast({ title: '❌ فشل التحميل', description: String(e?.message || e), variant: 'destructive' })
-                }
-              }}
-              className="px-4 py-2 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-800"
+              onClick={onClose}
+              className="p-3 hover:bg-red-50 text-red-500 rounded-full transition-all group active:scale-90"
             >
-              تحميل
+              <X size={32} />
             </button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        {/* Preview + overlay */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3">
-            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))} className="p-2 bg-white rounded-lg hover:bg-slate-50" title="تصغير">
-              <ZoomOut size={18} />
-            </button>
-            <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.1))} className="p-2 bg-white rounded-lg hover:bg-slate-50" title="تكبير">
-              <ZoomIn size={18} />
-            </button>
-            <button onClick={() => setZoom(1)} className="p-2 bg-white rounded-lg hover:bg-slate-50" title="إعادة">
-              <RotateCcw size={18} />
-            </button>
-            <div className="h-6 w-px bg-slate-200 mx-1" />
-            <button
-              onClick={handleCenter}
-              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-bold"
-              title="توسيط"
-            >
-              توسيط
-            </button>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={gridSnap} onChange={(e) => setGridSnap(e.target.checked)} className="w-4 h-4" />
-              <span className="text-xs font-bold text-slate-600">محاذاة تلقائية</span>
-            </label>
-            <div className="flex-1" />
-            <Move size={18} className="text-slate-400" />
-            <span className="text-xs text-slate-500 font-bold">اسحب الختم/التوقيع</span>
-          </div>
-
-          <div
-            ref={pdfOuterRef}
-            className="bg-slate-100 rounded-2xl overflow-auto relative border-2 border-slate-200"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            style={{ cursor: isDragging ? 'grabbing' : 'default', userSelect: 'none', minHeight: '70vh' }}
-          >
+        <div className="flex-1 overflow-auto bg-[#F1F5F9] p-8 lg:p-16 flex justify-center relative shadow-inner">
+          <div className="relative w-full max-w-[800px]">
             <div
-              ref={pdfInnerRef}
-              className="relative"
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'top left',
-                width: '100%',
-              }}
+              ref={containerRef}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              className="w-full aspect-[1/1.414] bg-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] relative cursor-crosshair border border-slate-200 overflow-hidden"
             >
-              {isLoadingPreview ? (
-                <div className="flex items-center justify-center h-[70vh]">
-                  <p className="text-slate-400 font-bold animate-pulse">جاري التحميل...</p>
-                </div>
-              ) : previewUrl ? (
-                <iframe
-                  src={`${previewUrl}#view=Fit&toolbar=0&navpanes=0`}
-                  className="w-full"
-                  style={{ height: '70vh', border: 'none' }}
-                  title="معاينة المستند"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-[70vh]">
-                  <p className="text-slate-400 font-bold">حمّل معاملة لعرض المعاينة</p>
-                </div>
-              )}
-
-              {currentImageUrl && previewUrl && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${signPosition.x}px`,
-                    top: `${signPosition.y}px`,
-                    width: `${signSize}px`,
-                    height: `${signSize}px`,
-                    zIndex: 10,
-                  }}
-                  className="border-2 border-dashed border-blue-500 rounded-lg bg-white/80 backdrop-blur-sm p-1 shadow-lg"
-                >
-                  <img src={currentImageUrl} alt={selectedType === 'signature' ? 'التوقيع' : 'الختم'} className="w-full h-full object-contain" draggable={false} />
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
-                    ⋮⋮
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">نوع الختم</div>
-            <div className="space-y-2">
-              <button
-                onClick={() => setSelectedType('stamp')}
-                disabled={!canUseStamp}
-                className={`w-full p-3 rounded-xl border-2 transition-all ${selectedType === 'stamp' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'} ${!canUseStamp ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  {stampUrl ? <img src={stampUrl} alt="الختم" className="h-10 w-20 object-contain" /> : <div className="h-10 w-20 bg-slate-200 rounded" />}
-                  <span className="font-bold text-sm">الختم</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setSelectedType('signature')}
-                disabled={!canUseSignature}
-                className={`w-full p-3 rounded-xl border-2 transition-all ${selectedType === 'signature' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'} ${!canUseSignature ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  {signatureUrl ? <img src={signatureUrl} alt="التوقيع" className="h-10 w-20 object-contain" /> : <div className="h-10 w-20 bg-slate-200 rounded" />}
-                  <span className="font-bold text-sm">التوقيع</span>
-                </div>
-              </button>
-            </div>
-            {!canUseStamp && !canUseSignature && (
-              <div className="mt-3 text-xs text-slate-600 font-bold">لا يوجد ختم/توقيع. ارفعهم من إعدادات المستخدم.</div>
+            {hasPreview && previewUrl ? (
+              <iframe src={previewUrl} className="w-full h-full border-none" title="Stamp Preview" />
+            ) : doc.pdfFile ? (
+              <SignedPdfPreview barcode={doc.barcode} fallbackUrl={doc.pdfFile.url} attachmentIndex={attachmentIndex} />
+            ) : (doc.attachments && doc.attachments.length > 0) ? (
+              <SignedPdfPreview barcode={doc.barcode} attachmentIndex={attachmentIndex} />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-slate-300 flex flex-col gap-4">
+                <FileSearch size={100} className="opacity-10" />
+                <p className="font-black opacity-20 text-2xl">المستند غير متوفر للمعاينة</p>
+              </div>
             )}
-          </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">الحجم</div>
-            <input
-              type="range"
-              min={80}
-              max={260}
-              value={signSize}
-              onChange={(e) => setSignSize(parseInt(e.target.value, 10))}
-              className="w-full"
-            />
-            <div className="text-xs text-slate-500 font-bold mt-2">{signSize}px</div>
-          </div>
+            {/* Show stamp overlay only when NOT in preview mode */}
+            {!hasPreview && (
+            <div
+              ref={stampRef}
+              onMouseDown={handleMouseDown}
+              style={{
+                left: pos.x,
+                top: pos.y,
+                width: BASE_STAMP_WIDTH,
+                transform: `scale(${Math.max(0.4, Math.min(2, stampWidth / BASE_STAMP_WIDTH))})`,
+                transformOrigin: 'top left',
+                willChange: 'transform',
+              }}
+              className={`absolute bg-white border-[2px] ${
+                isDragging
+                  ? "border-blue-600 ring-2 ring-blue-500/20 cursor-grabbing shadow-xl"
+                  : "border-slate-800 shadow-lg"
+              } cursor-grab rounded-lg flex flex-col items-center justify-center p-2 z-50 transition-[border-color,box-shadow] duration-100 select-none`}
+            >
+              {/* Company Name */}
+              <div className="text-[8px] font-black text-slate-900 text-center leading-[1.1] w-full border-b border-slate-300 pb-0.5 mb-0.5">
+                {settings?.orgNameEn || "Zaco"}
+              </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-black text-slate-500 uppercase tracking-widest">الملف</div>
-              <div className="text-xs font-bold text-slate-500">{attachmentsCount ? `${attachmentIndex + 1}/${attachmentsCount}` : '—'}</div>
+              {/* Barcode - Compact */}
+              <img
+                src={barcodeUrl}
+                style={{ height: '20px', width: '100%', objectFit: 'contain' }}
+                className="pointer-events-none select-none mix-blend-multiply my-0.5"
+                alt="barcode"
+              />
+
+              {/* رقم الباركود */}
+              <div className="text-[7px] font-black font-mono text-slate-900 tracking-wide">
+                {doc.barcode}
+              </div>
+
+              {/* التاريخ والوقت */}
+              <div className="w-full flex justify-between items-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5.5px] text-slate-600 font-bold">
+                 <span dir="ltr">{new Date().toLocaleDateString('en-GB')}</span>
+                 <span dir="ltr">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+              </div>
+
+              {/* Attachment Count */}
+              <div className="w-full text-center mt-0.5 pt-0.5 border-t border-slate-300 text-[5px] text-slate-700 font-bold" dir="rtl">
+                المرفقات: {doc.attachmentCount || doc.attachment_count || '0'}
+              </div>
+
+              {/* Drag Handle - Smaller */}
+              <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white">
+                <MousePointer2 size={10} />
+              </div>
             </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={async () => {
-                  if (!barcode) return
-                  const next = Math.max(0, attachmentIndex - 1)
-                  setAttachmentIndex(next)
-                  try {
-                    const p = await apiClient.getPreviewUrl(barcode, next)
-                    if (p) setPreviewUrl(p)
-                  } catch {}
-                }}
-                className="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50"
-              >
-                السابق
-              </button>
-              <button
-                onClick={async () => {
-                  if (!barcode) return
-                  const max = Math.max(0, attachmentsCount - 1)
-                  const next = Math.min(max, attachmentIndex + 1)
-                  setAttachmentIndex(next)
-                  try {
-                    const p = await apiClient.getPreviewUrl(barcode, next)
-                    if (p) setPreviewUrl(p)
-                  } catch {}
-                }}
-                className="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50"
-              >
-                التالي
-              </button>
-            </div>
-          </div>
+            )}
 
-          <button
-            onClick={handleApplyStamp}
-            disabled={isStamping || !previewUrl}
-            className={`w-full px-4 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 ${isStamping || !previewUrl ? 'bg-slate-300 text-slate-600' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-          >
-            <Save size={18} />
-            {isStamping ? 'جارٍ التنفيذ...' : 'تنفيذ الختم وإضافة نسخة'}
-          </button>
+            {isDragging && <div className="absolute inset-0 z-40"></div>}
+          </div>
+          </div>
         </div>
+
+        <footer className="p-8 bg-white border-t border-slate-100 flex flex-wrap justify-between items-center px-12 gap-4">
+          <div className="flex gap-14">
+             <div className="flex items-center gap-4 text-slate-400 text-xs font-bold">
+                <span>X: {Math.round(pos.x)}</span>
+                <span>Y: {Math.round(pos.y)}</span>
+             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                <Scan size={16} className="text-slate-400" />
+                <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tight">حجم الختم</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setStampSize('small')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                          stampSize === 'small'
+                            ? 'bg-slate-900 text-white shadow-md'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        صغير
+                      </button>
+                      <button
+                        onClick={() => setStampSize('default')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                          stampSize === 'default'
+                            ? 'bg-slate-900 text-white shadow-md'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        افتراضي
+                      </button>
+                    </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-slate-500 mb-1">المرفق</label>
+                  <select
+                    value={attachmentIndex}
+                    onChange={(e) => { setAttachmentIndex(Number(e.target.value)); setPageIndex(0); }}
+                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  >
+                    {(doc.attachments || []).map((_, i) => (
+                      <option key={i} value={i}>مرفق {i+1}</option>
+                    ))}
+                    {(!doc.attachments || doc.attachments.length === 0) && <option value={0}>مرفق 1</option>}
+                  </select>
+                </div>
+
+                <div className="h-8 w-px bg-slate-200"></div>
+
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-slate-500 mb-1">صفحة ({pagesCount})</label>
+                  <select
+                    value={pageIndex}
+                    onChange={(e) => setPageIndex(Number(e.target.value))}
+                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  >
+                    {Array.from({ length: Math.max(1, pagesCount) }, (_, i) => i).map((i) => (
+                      <option key={i} value={i}>صفحة {i+1}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="h-8 w-px bg-slate-200"></div>
+
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-slate-500 mb-1">تدوير الملف</label>
+                  <select
+                    value={pageRotation}
+                    onChange={(e) => setPageRotation(Number(e.target.value) as any)}
+                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  >
+                    <option value={0}>0°</option>
+                    <option value={90}>90°</option>
+                    <option value={180}>180°</option>
+                    <option value={270}>270°</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-10 w-px bg-slate-200 mx-2"></div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                إلغاء
+              </button>
+
+              {!hasPreview && (
+                <button
+                  onClick={handlePreview}
+                  disabled={isSaving}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                  عرض الختم
+                </button>
+              )}
+
+              {hasPreview && (
+                <>
+                  <button
+                    onClick={handleClearPreview}
+                    className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-orange-700 transition-all shadow-lg hover:shadow-xl active:scale-95"
+                  >
+                    <X size={16} />
+                    مسح الختم
+                  </button>
+                  <button
+                    onClick={handleFinalize}
+                    disabled={isSaving}
+                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-black text-sm flex items-center gap-3 hover:bg-green-700 transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    حفظ الختم
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   )

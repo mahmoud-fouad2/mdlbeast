@@ -53,4 +53,15 @@ router.post("/", authenticateToken, async (req: any, res) => {
   }
 })
 
+// Clear all logs (Admin only)
+router.delete('/', authenticateToken, isAdmin, async (req: any, res) => {
+  try {
+    await query('DELETE FROM audit_logs')
+    res.json({ success: true, message: 'All logs cleared' })
+  } catch (error) {
+    console.error('Error clearing audit logs:', error)
+    res.status(500).json({ error: 'Failed to clear audit logs' })
+  }
+})
+
 export default router

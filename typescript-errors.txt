@@ -1,0 +1,12 @@
+components/BarcodeScanner.tsx(272,48): error TS2304: Cannot find name 'DocumentStatus'.
+components/DocumentList.tsx(303,66): error TS2339: Property 'companyId' does not exist on type 'Correspondence'.
+components/DocumentList.tsx(304,86): error TS2339: Property 'companyId' does not exist on type 'Correspondence'.
+components/UserManagement.tsx(34,19): error TS7016: Could not find a declaration file for module 'dagre'. 'D:/Mahmoud/hghvadt/mdlbeast/node_modules/dagre/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/dagre` if it exists or add a new declaration (.d.ts) file containing `declare module 'dagre';`
+components/UserManagement.tsx(907,34): error TS2339: Property 'permissions' does not exist on type 'User'.
+components/UserManagement.tsx(921,23): error TS2339: Property 'parent_id' does not exist on type 'UserWithChildren'.
+components/UserManagement.tsx(1052,59): error TS2353: Object literal may only specify known properties, and 'parent_id' does not exist in type '{ full_name?: string | undefined; role?: string | undefined; password?: string | undefined; email?: string | undefined; username?: string | undefined; manager_id?: number | null | undefined; signature_url?: string | undefined; stamp_url?: string | undefined; }'.
+components/UserManagement.tsx(1093,23): error TS2339: Property 'parent_id' does not exist on type 'UserWithChildren'.
+components/UserManagement.tsx(1182,27): error TS2339: Property 'updateUserPermissions' does not exist on type 'ApiClient'.
+components/UserManagement.tsx(1202,13): error TS2353: Object literal may only specify known properties, and 'parent_id' does not exist in type '{ full_name?: string | undefined; role?: string | undefined; password?: string | undefined; email?: string | undefined; username?: string | undefined; manager_id?: number | null | undefined; signature_url?: string | undefined; stamp_url?: string | undefined; }'.
+components/UserManagement.tsx(1212,29): error TS2339: Property 'updateUserPermissions' does not exist on type 'ApiClient'.

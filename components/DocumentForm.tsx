@@ -7,17 +7,13 @@ import {
   FilePlus,
   Send,
   Shield,
-  MapPin,
-  UserCheck,
   FileUp,
   X,
   CheckCircle2,
   User as UserIcon,
   Landmark,
   ClipboardList,
-  Calendar,
 } from "lucide-react"
-import { generateBusinessBarcode } from "@/lib/barcode-service"
 import AsyncButton from './ui/async-button'
 import type { User } from '@/types'
 
@@ -89,7 +85,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
   const [file, setFile] = useState<File | undefined>(undefined)
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
   const [filePageCount, setFilePageCount] = useState<number>(0)
-  const [users, setUsers] = useState<User[]>([])
+  const [_users, setUsers] = useState<User[]>([])
   const [formData, setFormData] = useState<FormDataState>({
     title: "",
     sender: "",
@@ -104,7 +100,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
   })
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type: inputType } = e.target
+    const { name, value, type: _inputType } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }, [])
 
@@ -189,7 +185,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
               قيد {type === "INCOMING" ? "وارد" : "صادر"} جديد
             </h2>
             <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em] mt-1">
-              MDLBEAST Entertainment Company
+              المؤسسة المستقلة: زوايا البناء
             </p>
             <p className="text-xs text-slate-500 mt-2">ملاحظة: سيُولد رقم المعاملة تلقائياً عند الحفظ بشكل رقمي متسلسل (مثال: 0000001).</p>
           </div>
@@ -212,18 +208,20 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
             {/* Sender Field */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-1.5 mr-1">
-                <Landmark size={12} className="text-slate-400" /> من جهة {type === 'OUTGOING' && '(ثابت)'}
+                <Landmark size={12} className="text-slate-400" /> من جهة
               </label>
-              { type === 'OUTGOING' ? (
-                <input
+              { type === 'OUTGOING' && (companies || []).length > 0 ? (
+                <select
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
+                  value={formData.sender}
+                  onChange={(e) => handleSelectChange('sender', e.target.value)}
                   required
-                  type="text"
-                  name="sender"
-                  className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-900 font-bold text-sm cursor-not-allowed"
-                  value="MDLBEAST Entertainment Company"
-                  readOnly
-                  disabled
-                />
+                >
+                  <option value="">اختر جهة</option>
+                  {(companies || []).map((c) => (
+                    <option key={c.id} value={c.nameAr || c.name || c.id}>{c.nameAr || c.name || c.id}</option>
+                  ))}
+                </select>
               ) : (
                 <input
                   required
@@ -232,7 +230,6 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                   className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 shadow-sm"
                   value={formData.sender}
                   onChange={handleInputChange}
-                  placeholder="اكتب اسم الجهة المرسلة"
                 />
               )}
             </div>
@@ -240,18 +237,20 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
             {/* Recipient Field */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-1.5 mr-1">
-                <UserIcon size={12} className="text-slate-400" /> إلى جهة {type === 'INCOMING' && '(ثابت)'}
+                <UserIcon size={12} className="text-slate-400" /> إلى جهة
               </label>
-              { type === 'INCOMING' ? (
-                <input
+              { type === 'INCOMING' && (companies || []).length > 0 ? (
+                <select
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-sm outline-none focus:border-slate-900 transition-all cursor-pointer"
+                  value={formData.recipient}
+                  onChange={(e) => handleSelectChange('recipient', e.target.value)}
                   required
-                  type="text"
-                  name="recipient"
-                  className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-900 font-bold text-sm cursor-not-allowed"
-                  value="MDLBEAST Entertainment Company"
-                  readOnly
-                  disabled
-                />
+                >
+                  <option value="">اختر جهة</option>
+                  {(companies || []).map((c) => (
+                    <option key={c.id} value={c.nameAr || c.name || c.id}>{c.nameAr || c.name || c.id}</option>
+                  ))}
+                </select>
               ) : (
                 <input
                   required
@@ -260,7 +259,6 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
                   className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-900 font-bold text-sm placeholder:text-slate-300 shadow-sm"
                   value={formData.recipient}
                   onChange={handleInputChange}
-                  placeholder="اكتب اسم الجهة المستقبلة"
                 />
               )}
             </div>
@@ -387,3 +385,4 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
     </div>
   )
 }
+

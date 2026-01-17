@@ -1,387 +1,924 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Scan, Search, FileText, X, AlertCircle, Edit3, Trash2 } from 'lucide-react';
-import { apiClient } from '../lib/api-client';
+"use client"
+
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { 
+  Scan, Search, FileText, X, AlertCircle, Edit3, Trash2, 
+  Calendar, User, Building2, Tag, Clock, ChevronDown, ChevronUp,
+  Paperclip, History, Eye, Copy, Loader2, CheckCircle2, XCircle
+} from 'lucide-react'
+import { apiClient } from '../lib/api-client'
 import AsyncButton from './ui/async-button'
 
+interface DocumentData {
+  id?: number
+  barcode: string
+  type: 'INCOMING' | 'OUTGOING'
+  status?: string
+  priority?: string
+  subject?: string
+  title?: string
+  sender?: string
+  receiver?: string
+  recipient?: string
+  date?: string
+  created_at?: string
+  notes?: string
+  description?: string
+  classification?: string
+  attachments?: any[]
+  attachment_count?: number
+  tenant_id?: number
+  user_id?: number
+  pdfFile?: any
+}
+
+interface TimelineEntry {
+  id?: number
+  created_at?: string
+  date?: string
+  ts?: string
+  action?: string
+  message?: string
+  note?: string
+  actor_name?: string
+  meta?: any
+}
+
 const BarcodeScanner: React.FC = () => {
-  const [isScanning, setIsScanning] = useState(false);
-  const [manualId, setManualId] = useState('');
-  const [foundDoc, setFoundDoc] = useState<any | null>(null);
-  const [timeline, setTimeline] = useState<any[]>([]);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false);
+  // Core states
+  const [isScanning, setIsScanning] = useState(false)
+  const [manualId, setManualId] = useState('')
+  const [foundDoc, setFoundDoc] = useState<DocumentData | null>(null)
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([])
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false)
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
+  const [currentUserPermissions, setCurrentUserPermissions] = useState<any>(null)
+  
+  // Edit mode
   const [editing, setEditing] = useState(false)
   const [editPending, setEditPending] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [editForm, setEditForm] = useState<Partial<DocumentData>>({})
+  
+  // UI states
+  const [showAllDetails, setShowAllDetails] = useState(false)
+  const [activeTab, setActiveTab] = useState<'details' | 'timeline' | 'attachments'>('details')
+  
+  // Refs
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const detectorRef = useRef<any | null>(null)
+  const rafRef = useRef<number | null>(null)
 
+  // Initialize
   useEffect(() => {
-    // fetch current user role for admin-only edit capabilities
-    apiClient.getCurrentUser().then(u => { if (u) setCurrentUserRole(String(u.role || '').toLowerCase()) }).catch(()=>{})
+    apiClient.getCurrentUser()
+      .then(u => { 
+        if (u) {
+          setCurrentUserRole(String(u.role || '').toLowerCase())
+          setCurrentUserPermissions(u.permissions || null)
+        }
+      })
+      .catch(() => {})
     return () => { stopScanner() }
   }, [])
 
-  const detectorRef = useRef<any | null>(null);
-  const rafRef = useRef<number | null>(null);
+  // Show status message with auto-dismiss
+  const showStatus = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setStatusMessage({ text, type })
+    setTimeout(() => setStatusMessage(null), 3000)
+  }, [])
 
-  const fetchByBarcode = async (rawBarcode: string) => {
+  // Fetch document by barcode
+  const fetchByBarcode = useCallback(async (rawBarcode: string) => {
     const barcode = String(rawBarcode || '').trim().toUpperCase()
     if (!barcode) {
-      setStatusMessage('قيمة الباركود فارغة');
-      return;
+      showStatus('قيمة الباركود فارغة', 'error')
+      return
     }
-    setIsLoadingBarcode(true);
-    setStatusMessage(null);
+    
+    setIsLoadingBarcode(true)
+    setStatusMessage(null)
+    
     try {
-      const res = await apiClient.getBarcode(barcode);
+      const res = await apiClient.getBarcode(barcode)
       if (res) {
-        setFoundDoc(res);
-        const tl = await apiClient.getBarcodeTimeline(barcode).catch(() => []);
-        setTimeline(tl || []);
-        setStatusMessage('تم العثور على المعاملة');
-        return;
+        setFoundDoc(res)
+        setEditForm(res)
+        const tl = await apiClient.getBarcodeTimeline(barcode).catch(() => [])
+        setTimeline(tl || [])
+        showStatus('تم العثور على المعاملة', 'success')
+        setActiveTab('details')
+        return
       }
-      // fallback: search endpoint
+      
+      // Fallback: search endpoint
       const search = await apiClient.searchBarcodes(barcode).catch(() => [])
       if (Array.isArray(search) && search.length === 1) {
         const b = search[0]
         setFoundDoc(b)
+        setEditForm(b)
         const tl = await apiClient.getBarcodeTimeline(b.barcode).catch(() => [])
         setTimeline(tl || [])
-        setStatusMessage('تم العثور على المعاملة عبر البحث')
+        showStatus('تم العثور على المعاملة', 'success')
         return
       }
-      setFoundDoc(null);
-      setTimeline([]);
-      setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
+      
+      setFoundDoc(null)
+      setTimeline([])
+      showStatus('لم يتم العثور على معاملة بهذا الرقم', 'error')
     } catch (err: any) {
-      console.error('API error', err);
-      if (err && String(err).toLowerCase().includes('not found')) setStatusMessage('لم يتم العثور على معاملة بهذا الرقم.');
-      else setStatusMessage('حدث خطأ أثناء جلب البيانات من الخادم.');
+      console.error('API error', err)
+      if (err && String(err).toLowerCase().includes('not found')) {
+        showStatus('لم يتم العثور على معاملة بهذا الرقم', 'error')
+      } else {
+        showStatus('حدث خطأ أثناء جلب البيانات', 'error')
+      }
     } finally {
-      setIsLoadingBarcode(false);
+      setIsLoadingBarcode(false)
     }
-  };
+  }, [showStatus])
 
-  const decodeLoop = async () => {
-    if (!videoRef.current || !detectorRef.current) return;
+  // Camera scanner decode loop
+  const decodeLoop = useCallback(async () => {
+    if (!videoRef.current || !detectorRef.current) return
     try {
-      // BarcodeDetector API
-      const detections = await detectorRef.current.detect(videoRef.current);
+      const detections = await detectorRef.current.detect(videoRef.current)
       if (detections && detections.length) {
-        const code = detections[0].rawValue || detections[0].rawData;
+        const code = detections[0].rawValue || detections[0].rawData
         if (code) {
-          stopScanner();
-          fetchByBarcode(code);
-          return;
+          stopScanner()
+          fetchByBarcode(code)
+          return
         }
       }
     } catch (err) {
-      // ignore detection errors
-      console.debug('Detection error', err);
+      console.debug('Detection error', err)
     }
-    rafRef.current = requestAnimationFrame(decodeLoop);
-  };
+    rafRef.current = requestAnimationFrame(decodeLoop)
+  }, [fetchByBarcode])
 
   const startScanner = async () => {
-    setIsScanning(true);
-    setFoundDoc(null);
-    setTimeline([]);
+    setIsScanning(true)
+    setFoundDoc(null)
+    setTimeline([])
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      })
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = stream
       }
 
       if ((window as any).BarcodeDetector) {
-        detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code', 'ean_13', 'code_128', 'code_39', 'code_93'] });
-        rafRef.current = requestAnimationFrame(decodeLoop);
+        detectorRef.current = new (window as any).BarcodeDetector({ 
+          formats: ['qr_code', 'ean_13', 'code_128', 'code_39', 'code_93'] 
+        })
+        rafRef.current = requestAnimationFrame(decodeLoop)
       } else {
-        alert('الكشف التلقائي غير متوفر في المتصفح. الرجاء استخدام البحث اليدوي.');
+        showStatus('الكشف التلقائي غير متوفر - استخدم البحث اليدوي', 'error')
       }
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      alert("تعذر الوصول للكاميرا. يرجى التأكد من منح الصلاحيات.");
-      setIsScanning(false);
+      console.error("Error accessing camera:", err)
+      showStatus('تعذر الوصول للكاميرا - تأكد من منح الصلاحيات', 'error')
+      setIsScanning(false)
     }
-  };
+  }
 
   const stopScanner = () => {
     if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
     }
     if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
     }
-    detectorRef.current = null;
-    setIsScanning(false);
-  };
+    detectorRef.current = null
+    setIsScanning(false)
+  }
 
   const handleManualSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualId || manualId.trim().length < 2) return;
-    await fetchByBarcode(manualId.trim().toUpperCase());
-  };
+    e.preventDefault()
+    if (!manualId || manualId.trim().length < 2) return
+    await fetchByBarcode(manualId.trim().toUpperCase())
+  }
+
+  // Copy barcode to clipboard
+  const copyBarcode = async () => {
+    if (foundDoc?.barcode) {
+      await navigator.clipboard.writeText(foundDoc.barcode)
+      showStatus('تم نسخ الباركود', 'success')
+    }
+  }
+
+  // Format date helper
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—'
+    try {
+      return new Date(dateStr).toLocaleDateString('ar-SA', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    } catch {
+      return dateStr
+    }
+  }
+
+  // Format datetime helper
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return '—'
+    try {
+      return new Date(dateStr).toLocaleString('ar-SA', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch {
+      return dateStr
+    }
+  }
+
+  // Priority badge component
+  const getPriorityBadge = (priority?: string) => {
+    if (!priority) return null
+    const isUrgent = priority.includes('عاجل')
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+        isUrgent 
+          ? 'bg-red-100 text-red-700 border border-red-200' 
+          : 'bg-slate-100 text-slate-600 border border-slate-200'
+      }`}>
+        {priority}
+      </span>
+    )
+  }
+
+  // Save edits handler
+  const handleSaveEdits = async () => {
+    if (!foundDoc) return
+    try {
+      setEditPending(true)
+      await apiClient.updateDocument(foundDoc.barcode, {
+        type: editForm.type,
+        sender: editForm.sender,
+        recipient: editForm.receiver || editForm.recipient,
+        subject: editForm.subject || editForm.title,
+        priority: editForm.priority,
+        notes: editForm.notes || editForm.description,
+        status: editForm.status || 'جديد'
+      })
+      
+      const updated = await apiClient.getBarcode(foundDoc.barcode)
+      if (updated) {
+        setFoundDoc(updated)
+        setEditForm(updated)
+      }
+      
+      showStatus('تم حفظ التعديلات بنجاح', 'success')
+      setEditing(false)
+    } catch (e) {
+      console.error('Failed to save edits', e)
+      showStatus('فشل حفظ التعديلات', 'error')
+    } finally {
+      setEditPending(false)
+    }
+  }
+
+  // Add timeline entry handler
+  const handleAddTimelineEntry = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const input = form.elements.namedItem('note') as HTMLInputElement
+    const val = input.value.trim()
+    if (!val || !foundDoc) return
+    
+    try {
+      showStatus('جاري إضافة المدخل...', 'info')
+      await apiClient.addBarcodeTimeline(foundDoc.barcode, { action: val })
+      setTimeline(prev => [{ 
+        created_at: new Date().toISOString(), 
+        message: val, 
+        action: val 
+      }, ...prev])
+      input.value = ''
+      showStatus('تم إضافة المدخل', 'success')
+    } catch (err) {
+      console.error(err)
+      showStatus('فشل إضافة مدخل للسجل', 'error')
+    }
+  }
+
+  // Delete document handler
+  const handleDelete = async () => {
+    if (!foundDoc || !confirm('هل أنت متأكد من حذف هذا المستند؟ لا يمكن التراجع.')) return
+    
+    try {
+      await apiClient.deleteDocument(foundDoc.barcode)
+      setFoundDoc(null)
+      setTimeline([])
+      setManualId('')
+      showStatus('تم حذف المستند بنجاح', 'success')
+    } catch (e) {
+      showStatus('فشل حذف المستند', 'error')
+    }
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="text-center">
-        <h2 className="text-3xl font-black text-slate-900 mb-2">ماسح الباركود الذكي</h2>
-        <p className="text-slate-500">استخدم الكاميرا أو أدخل الرقم يدوياً للاستعلام عن معاملة</p>
+    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg mb-4">
+          <Scan size={28} />
+          <h2 className="text-2xl font-black">تتبع الباركود</h2>
+        </div>
+        <p className="text-slate-500 max-w-md mx-auto">
+          استخدم الكاميرا لمسح الباركود أو أدخل الرقم يدوياً للاستعلام الفوري عن بيانات المعاملة
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center">
-          <div className="w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden relative mb-6 border-4 border-slate-800">
-            {isScanning ? (
-              <>
-                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-64 h-32 border-2 border-blue-500 border-dashed rounded-lg animate-pulse"></div>
-                  <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_10px_red] animate-scan"></div>
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={`flex items-center gap-3 p-4 rounded-xl animate-in slide-in-from-top duration-300 ${
+          statusMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
+          statusMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+          'bg-blue-50 text-blue-700 border border-blue-200'
+        }`}>
+          {statusMessage.type === 'success' && <CheckCircle2 size={20} />}
+          {statusMessage.type === 'error' && <XCircle size={20} />}
+          {statusMessage.type === 'info' && <AlertCircle size={20} />}
+          <span className="font-bold">{statusMessage.text}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Scanner Panel */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Camera Scanner */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+              <Scan size={18} className="text-blue-600" />
+              مسح بالكاميرا
+            </h3>
+            
+            <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden relative border-2 border-slate-700">
+              {isScanning ? (
+                <>
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                    aria-label="بث الكاميرا لمسح الباركود"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-3/4 h-1/2 border-2 border-blue-400 border-dashed rounded-lg"></div>
+                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_10px_red] animate-scan"></div>
+                  </div>
+                  <button 
+                    onClick={stopScanner}
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full font-bold text-sm flex items-center gap-2 transition-all"
+                    aria-label="إيقاف الكاميرا"
+                  >
+                    <X size={16} /> إيقاف
+                  </button>
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3 p-6">
+                  <Scan size={48} className="opacity-30" />
+                  <button 
+                    onClick={startScanner}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg"
+                    aria-label="تشغيل الكاميرا لمسح الباركود"
+                  >
+                    تشغيل الكاميرا
+                  </button>
                 </div>
-                <button 
-                  onClick={stopScanner}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-full font-bold flex items-center gap-2"
-                >
-                  <X size={18} /> إيقاف
-                </button>
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-4">
-                <Scan size={64} className="opacity-20" />
-                <button 
-                  onClick={startScanner}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-100"
-                >
-                  تشغيل الكاميرا
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-          
-          <div className="w-full border-t border-slate-100 pt-6">
-            <form onSubmit={handleManualSearch} className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="أدخل رقم الباركود يدوياً (مثال: IN-2025-...)"
-                className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm uppercase"
-                value={manualId}
-                onChange={e => setManualId(e.target.value)}
-              />
-              <button className="bg-slate-800 text-white px-6 rounded-xl font-bold flex items-center gap-2">
-                <Search size={18} /> بحث
+
+          {/* Manual Search */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+              <Search size={18} className="text-blue-600" />
+              بحث يدوي
+            </h3>
+            
+            <form onSubmit={handleManualSearch} className="space-y-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="أدخل رقم الباركود (مثال: 1-00000001)"
+                  className="w-full p-3.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-mono text-sm uppercase transition-all"
+                  value={manualId}
+                  onChange={e => setManualId(e.target.value)}
+                  aria-label="حقل إدخال رقم الباركود"
+                />
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              </div>
+              
+              <button 
+                type="submit"
+                disabled={isLoadingBarcode || !manualId.trim()}
+                className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                aria-label="البحث عن المعاملة"
+              >
+                {isLoadingBarcode ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    جاري البحث...
+                  </>
+                ) : (
+                  <>
+                    <Search size={18} />
+                    بحث
+                  </>
+                )}
               </button>
             </form>
           </div>
         </div>
 
-        <div className="space-y-6">
+        {/* Results Panel */}
+        <div className="lg:col-span-3">
           {foundDoc ? (
-            <div className="bg-white p-8 rounded-3xl border border-blue-200 shadow-xl shadow-blue-50 animate-in slide-in-from-left duration-500">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                    foundDoc.type === 'INCOMING' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
-                  }`}>
-                    {foundDoc.type === 'INCOMING' ? 'وارد' : 'صادر'}
-                  </span>
-                  <h3 className="text-xl font-black mt-2 text-slate-900">{foundDoc.title || foundDoc.subject}</h3>
-                </div>
-                <div className="font-mono text-xs font-bold bg-slate-100 p-2 rounded border border-slate-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[220px]">
-                  {foundDoc.barcode}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-left duration-500">
+              {/* Document Header */}
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 border-b border-slate-200">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        foundDoc.type === 'INCOMING' 
+                          ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                          : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                      }`}>
+                        {foundDoc.type === 'INCOMING' ? '📥 وارد' : '📤 صادر'}
+                      </span>
+                      {getPriorityBadge(foundDoc.priority)}
+                      {foundDoc.classification && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                          {foundDoc.classification}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 leading-tight">
+                      {foundDoc.title || foundDoc.subject || 'بدون عنوان'}
+                    </h3>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono text-xs font-bold bg-white px-3 py-2 rounded-lg border border-slate-200 flex items-center gap-2">
+                      <span className="text-slate-600">{foundDoc.barcode}</span>
+                      <button 
+                        onClick={copyBarcode}
+                        className="text-slate-400 hover:text-blue-600 transition-colors"
+                        title="نسخ الباركود"
+                        aria-label="نسخ رقم الباركود"
+                      >
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">من</span>
-                    <span className="font-bold text-slate-900 block truncate">{foundDoc.sender || '—'}</span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">إلى</span>
-                    <span className="font-bold text-slate-900 block truncate">{foundDoc.recipient || foundDoc.receiver || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl flex justify-between items-center">
-                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">تاريخ التسجيل</span>
-                  <span className="font-bold text-slate-900 font-mono" dir="ltr">
-                    {foundDoc.date ? new Date(foundDoc.date).toLocaleDateString('en-GB') : (foundDoc.created_at ? new Date(foundDoc.created_at).toLocaleDateString('en-GB') : '—')}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-1">الوصف</span>
-                  <p className="text-sm text-slate-700 leading-relaxed">{foundDoc.description || foundDoc.notes || 'لا يوجد وصف مضاف.'}</p>
-                </div>
-
-                {/* Attachments Section */}
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-2">المرفقات</span>
-                  <div className="flex flex-wrap gap-2">
-                    {(foundDoc.attachments && foundDoc.attachments.length > 0) ? (
-                      foundDoc.attachments.map((_: any, idx: number) => (
-                        <button
-                          key={idx}
-                          onClick={async () => {
-                            try {
-                              const url = await apiClient.getPreviewUrl(foundDoc.barcode, idx)
-                              if (url) window.open(url, '_blank')
-                              else alert('لا يوجد ملف لعرضه')
-                            } catch(e) { alert('فشل فتح المرفق') }
-                          }}
-                          className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all flex items-center gap-2"
-                        >
-                          <FileText size={14} />
-                          <span>مرفق {idx + 1}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400 font-medium">لا توجد مرفقات</span>
+              {/* Tabs */}
+              <div className="flex border-b border-slate-200">
+                {[
+                  { id: 'details', label: 'التفاصيل', icon: FileText },
+                  { id: 'timeline', label: 'السجل الزمني', icon: History },
+                  { id: 'attachments', label: 'المرفقات', icon: Paperclip, count: foundDoc.attachments?.length || 0 }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex-1 py-3 px-4 font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                      activeTab === tab.id 
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                    aria-selected={activeTab === tab.id}
+                  >
+                    <tab.icon size={16} />
+                    {tab.label}
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {tab.count}
+                      </span>
                     )}
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-100">
-                  <h4 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                    السجل الزمني
-                  </h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                    {timeline.length ? (
-                      timeline.map((t, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100/50">
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">{new Date(t.created_at || t.date || t.ts || Date.now()).toLocaleDateString('en-GB')}</div>
-                          <div className="text-xs font-bold text-slate-700">{t.message || t.note || t.action || JSON.stringify(t)}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">لا توجد مدخلات في السجل حتى الآن.</div>
-                    )}
-                  </div>
-
-                  <form className="mt-3 flex gap-2" onSubmit={async (e) => {
-                    e.preventDefault();
-                    const el = (e.target as HTMLFormElement).elements.namedItem('note') as HTMLInputElement;
-                    const val = el.value.trim();
-                    if (!val) return;
-                    try {
-                      setStatusMessage('جاري إضافة المدخل...');
-                      await apiClient.addBarcodeTimeline(foundDoc.barcode || foundDoc.code, { action: val });
-                      // optimistic: append locally and then refetch
-                      setTimeline(prev => [{ created_at: new Date().toISOString(), message: val, action: val }, ...prev]);
-                      el.value = '';
-                      setStatusMessage('تم إضافة المدخل');
-                    } catch (err) {
-                      console.error(err);
-                      setStatusMessage('فشل إضافة مدخل للسجل');
-                    } finally {
-                      setTimeout(() => setStatusMessage(null), 2000);
-                    }
-                  }}>
-                    <input name="note" placeholder="أضف ملاحظة للسجل..." className="flex-1 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:bg-white focus:border-blue-500 transition-all" />
-                    <button className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all">إضافة</button>
-                  </form>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-6">
-                <AsyncButton className="col-span-2 bg-blue-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all" onClickAsync={async () => {
-                  try {
-                    const previewUrl = await apiClient.getPreviewUrl(foundDoc.barcode)
-                    if (!previewUrl) { alert('لم يتم العثور على ملف للمعاينة'); return }
-                    window.open(previewUrl, '_blank')
-                  } catch (e: any) {
-                    console.error('Failed to open preview', e)
-                    alert('فشل فتح الملف - حاول مرة أخرى')
-                  }
-                }}>
-                  <FileText size={18} /> فتح الملف الكامل
-                </AsyncButton>
-
-                {currentUserRole === 'admin' && (
-                  <button onClick={() => setEditing(true)} className="bg-amber-100 text-amber-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-200 transition-all">
-                    <Edit3 size={18} /> تعديل القيد
                   </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-6">
+                {/* Details Tab */}
+                {activeTab === 'details' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
+                          <Building2 size={14} />
+                          الجهة المرسلة
+                        </div>
+                        <p className="font-bold text-slate-900">{foundDoc.sender || '—'}</p>
+                      </div>
+                      
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
+                          <User size={14} />
+                          الجهة المستلمة
+                        </div>
+                        <p className="font-bold text-slate-900">{foundDoc.recipient || foundDoc.receiver || '—'}</p>
+                      </div>
+                      
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
+                          <Calendar size={14} />
+                          تاريخ التسجيل
+                        </div>
+                        <p className="font-bold text-slate-900">{formatDate(foundDoc.date || foundDoc.created_at)}</p>
+                      </div>
+                      
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
+                          <Tag size={14} />
+                          الحالة
+                        </div>
+                        <p className="font-bold text-slate-900">{foundDoc.status || '—'}</p>
+                      </div>
+                    </div>
+
+                    {(foundDoc.description || foundDoc.notes) && (
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
+                          <FileText size={14} />
+                          الوصف / الملاحظات
+                        </div>
+                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {foundDoc.description || foundDoc.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowAllDetails(!showAllDetails)}
+                      className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2 transition-colors"
+                    >
+                      {showAllDetails ? (
+                        <>
+                          <ChevronUp size={16} />
+                          إخفاء التفاصيل الإضافية
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={16} />
+                          عرض المزيد من التفاصيل
+                        </>
+                      )}
+                    </button>
+
+                    {showAllDetails && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 animate-in slide-in-from-top duration-300">
+                        {foundDoc.id && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">ID</span>
+                            <span className="text-sm font-bold text-slate-700">{foundDoc.id}</span>
+                          </div>
+                        )}
+                        {foundDoc.tenant_id && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">Tenant</span>
+                            <span className="text-sm font-bold text-slate-700">{foundDoc.tenant_id}</span>
+                          </div>
+                        )}
+                        {foundDoc.created_at && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">تاريخ الإنشاء</span>
+                            <span className="text-sm font-bold text-slate-700">{formatDateTime(foundDoc.created_at)}</span>
+                          </div>
+                        )}
+                        {foundDoc.attachment_count !== undefined && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">عدد المرفقات</span>
+                            <span className="text-sm font-bold text-slate-700">{foundDoc.attachment_count}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                <AsyncButton className="bg-red-50 text-red-600 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-all" onClickAsync={async () => { if (!confirm('حذف المستند؟')) return; await apiClient.deleteDocument(foundDoc.barcode); setFoundDoc(null); setTimeline([]); setStatusMessage('تم حذف المستند'); }}>
-                  <Trash2 size={18} /> حذف
-                </AsyncButton>
+                {/* Timeline Tab */}
+                {activeTab === 'timeline' && (
+                  <div className="space-y-4">
+                    <form onSubmit={handleAddTimelineEntry} className="flex gap-2">
+                      <input 
+                        name="note" 
+                        placeholder="أضف ملاحظة أو إجراء للسجل الزمني..."
+                        className="flex-1 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:bg-white focus:border-blue-500 transition-all"
+                        aria-label="حقل إضافة ملاحظة للسجل الزمني"
+                      />
+                      <button 
+                        type="submit"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all"
+                        aria-label="إضافة ملاحظة"
+                      >
+                        إضافة
+                      </button>
+                    </form>
+
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                      {timeline.length > 0 ? (
+                        timeline.map((entry, i) => (
+                          <div 
+                            key={i} 
+                            className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0"></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-800 text-sm">
+                                {entry.message || entry.action || entry.note || JSON.stringify(entry)}
+                              </p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock size={12} />
+                                  {formatDateTime(entry.created_at || entry.date || entry.ts)}
+                                </span>
+                                {entry.actor_name && (
+                                  <span className="flex items-center gap-1">
+                                    <User size={12} />
+                                    {entry.actor_name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-slate-400">
+                          <History size={32} className="mx-auto mb-2 opacity-30" />
+                          <p className="font-bold">لا توجد مدخلات في السجل الزمني</p>
+                          <p className="text-sm">أضف أول ملاحظة للبدء</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Attachments Tab */}
+                {activeTab === 'attachments' && (
+                  <div className="space-y-4">
+                    {foundDoc.attachments && foundDoc.attachments.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {foundDoc.attachments.map((att: any, idx: number) => (
+                          <div 
+                            key={idx}
+                            className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-200 transition-colors group"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                                <FileText size={20} className="text-blue-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 text-sm truncate">
+                                  {att.name || `مرفق ${idx + 1}`}
+                                </p>
+                                <p className="text-xs text-slate-500">{att.type || 'PDF'}</p>
+                              </div>
+                            </div>
+                            
+                            <AsyncButton
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="معاينة"
+                              aria-label={`معاينة المرفق ${idx + 1}`}
+                              onClickAsync={async () => {
+                                try {
+                                  const url = await apiClient.getPreviewUrl(foundDoc.barcode, idx)
+                                  if (url) window.open(url, '_blank')
+                                  else showStatus('لا يوجد ملف للمعاينة', 'error')
+                                } catch {
+                                  showStatus('فشل فتح المرفق', 'error')
+                                }
+                              }}
+                            >
+                              <Eye size={18} />
+                            </AsyncButton>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-slate-400">
+                        <Paperclip size={32} className="mx-auto mb-2 opacity-30" />
+                        <p className="font-bold">لا توجد مرفقات</p>
+                        <p className="text-sm">هذه المعاملة لا تحتوي على ملفات مرفقة</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {editing && (
-                <div className="mt-6 p-6 bg-slate-50 border border-slate-200 rounded-2xl animate-in zoom-in-95 duration-300">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-black text-slate-900">تعديل بيانات القيد</h4>
-                    <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">نوع القيد</label>
-                      <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.type || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, type: e.target.value}))}>
-                        <option value="INCOMING">وارد</option>
-                        <option value="OUTGOING">صادر</option>
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">من</label>
-                        <input className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.sender || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, sender: e.target.value}))} placeholder="الجهة المرسلة" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">إلى</label>
-                        <input className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500" value={foundDoc.recipient || ''} onChange={(e) => setFoundDoc((prev:any) => ({...prev, recipient: e.target.value}))} placeholder="الجهة المستلمة" />
-                      </div>
-                    </div>
-                    <button disabled={editPending} onClick={async () => {
+              {/* Action Buttons */}
+              <div className="p-6 bg-slate-50 border-t border-slate-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <AsyncButton 
+                    className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all col-span-2"
+                    aria-label="فتح الملف الكامل"
+                    onClickAsync={async () => {
                       try {
-                        setEditPending(true)
-                        await apiClient.updateDocument(foundDoc.barcode, { type: foundDoc.type, sender: foundDoc.sender, receiver: foundDoc.recipient, status: foundDoc.status || (foundDoc.type === 'INCOMING' ? 'وارد' : 'صادر') })
-                        const updated = await apiClient.getBarcode(foundDoc.barcode)
-                        setFoundDoc(updated || foundDoc)
-                        setStatusMessage('تم حفظ التعديلات')
-                        setEditing(false)
-                        setTimeout(() => setStatusMessage(null), 2000)
+                        const previewUrl = await apiClient.getPreviewUrl(foundDoc.barcode)
+                        if (!previewUrl) {
+                          showStatus('لم يتم العثور على ملف للمعاينة', 'error')
+                          return
+                        }
+                        window.open(previewUrl, '_blank')
                       } catch (e) {
-                        console.error('Failed to save edits', e)
-                        setStatusMessage('فشل حفظ التعديلات')
-                      } finally { setEditPending(false) }
-                    }} className="bg-slate-900 text-white p-3 rounded">حفظ التعديلات</button>
+                        console.error('Failed to open preview', e)
+                        showStatus('فشل فتح الملف', 'error')
+                      }
+                    }}
+                  >
+                    <Eye size={18} />
+                    معاينة الملف
+                  </AsyncButton>
+
+                  {currentUserPermissions?.archive?.edit === true && (
+                    <button 
+                      onClick={() => {
+                        setEditForm(foundDoc)
+                        setEditing(true)
+                      }}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                      aria-label="تعديل القيد"
+                    >
+                      <Edit3 size={18} />
+                      تعديل
+                    </button>
+                  )}
+
+                  {currentUserPermissions?.archive?.delete === true && (
+                    <button 
+                      onClick={handleDelete}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                      aria-label="حذف القيد"
+                    >
+                      <Trash2 size={18} />
+                      حذف
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Edit Modal */}
+              {editing && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
+                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                      <h4 className="text-lg font-black text-slate-900">تعديل بيانات القيد</h4>
+                      <button 
+                        onClick={() => setEditing(false)}
+                        className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-all"
+                        aria-label="إغلاق نافذة التعديل"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">نوع القيد</label>
+                        <select 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                          value={editForm.type || ''}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value as any }))}
+                        >
+                          <option value="INCOMING">وارد</option>
+                          <option value="OUTGOING">صادر</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الموضوع</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                          value={editForm.subject || editForm.title || ''}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, subject: e.target.value, title: e.target.value }))}
+                          placeholder="موضوع المعاملة"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">من</label>
+                          <input 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                            value={editForm.sender || ''}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, sender: e.target.value }))}
+                            placeholder="الجهة المرسلة"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">إلى</label>
+                          <input 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                            value={editForm.recipient || editForm.receiver || ''}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, recipient: e.target.value, receiver: e.target.value }))}
+                            placeholder="الجهة المستلمة"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الأولوية</label>
+                        <select 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                          value={editForm.priority || ''}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, priority: e.target.value }))}
+                        >
+                          <option value="عادي">عادي</option>
+                          <option value="عاجل">عاجل</option>
+                          <option value="عاجل جداً">عاجل جداً</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الملاحظات</label>
+                        <textarea 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all resize-none"
+                          rows={3}
+                          value={editForm.notes || editForm.description || ''}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value, description: e.target.value }))}
+                          placeholder="ملاحظات إضافية..."
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="p-6 border-t border-slate-200 flex gap-3">
+                      <button 
+                        onClick={() => setEditing(false)}
+                        className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
+                      >
+                        إلغاء
+                      </button>
+                      <button 
+                        onClick={handleSaveEdits}
+                        disabled={editPending}
+                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                      >
+                        {editPending ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            جاري الحفظ...
+                          </>
+                        ) : (
+                          'حفظ التعديلات'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center p-12 text-slate-400 text-center gap-4">
-              <AlertCircle size={48} className="opacity-20" />
-              <div>
-                <p className="font-bold text-slate-600">انتظار القراءة</p>
-                <p className="text-sm">قم بمسح الباركود أو البحث اليدوي لعرض البيانات هنا</p>
-                {statusMessage && <p className="text-sm text-slate-600 mt-2">{statusMessage}</p>}
-                {isLoadingBarcode && <p className="text-sm text-slate-600 mt-2">جاري البحث...</p>}
+            /* Empty State */
+            <div className="h-full min-h-[400px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                <Scan size={40} className="text-slate-300" />
               </div>
+              <h3 className="text-lg font-black text-slate-600 mb-2">في انتظار المسح</h3>
+              <p className="text-slate-400 max-w-sm">
+                قم بمسح الباركود باستخدام الكاميرا أو أدخل الرقم يدوياً للاستعلام عن بيانات المعاملة
+              </p>
+              
+              {isLoadingBarcode && (
+                <div className="mt-6 flex items-center gap-2 text-blue-600">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="font-bold">جاري البحث...</span>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
+      {/* CSS Animation */}
       <style>{`
         @keyframes scan {
-          0% { top: 10%; }
-          100% { top: 90%; }
+          0% { top: 15%; }
+          100% { top: 85%; }
         }
         .animate-scan {
           animation: scan 2s ease-in-out infinite alternate;
         }
       `}</style>
     </div>
-  );
-};
+  )
+}
 
-export default BarcodeScanner;
+export default BarcodeScanner
+

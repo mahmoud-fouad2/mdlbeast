@@ -40,9 +40,11 @@ export interface User {
   role: 'admin' | 'manager' | 'supervisor' | 'member'
   created_at?: Date | string
   manager_id?: number | null
+  parent_id?: number | null  // Alias for manager_id (for compatibility)
   signature_url?: string
   stamp_url?: string
   avatar_url?: string
+  permissions?: any  // User permissions object
 }
 
 export interface ApprovalRequest {

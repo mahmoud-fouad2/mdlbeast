@@ -331,4 +331,36 @@ router.get("/managers", async (req: AuthRequest, res: Response) => {
   }
 })
 
+// Update user permissions (Admin only)
+router.put("/:id/permissions", authenticateToken, isAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params
+    const { permissions } = req.body
+    const updatedBy = req.user?.id
+
+    if (!updatedBy) {
+      return res.status(401).json({ error: 'غير مصرح' })
+    }
+
+    // SECURITY: منع المستخدم من تعديل صلاحياته الخاصة
+    if (Number(id) === updatedBy) {
+      return res.status(403).json({ error: 'لا يمكنك تعديل صلاحياتك الخاصة' })
+    }
+
+    // Check if permissions column exists
+    const hasPermissions = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'permissions' LIMIT 1")).rows.length > 0
+
+    if (!hasPermissions) {
+      return res.status(400).json({ error: "Permissions system not available" })
+    }
+
+    await query('UPDATE users SET permissions = $1 WHERE id = $2', [JSON.stringify(permissions || {}), id])
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error("Update permissions error:", error)
+    res.status(500).json({ error: "Failed to update permissions" })
+  }
+})
+
 export default router

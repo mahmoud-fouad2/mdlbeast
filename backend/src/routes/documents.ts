@@ -664,4 +664,27 @@ router.delete("/:id/attachments/:index", async (req: AuthRequest, res: Response)
   }
 })
 
+// Get PDF page count for a specific attachment
+router.get('/:barcode/page-count', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { barcode } = req.params
+    const idx = parseInt(String(req.query.idx || '0'), 10)
+    
+    const previewUrl = await resolveAuthorizedPreviewUrl({ barcode, idx, user: req.user })
+    
+    // Fetch PDF
+    const resp = await fetch(previewUrl)
+    if (!resp.ok) return res.status(500).json({ error: 'Failed to fetch PDF' })
+    
+    const pdfBytes = Buffer.from(await resp.arrayBuffer())
+    const pdfDoc = await PDFDocument.load(pdfBytes)
+    const pageCount = pdfDoc.getPageCount()
+    
+    return res.json({ pageCount })
+  } catch (err: any) {
+    console.error('Page count error:', err)
+    return res.status(err.status || 500).json({ error: err.message || 'Failed to read page count' })
+  }
+})
+
 export default router
