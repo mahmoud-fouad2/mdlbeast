@@ -3,12 +3,21 @@
 import type { Correspondence } from "@/types"
 import { FilePlus, FileMinus, Layers, Calendar, Clock, AlertTriangle, ArrowUpRight, ArrowDownLeft, Activity, TrendingUp, FileText, CheckCircle, PieChart } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, PieChart as RechartsPie, Pie, AreaChart, Area, Legend } from "recharts"
+import { useI18n } from "@/lib/i18n-context"
+import { useEffect, useState } from "react"
 
 interface DashboardProps {
   docs: Correspondence[]
 }
 
 export default function Dashboard({ docs }: DashboardProps) {
+  const { t, locale } = useI18n()
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const incoming = docs.filter((d) => d.type === "INCOMING").length
   const outgoing = docs.filter((d) => d.type === "OUTGOING").length
   const urgent = docs.filter((d) => d.priority === "عاجل جداً" || d.priority === "عاجل" || d.priority === "عاجله").length
@@ -28,7 +37,8 @@ export default function Dashboard({ docs }: DashboardProps) {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const monthLabel = d.toLocaleDateString('ar-SA', { month: 'long' })
+      // Use locale for month name (ar-SA or en-US)
+      const monthLabel = d.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { month: 'long' })
       months.push({ key, month: monthLabel, incoming: 0, outgoing: 0 })
     }
     const idx = new Map(months.map((m, i) => [m.key, i] as const))
@@ -45,16 +55,18 @@ export default function Dashboard({ docs }: DashboardProps) {
     return months.map(({ month, incoming, outgoing }) => ({ month, incoming, outgoing }))
   }
 
+  // Translate Chart Data Labels
   const typeData = [
-    { name: "الوارد", value: incoming, color: "#3b82f6" },
-    { name: "الصادر", value: outgoing, color: "#8b5cf6" },
+    { name: t('dashboard.incoming'), value: incoming, color: "#3b82f6" },
+    { name: t('dashboard.outgoing'), value: outgoing, color: "#8b5cf6" },
   ]
 
   const normalCount = docs.filter((d) => d.priority === "عادي" || d.priority === "عاديه").length
   const urgentCount = docs.filter((d) => d.priority === "عاجل" || d.priority === "عاجل جداً" || d.priority === "عاجله").length
+  
   const priorityData = [
-    { name: "عادي", value: normalCount, color: "#10b981" },
-    { name: "عاجل", value: urgentCount, color: "#ef4444" },
+    { name: t('dashboard.registered'), value: normalCount, color: "#10b981" }, 
+    { name: t('dashboard.urgent'), value: urgentCount, color: "#ef4444" },
   ]
 
   // Real monthly trend data (last 6 months)
@@ -62,9 +74,9 @@ export default function Dashboard({ docs }: DashboardProps) {
 
   // Status distribution for pie chart
   const statusData = [
-    { name: "وارد", value: incoming, color: "#3b82f6" },
-    { name: "صادر", value: outgoing, color: "#8b5cf6" },
-    { name: "عاجل", value: urgent, color: "#ef4444" },
+    { name: t('dashboard.incoming'), value: incoming, color: "#3b82f6" },
+    { name: t('dashboard.outgoing'), value: outgoing, color: "#8b5cf6" },
+    { name: t('dashboard.urgent'), value: urgent, color: "#ef4444" },
   ]
 
   return (
@@ -72,17 +84,17 @@ export default function Dashboard({ docs }: DashboardProps) {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900">لوحة التحكم</h1>
-          <p className="text-slate-500 text-sm mt-1">نظرة عامة على حركة المراسلات والإحصائيات</p>
+          <h1 className="text-3xl font-black text-slate-900">{t('dashboard.title')}</h1>
+          <p className="text-slate-500 text-sm mt-1">{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3 text-xs font-bold text-slate-600 bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm">
           <Calendar size={16} className="text-blue-600" />
-          {new Date().toLocaleDateString("ar-SA", {
+          {mounted ? new Date().toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
             weekday: "long",
             year: "numeric",
             month: "long",
             day: "numeric",
-          })}
+          }) : <span className="w-32 h-4 bg-slate-100 animate-pulse rounded block"></span>}
         </div>
       </div>
 
@@ -94,10 +106,10 @@ export default function Dashboard({ docs }: DashboardProps) {
             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
               <Layers size={20} />
             </div>
-            <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full">الإجمالي</span>
+            <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full">{t('dashboard.total')}</span>
           </div>
           <div className="text-4xl font-black mb-1">{total}</div>
-          <div className="text-xs text-slate-400">معاملة مسجلة</div>
+          <div className="text-xs text-slate-400">{t('dashboard.registered')}</div>
         </div>
 
         {/* Incoming */}
@@ -106,10 +118,10 @@ export default function Dashboard({ docs }: DashboardProps) {
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <ArrowDownLeft size={20} className="text-blue-600" />
             </div>
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">وارد</span>
+            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{t('dashboard.incoming')}</span>
           </div>
           <div className="text-4xl font-black text-slate-900 mb-1">{incoming}</div>
-          <div className="text-xs text-slate-400">معاملات واردة</div>
+          <div className="text-xs text-slate-400">{t('dashboard.incomingDocs')}</div>
         </div>
 
         {/* Outgoing */}
@@ -118,10 +130,10 @@ export default function Dashboard({ docs }: DashboardProps) {
             <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
               <ArrowUpRight size={20} className="text-purple-600" />
             </div>
-            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">صادر</span>
+            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{t('dashboard.outgoing')}</span>
           </div>
           <div className="text-4xl font-black text-slate-900 mb-1">{outgoing}</div>
-          <div className="text-xs text-slate-400">معاملات صادرة</div>
+          <div className="text-xs text-slate-400">{t('dashboard.outgoingDocs')}</div>
         </div>
 
         {/* Urgent */}
@@ -130,10 +142,10 @@ export default function Dashboard({ docs }: DashboardProps) {
             <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
               <AlertTriangle size={20} className="text-red-600" />
             </div>
-            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">عاجل</span>
+            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{t('dashboard.urgent')}</span>
           </div>
           <div className="text-4xl font-black text-slate-900 mb-1">{urgent}</div>
-          <div className="text-xs text-slate-400">تتطلب متابعة</div>
+          <div className="text-xs text-slate-400">{t('dashboard.attention')}</div>
         </div>
       </div>
 
@@ -142,11 +154,11 @@ export default function Dashboard({ docs }: DashboardProps) {
         {/* Pie Chart - Status Distribution */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-black text-slate-900">حالة المعاملات</h3>
+            <h3 className="font-black text-slate-900">{t('dashboard.statusDist')}</h3>
             <PieChart size={18} className="text-slate-400" />
           </div>
           
-          <div style={{ width: '100%', height: 208, minHeight: 208 }}>
+          <div style={{ width: '100%', height: 208, minHeight: 208, minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPie>
                 <Pie
@@ -188,13 +200,13 @@ export default function Dashboard({ docs }: DashboardProps) {
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-black text-slate-900">اتجاه المراسلات</h3>
-              <p className="text-xs text-slate-400 mt-1">الأشهر الستة الأخيرة</p>
+              <h3 className="font-black text-slate-900">{t('dashboard.trend')}</h3>
+              <p className="text-xs text-slate-400 mt-1">{t('dashboard.trendSubtitle')}</p>
             </div>
             <TrendingUp size={18} className="text-emerald-500" />
           </div>
           
-          <div style={{ width: '100%', height: 208, minHeight: 208 }}>
+          <div style={{ width: '100%', height: 208, minHeight: 208, minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyTrend}>
                 <defs>
@@ -224,8 +236,8 @@ export default function Dashboard({ docs }: DashboardProps) {
                     padding: '10px 16px'
                   }} 
                 />
-                <Area type="monotone" dataKey="incoming" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorIncoming)" name="وارد" />
-                <Area type="monotone" dataKey="outgoing" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorOutgoing)" name="صادر" />
+                <Area type="monotone" dataKey="incoming" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorIncoming)" name={t('dashboard.incoming')} />
+                <Area type="monotone" dataKey="outgoing" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorOutgoing)" name={t('dashboard.outgoing')} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -237,11 +249,11 @@ export default function Dashboard({ docs }: DashboardProps) {
         {/* Bar Chart */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-black text-slate-900">توزيع الحركة</h3>
+            <h3 className="font-black text-slate-900">{t('dashboard.activity')}</h3>
             <Activity size={18} className="text-slate-400" />
           </div>
           
-          <div style={{ width: '100%', height: 224, minHeight: 224 }}>
+          <div style={{ width: '100%', height: 224, minHeight: 224, minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={typeData} barSize={60}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -275,12 +287,12 @@ export default function Dashboard({ docs }: DashboardProps) {
         {/* Priority Distribution */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-black text-slate-900">أولوية المعاملات</h3>
+            <h3 className="font-black text-slate-900">{t('dashboard.priority')}</h3>
             <FileText size={18} className="text-slate-400" />
           </div>
           
           <div className="space-y-5">
-            {priorityData.map((p, i) => (
+             {priorityData.map((p, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -304,7 +316,7 @@ export default function Dashboard({ docs }: DashboardProps) {
           
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-400">
             <Clock size={14} />
-            <span className="text-[10px] font-bold">آخر تحديث: الآن</span>
+            <span className="text-[10px] font-bold">{t('dashboard.lastUpdate')}</span>
           </div>
         </div>
       </div>
@@ -312,8 +324,8 @@ export default function Dashboard({ docs }: DashboardProps) {
       {/* Recent Activity */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-slate-900">آخر القيود المسجلة</h3>
-          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">أحدث 5 معاملات</span>
+          <h3 className="font-black text-slate-900">{t('dashboard.recentActivity')}</h3>
+          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{t('dashboard.latest5')}</span>
         </div>
         
         <div className="space-y-3">
@@ -325,23 +337,24 @@ export default function Dashboard({ docs }: DashboardProps) {
               <div className="flex items-center gap-4">
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                    doc.type === "INCOMING" 
+                    doc.type === "INCOMING" || (doc.type as string) === 'وارد'
                       ? "bg-blue-100 text-blue-600" 
                       : "bg-purple-100 text-purple-600"
                   }`}
                 >
-                  {doc.type === "INCOMING" ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                  {(doc.type === "INCOMING" || (doc.type as string) === 'وارد') ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
                 </div>
                 <div>
                   <div className="text-sm font-black text-slate-900 mb-0.5 group-hover:text-blue-600 transition-colors">{doc.title || doc.subject}</div>
                   <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <span>{doc.type === 'OUTGOING' ? doc.recipient : doc.sender}</span>
+                    <span>{(doc.type === 'OUTGOING' || (doc.type as string) === 'صادر') ? doc.recipient : doc.sender}</span>
                     <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                     <span dir="ltr">
                       {(() => {
                         try {
                           const d = new Date(doc.date || '');
-                          return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB');
+                          // Use locale for date format
+                          return isNaN(d.getTime()) ? '' : d.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-GB');
                         } catch (e) { return '' }
                       })()}
                     </span>
@@ -358,7 +371,7 @@ export default function Dashboard({ docs }: DashboardProps) {
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Layers size={24} className="text-slate-400" />
               </div>
-              <p className="text-slate-400 font-bold">لا يوجد نشاط مسجل بعد</p>
+              <p className="text-slate-400 font-bold">{t('dashboard.noActivity')}</p>
             </div>
           )}
         </div>

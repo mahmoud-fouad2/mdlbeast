@@ -34,8 +34,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './components/ui/dropdown-menu'
+import { useI18n } from './lib/i18n-context'
 
 const App: React.FC = () => {
+  const { t, dir } = useI18n()
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [docs, setDocs] = useState<Correspondence[]>([]);
@@ -424,17 +426,17 @@ const App: React.FC = () => {
 
             <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar overflow-x-hidden">
               <button onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false) }} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-black transition-all ${activeTab === 'dashboard' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
-                <LayoutDashboard size={18} /> لوحة التحكم
+                <LayoutDashboard size={18} /> {t('nav.dashboard')}
               </button>
 
               <div className="mt-3">
-                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">الاتصالات الإدارية</div>
+                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.adminComms')}</div>
                 {([
-                  ['incoming', 'قيد وارد جديد', FilePlus],
-                  ['outgoing', 'قيد صادر جديد', FileMinus],
-                  ['list', 'الأرشيف والبحث', Search],
-                  ['scanner', 'تتبع الباركود', Scan],
-                  ['reports', 'تقارير الأرشيف', BarChart3],
+                  ['incoming', t('nav.incoming'), FilePlus],
+                  ['outgoing', t('nav.outgoing'), FileMinus],
+                  ['list', t('nav.archive'), Search],
+                  ['scanner', t('nav.scanner'), Scan],
+                  ['reports', t('nav.reports'), BarChart3],
                 ] as any[]).map(([id, label, Icon]) => (
                   <button
                     key={id}
@@ -447,10 +449,10 @@ const App: React.FC = () => {
               </div>
 
               <div className="mt-3">
-                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">سير العمل</div>
+                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.workflow')}</div>
                 {([
-                  ['approvals', 'نظام الإعتمادات', FileSignature],
-                  ['internal', 'التواصل الداخلي', FileText],
+                  ['approvals', t('nav.approvals'), FileSignature],
+                  ['internal', t('nav.internal'), FileText],
                 ] as any[]).map(([id, label, Icon]) => (
                   <button
                     key={id}
@@ -468,7 +470,7 @@ const App: React.FC = () => {
                 onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); setMobileMenuOpen(false) }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
               >
-                <LogOut size={18} /> تسجيل الخروج
+                <LogOut size={18} /> {t('nav.logout')}
               </button>
             </div>
           </aside>
@@ -487,32 +489,32 @@ const App: React.FC = () => {
 
         <div className={`p-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'py-6 px-2' : 'p-4'}`}>
            <div className="flex flex-col items-center text-center w-full">
-             <img src='/mdlbeast/logo.png' className={`${isSidebarCollapsed ? 'h-8 w-auto' : 'h-16 w-32'} mb-3 object-contain drop-shadow-sm hover:scale-105 transition-all duration-300`} alt="Logo" />
+             <img src='/mdlbeast/logo.png' className={`${isSidebarCollapsed ? 'h-8 w-auto' : 'w-48 h-auto max-w-[180px]'} mb-3 object-contain drop-shadow-sm hover:scale-105 transition-all duration-300`} alt="Logo" />
              {!isSidebarCollapsed && (
-               <div className="text-[8px] font-black text-slate-600 uppercase tracking-[0.12em] leading-relaxed whitespace-nowrap">مركز الإتصالات الإدارية</div>
+               <div className="text-[10px] font-black text-slate-600 uppercase tracking-[0.12em] leading-relaxed whitespace-nowrap">{t('sidebar.systemTitle')}</div>
              )}
            </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar overflow-x-hidden">
-          <NavItem id="dashboard" label="لوحة التحكم" icon={LayoutDashboard} />
+          <NavItem id="dashboard" label={t('nav.dashboard')} icon={LayoutDashboard} />
           
-          <SidebarSection id="documents" title="الاتصالات الإدارية" icon={FolderOpen}>
-            <NavItem id="incoming" label="قيد وارد جديد" icon={FilePlus} />
-            <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
-            <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
-            <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
-            <NavItem id="reports" label="تقارير الأرشيف" icon={BarChart3} />
+          <SidebarSection id="documents" title={t('sidebar.adminComms')} icon={FolderOpen}>
+            <NavItem id="incoming" label={t('nav.incoming')} icon={FilePlus} />
+            <NavItem id="outgoing" label={t('nav.outgoing')} icon={FileMinus} />
+            <NavItem id="list" label={t('nav.archive')} icon={Search} />
+            <NavItem id="scanner" label={t('nav.scanner')} icon={Scan} />
+            <NavItem id="reports" label={t('nav.reports')} icon={BarChart3} />
           </SidebarSection>
           
-          <SidebarSection id="workflow" title="سير العمل" icon={FileSignature}>
-            <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
-            <NavItem id="internal" label="التواصل الداخلي" icon={FileText} />
+          <SidebarSection id="workflow" title={t('sidebar.workflow')} icon={FileSignature}>
+            <NavItem id="approvals" label={t('nav.approvals')} icon={FileSignature} />
+            <NavItem id="internal" label={t('nav.internal')} icon={FileText} />
           </SidebarSection>
           
           <div className="h-px bg-slate-100 my-3"></div>
           {!isSidebarCollapsed && (
-            <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> تسجيل الخروج</button>
+            <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> {t('nav.logout')}</button>
           )}
         </nav>
 
@@ -558,19 +560,19 @@ const App: React.FC = () => {
               <Menu size={18} className="text-slate-700" />
             </button>
             <h1 className="text-lg font-black text-slate-800">
-              {activeTab === 'dashboard' && 'لوحة التحكم'}
-              {activeTab === 'incoming' && 'قيد وارد جديد'}
-              {activeTab === 'outgoing' && 'قيد صادر جديد'}
-              {activeTab === 'list' && 'الأرشيف والبحث'}
-              {activeTab === 'scanner' && 'تتبع الباركود'}
-              {activeTab === 'reports' && 'تقارير الأرشيف'}
-              {activeTab === 'audit' && 'مراقبة التفاعل'}
-              {activeTab === 'approvals' && 'نظام الإعتمادات'}
-              {activeTab === 'notifications' && 'مركز الإشعارات'}
-              {activeTab === 'internal' && 'التواصل الداخلي'}
-              {activeTab === 'users' && 'إدارة المستخدمين'}
-              {activeTab === 'admin-status' && 'حالة النظام'}
-              {activeTab === 'backup' && 'النسخ الاحتياطي'}
+              {activeTab === 'dashboard' && t('nav.dashboard')}
+              {activeTab === 'incoming' && t('nav.incoming')}
+              {activeTab === 'outgoing' && t('nav.outgoing')}
+              {activeTab === 'list' && t('nav.archive')}
+              {activeTab === 'scanner' && t('nav.scanner')}
+              {activeTab === 'reports' && t('nav.reports')}
+              {activeTab === 'audit' && t('nav.audit')}
+              {activeTab === 'approvals' && t('nav.approvals')}
+              {activeTab === 'notifications' && t('nav.notifications')}
+              {activeTab === 'internal' && t('nav.internal')}
+              {activeTab === 'users' && t('nav.users')}
+              {activeTab === 'admin-status' && t('nav.admin')}
+              {activeTab === 'backup' && t('nav.backup')}
             </h1>
           </div>
           
