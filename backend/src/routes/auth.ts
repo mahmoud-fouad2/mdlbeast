@@ -8,6 +8,25 @@ import { logAudit } from "../services/auditService"
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET
+const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY || ""
+
+// Verify reCAPTCHA token
+async function verifyRecaptcha(token: string): Promise<boolean> {
+  if (!RECAPTCHA_SECRET_KEY) return true // Skip if not configured
+  
+  try {
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${RECAPTCHA_SECRET_KEY}&response=${token}`
+    })
+    const data = await response.json() as { success: boolean }
+    return data.success === true
+  } catch (error) {
+    console.error('reCAPTCHA verification failed:', error)
+    return false
+  }
+}
 
 // Login
 const loginLimiterMiddleware = (req: any, res: any, next: any) => {
@@ -29,7 +48,15 @@ router.post(
     }
 
     try {
-      const { username, password } = req.body
+      const { username, password, recaptchaToken } = req.body
+
+      // Verify reCAPTCHA if secret key is configured
+      if (RECAPTCHA_SECRET_KEY && recaptchaToken) {
+        const isValidCaptcha = await verifyRecaptcha(recaptchaToken)
+        if (!isValidCaptcha) {
+          return res.status(400).json({ error: "reCAPTCHA verification failed" })
+        }
+      }
 
       // Optimized: Assume email column exists or just query by username if that's the standard.
       // For better performance, we try to match username first.

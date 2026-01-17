@@ -271,10 +271,13 @@ class ApiClient {
   }
 
   // Auth
-  async login(username: string, password: string) {
+  async login(username: string, password: string, recaptchaToken?: string) {
+    const body: any = { username, password }
+    if (recaptchaToken) body.recaptchaToken = recaptchaToken
+    
     const data = await this.request<{ token: string; refreshToken: string; user: any }>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(body),
     })
     this.setToken(data.token, data.refreshToken)
     return data
