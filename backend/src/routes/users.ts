@@ -191,11 +191,14 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
 
     const hasEmail = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email' LIMIT 1")).rows.length > 0
     const hasName = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'name' LIMIT 1")).rows.length > 0
+    const hasAvatarUrl = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar_url' LIMIT 1")).rows.length > 0
 
-    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
-    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
-    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
-    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
+    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
+    if (hasAvatarUrl) select += ", avatar_url"
+    
+    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
+    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
+    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
 
     if (hasEmail) {
        const hasUsernameCol = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username' LIMIT 1")).rows.length > 0
