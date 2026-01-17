@@ -48,14 +48,15 @@ interface Message {
 
 interface InternalCommunicationProps {
   currentUser: User;
+  users?: User[];
 }
 
-export default function InternalCommunication({ currentUser }: InternalCommunicationProps) {
+export default function InternalCommunication({ currentUser, users: propUsers }: InternalCommunicationProps) {
     const { t, language } = useLanguage();
     const canStartChat = Boolean((currentUser as any)?.permissions?.communication?.access_chat);
 
     const [messages, setMessages] = useState<Message[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
+    const [users, setUsers] = useState<User[]>(propUsers || []);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -89,14 +90,25 @@ export default function InternalCommunication({ currentUser }: InternalCommunica
     };
 
     const fetchUsers = useCallback(async () => {
+        if (propUsers && propUsers.length > 0) {
+            setUsers(propUsers);
+            return;
+        }
         try {
             // Use internal-comm/users endpoint instead of general users endpoint
             const u: any = await (apiClient as any).request('/internal-comm/users', { method: 'GET' });
             setUsers(Array.isArray(u) ? u : []);
         } catch (e) {
             console.error('Failed to load users', e);
+            // Fallback to basic users if specific endpoint fails
+            try {
+                const u = await apiClient.getUsers();
+                setUsers(u);
+            } catch (e2) {
+                console.warn('Fallback users fetch failed', e2);
+            }
         }
-    }, []);
+    }, [propUsers]);
 
     const fetchPage = useCallback(
         async ({ offset, replace }: { offset: number; replace: boolean }) => {

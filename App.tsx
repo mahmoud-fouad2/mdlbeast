@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FilePlus, FileMinus, Search, Scan,
   Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
   AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check, Menu, FileSignature,
-  ChevronDown, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign, Stamp, Bell
+  ChevronDown, ChevronLeft, ChevronRight, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign, Stamp, Bell
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, User } from './types';
 import { apiClient } from './lib/api-client';
@@ -25,6 +25,7 @@ import NotificationCenter from './components/NotificationCenter';
 import InternalCommunication from './components/InternalCommunication';
 import ReportGenerator from './components/ReportGenerator';
 import AuditLogs from './components/AuditLogs';
+import LanguageSwitcher from './components/LanguageSwitcher';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -39,6 +40,7 @@ const App: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<string[]>(['documents', 'system']);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Restore active tab from localStorage on mount (client-side only)
   useEffect(() => {
@@ -280,9 +282,11 @@ const App: React.FC = () => {
     return (
       <button 
         onClick={() => setActiveTab(id)} 
-        className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-black transition-all ${activeTab === id ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+        title={isSidebarCollapsed ? label : ''}
+        className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-5'} py-3.5 rounded-xl text-sm font-black transition-all ${activeTab === id ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
       >
-        <Icon size={18} /><span>{label}</span>
+        <Icon size={isSidebarCollapsed ? 20 : 18} />
+        {!isSidebarCollapsed && <span>{label}</span>}
       </button>
     );
   };
@@ -297,6 +301,15 @@ const App: React.FC = () => {
 
   const SidebarSection = ({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) => {
     const isExpanded = expandedSections.includes(id);
+
+    if (isSidebarCollapsed) {
+      return (
+        <div className="mb-2 py-2 border-t border-slate-50">
+          {children}
+        </div>
+      )
+   }
+
     return (
       <div className="mb-2">
         <button
@@ -336,15 +349,25 @@ const App: React.FC = () => {
         />
       )}
       
-      <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print h-full">
-        <div className="p-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-72'} bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print h-full transition-all duration-300 relative`}>
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -left-3 top-20 bg-white border border-slate-200 p-1 rounded-full shadow-md text-slate-500 hover:text-slate-900 z-50"
+        >
+          {isSidebarCollapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        <div className={`p-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'py-6 px-2' : 'p-4'}`}>
            <div className="flex flex-col items-center text-center w-full">
-             <img src='/mdlbeast/logo.png' className="h-12 w-auto mb-3 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />
-             <div className="text-[8px] font-black text-slate-600 uppercase tracking-[0.12em] leading-relaxed">مركز الإتصالات الإدارية</div>
+             <img src='/mdlbeast/logo.png' className={`${isSidebarCollapsed ? 'h-8 w-auto' : 'h-16 w-32'} mb-3 object-contain drop-shadow-sm hover:scale-105 transition-all duration-300`} alt="Logo" />
+             {!isSidebarCollapsed && (
+               <div className="text-[8px] font-black text-slate-600 uppercase tracking-[0.12em] leading-relaxed whitespace-nowrap">مركز الإتصالات الإدارية</div>
+             )}
            </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar overflow-x-hidden">
           <NavItem id="dashboard" label="لوحة التحكم" icon={LayoutDashboard} />
           
           <SidebarSection id="documents" title="الاتصالات الإدارية" icon={FolderOpen}>
@@ -361,21 +384,14 @@ const App: React.FC = () => {
           </SidebarSection>
           
           <div className="h-px bg-slate-100 my-3"></div>
-          
-          <SidebarSection id="system" title="إدارة النظام" icon={Settings}>
-            <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
-            <NavItem id="audit" label="مراقبة التفاعل" icon={ShieldCheck} adminOnly />
-            <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
-            <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
-          </SidebarSection>
-        </nav>
-
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-          <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> تسجيل الخروج</button>
+          {!isSidebarCollapsed && (
+            <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> تسجيل الخروج</button>
+          )}
           
           <button
             onClick={() => setUserSettingsOpen(true)}
-            className="w-full p-3 bg-gradient-to-l from-slate-900 to-slate-800 rounded-2xl flex items-center gap-3 text-white shadow-xl hover:shadow-2xl transition-all group cursor-pointer"
+            title={isSidebarCollapsed ? currentUser.full_name : ''}
+            className={`w-full ${isSidebarCollapsed ? 'p-2 justify-center' : 'p-3'} bg-gradient-to-l from-slate-900 to-slate-800 rounded-2xl flex items-center gap-3 text-white shadow-xl hover:shadow-2xl transition-all group cursor-pointer`}
           >
              <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center font-black text-sm overflow-hidden shrink-0 group-hover:bg-slate-600 transition-colors">
                {currentUser.avatar_url ? (
@@ -384,7 +400,23 @@ const App: React.FC = () => {
                  currentUser.full_name?.substring(0, 1) || 'U'
                )}
              </div>
-             <div className="overflow-hidden text-right flex-1">
+             {!isSidebarCollapsed && (
+               <>
+                 <div className="overflow-hidden text-right flex-1">
+                   <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
+                   <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير تنفيذي' : currentUser.role === 'supervisor' ? 'مدير مباشر' : 'مستخدم'}</div>
+                 </div>
+                 <Settings size={14} className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300" />
+               </>
+             )}
+          </button>
+          
+          {!isSidebarCollapsed && (
+            <a href="https://zaco.sa" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center gap-1.5 mt-4 opacity-50 hover:opacity-100 transition-all">
+              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
+              <img src="/dev.png" className="h-6 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
+            </a>
+          )}div className="overflow-hidden text-right flex-1">
                <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير تنفيذي' : currentUser.role === 'supervisor' ? 'مدير مباشر' : 'مستخدم'}</div>
              </div>
@@ -421,6 +453,8 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <LanguageSwitcher />
+
             {/* Notifications Bell */}
             <div className="relative">
               <button
@@ -468,7 +502,7 @@ const App: React.FC = () => {
           {activeTab === 'audit' && <AuditLogs />}
           {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
           {activeTab === 'notifications' && <NotificationCenter />}
-          {activeTab === 'internal' && <InternalCommunication currentUser={currentUser} />}
+          {activeTab === 'internal' && <InternalCommunication currentUser={currentUser} users={users} />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}
           {activeTab === 'admin-status' && <AdminStatus />}
           {activeTab === 'backup' && <AdminBackups />}

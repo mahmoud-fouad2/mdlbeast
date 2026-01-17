@@ -403,7 +403,7 @@ const UserNode = ({ data }: { data: { user: UserWithChildren, onEdit: (user: Use
              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-sm inline-flex items-center`}>
                 {getRoleLabel(user.role)}
             </span>
-             {!user.is_active && (
+             {user.is_active === false && (
                  <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">غير نشط</span>
              )}
         </div>
