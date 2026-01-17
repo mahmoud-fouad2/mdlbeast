@@ -28,6 +28,48 @@ function mkTempDir(prefix = 'backup') {
   return base
 }
 
+async function loadSystemSettingsSnapshot() {
+  const fallback = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
+  try {
+    const exists = await query("SELECT to_regclass('public.system_settings') as t")
+    if (!exists.rows?.[0]?.t) return fallback
+
+    const colsRes = await query("SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings'")
+    const cols = new Set((colsRes.rows || []).map((r: any) => String(r.column_name)))
+
+    if (cols.has('key') && cols.has('value')) {
+      const r = await query('SELECT key, value FROM system_settings')
+      return (r.rows || []).reduce((acc: any, row: any) => (acc[row.key] = row.value, acc), {})
+    }
+
+    if (cols.has('name') && cols.has('value')) {
+      const r = await query('SELECT name, value FROM system_settings')
+      return (r.rows || []).reduce((acc: any, row: any) => (acc[row.name] = row.value, acc), {})
+    }
+  } catch (e) {
+    // ignore
+  }
+  return fallback
+}
+
+async function insertBackupAuditMeta(fileKeyOrName: string, createdBy: number | null) {
+  try {
+    const meta = await query("SELECT to_regclass('public.snapshots') as snapshots, to_regclass('public.backups') as backups")
+    if (meta.rows?.[0]?.snapshots) {
+      await query(
+        'INSERT INTO snapshots (file_name, size_bytes, created_by, created_at) VALUES ($1,$2,$3,NOW())',
+        [fileKeyOrName, null, createdBy],
+      )
+      return
+    }
+    if (meta.rows?.[0]?.backups) {
+      await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [fileKeyOrName, createdBy])
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Create a full project backup: DB dump + uploads + metadata JSON
 router.post('/', async (req: any, res: any) => {
   if (!await requireAdmin(req, res)) return
@@ -116,13 +158,7 @@ router.post('/json', async (req: any, res: any) => {
   try {
     const docs = (await query("SELECT id, barcode, type, sender, receiver, date, subject, statement, priority, status, classification, notes, attachments, created_at, updated_at FROM documents")).rows
     const barcodes = (await query("SELECT id, barcode, type, created_at FROM barcodes")).rows
-    let settings: any = {}
-    try {
-      const r = await query('SELECT name, value FROM system_settings')
-      settings = r.rows.reduce((acc: any, row: any) => (acc[row.name] = row.value, acc), {})
-    } catch (e) {
-      settings = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
-    }
+    const settings = await loadSystemSettingsSnapshot()
 
     // uploads list (filenames only)
     const uploadsDir = path.resolve(process.cwd(), 'uploads')
@@ -256,8 +292,8 @@ router.post('/restore', async (req: any, res: any) => {
       fs.cpSync(uploadsSrc, uploadsDir, { recursive: true })
     }
 
-    // audit log
-    try { await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [key, (req as any).user?.id || null]) } catch (e) {}
+    // audit log (only if metadata table exists)
+    await insertBackupAuditMeta(key, (req as any).user?.id || null)
 
     res.json({ ok: true })
   } catch (err: any) {
@@ -322,8 +358,8 @@ router.post('/restore-upload', upload.single('file'), async (req: any, res: any)
       fs.cpSync(uploadsSrc, uploadsDir, { recursive: true })
     }
 
-    // audit
-    try { await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [`upload-${Date.now()}`, (req as any).user?.id || null]) } catch (e) {}
+    // audit (only if metadata table exists)
+    await insertBackupAuditMeta(`upload-${Date.now()}`, (req as any).user?.id || null)
 
     res.json({ ok: true })
   } catch (err: any) {

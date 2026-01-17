@@ -63,14 +63,16 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ docs, settings }) => 
       const barcode = doc.barcode || (doc.referenceNumber || '')
       const title = doc.subject || doc.title || doc.description || '—'
       const typeStr = (doc.type === DocType.INCOMING || String(doc.status) === 'وارد' || String(barcode).toUpperCase().startsWith('IN')) ? 'وارد' : 'صادر'
-      const sender = doc.sender || doc.createdBy || String(doc.user_id || '') || '—'
+      const counterparty = (typeStr === 'صادر' || doc.type === DocType.OUTGOING)
+        ? (doc.receiver || (doc as any).recipient || '—')
+        : (doc.sender || '—')
       const dateStr = doc.date || doc.documentDate || (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '—')
       return `
         <tr>
           <td style="text-align: center; font-family: monospace; font-weight: bold; width: 140px;">${barcode}</td>
           <td style="width: 40%; word-break: break-word;">${title}</td>
           <td style="text-align: center; width: 80px;">${typeStr}</td>
-          <td style="width: 160px;">${sender}</td>
+          <td style="width: 160px;">${counterparty}</td>
           <td style="text-align: center; width: 120px;">${dateStr}</td>
         </tr>
       `

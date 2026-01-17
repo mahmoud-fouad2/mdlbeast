@@ -26,6 +26,14 @@ import InternalCommunication from './components/InternalCommunication';
 import ReportGenerator from './components/ReportGenerator';
 import AuditLogs from './components/AuditLogs';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from './components/ui/dropdown-menu'
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -40,6 +48,8 @@ const App: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<string[]>(['documents', 'system']);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [notificationPreview, setNotificationPreview] = useState<any[]>([]);
+  const [notificationPreviewLoading, setNotificationPreviewLoading] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Restore active tab from localStorage on mount (client-side only)
@@ -67,6 +77,40 @@ const App: React.FC = () => {
   });
 
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const normalizeDoc = (d: any): Correspondence => ({
+    id: d.id,
+    barcode: d.barcode || d.barcode_id || '',
+    type: (String(d.type || '').toLowerCase().startsWith('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
+    title: d.subject || d.title || '',
+    sender: d.sender || '',
+    receiver: d.receiver || d.recipient || '',
+    recipient: d.receiver || d.recipient || '',
+    referenceNumber: d.referenceNumber || '',
+    internalRef: d.internalRef || '',
+    documentDate: d.date || '',
+    archiveDate: d.archived_at || '',
+    date: d.date ? String(d.date).split('T')?.[0] : (d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : ''),
+    subject: d.subject || '',
+    description: d.description || d.notes || '',
+    status: d.status || '',
+    security: d.security || '',
+    // Normalize DB priority labels to new frontend labels ('عادي' -> 'عاديه', 'عاجل' -> 'عاجله')
+    priority: (d.priority === 'عادي') ? 'عاديه' : (d.priority === 'عاجل') ? 'عاجله' : (d.priority === 'عاجل جداً' ? 'عاجل' : (d.priority || '')),
+    category: d.category || '',
+    physicalLocation: d.physical_location || '',
+    attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
+    attachments: d.attachments || [],
+    signatory: d.signatory || '',
+    tags: d.tags || [],
+    created_at: d.created_at ? new Date(d.created_at) : new Date(),
+    createdBy: d.created_by || d.createdBy || '',
+    pdfFile: d.pdf || d.pdfFile || undefined,
+    user_id: d.user_id || null,
+    updated_at: d.updated_at ? new Date(d.updated_at) : new Date(),
+    notes: d.notes || ''
+  } as any)
 
   const loadInitialData = async () => {
     try {
@@ -77,38 +121,7 @@ const App: React.FC = () => {
       const fetchedDocs = fetchedDocsRes.data || []
       setPagination({ page: 1, limit: 50, total: fetchedDocsRes.meta?.total || 0 })
 
-      const normalized = (fetchedDocs || []).map((d: any) => ({
-        id: d.id,
-        barcode: d.barcode || d.barcode_id || '',
-        type: (String(d.type || '').toLowerCase().startsWith('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
-        title: d.subject || d.title || '',
-        sender: d.sender || '',
-        receiver: d.receiver || d.recipient || '',
-        recipient: d.receiver || d.recipient || '',
-        referenceNumber: d.referenceNumber || '',
-        internalRef: d.internalRef || '',
-        documentDate: d.date || '',
-        archiveDate: d.archived_at || '',
-        date: d.date ? d.date.split('T')?.[0] : (d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : ''),
-        subject: d.subject || '',
-        description: d.description || d.notes || '',
-        status: d.status || '',
-        security: d.security || '',
-        // Normalize DB priority labels to new frontend labels ('عادي' -> 'عاديه', 'عاجل' -> 'عاجله')
-        priority: (d.priority === 'عادي') ? 'عاديه' : (d.priority === 'عاجل') ? 'عاجله' : (d.priority === 'عاجل جداً' ? 'عاجل' : (d.priority || '')),
-        category: d.category || '',
-        physicalLocation: d.physical_location || '',
-        attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
-        attachments: d.attachments || [],
-        signatory: d.signatory || '',
-        tags: d.tags || [],
-        created_at: d.created_at ? new Date(d.created_at) : new Date(),
-        createdBy: d.created_by || d.createdBy || '',
-        pdfFile: d.pdf || d.pdfFile || undefined,
-        user_id: d.user_id || null,
-        updated_at: d.updated_at ? new Date(d.updated_at) : new Date(),
-        notes: d.notes || ''
-      }))
+      const normalized = (fetchedDocs || []).map(normalizeDoc)
       setDocs(normalized as any);
 
 
@@ -129,6 +142,30 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!currentUser) return
+    if (!showNotificationDropdown) return
+    let alive = true
+    setNotificationPreviewLoading(true)
+    apiClient
+      .getNotifications({ limit: 5, offset: 0, unreadOnly: true })
+      .then((res) => {
+        if (!alive) return
+        setNotificationPreview((res as any)?.data || [])
+      })
+      .catch(() => {
+        if (!alive) return
+        setNotificationPreview([])
+      })
+      .finally(() => {
+        if (!alive) return
+        setNotificationPreviewLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [showNotificationDropdown, currentUser?.id])
+
+  useEffect(() => {
     const savedUser = localStorage.getItem('mdlbeast_session_user');
     if (savedUser) setCurrentUser(JSON.parse(savedUser));
 
@@ -146,6 +183,7 @@ const App: React.FC = () => {
       const token = localStorage.getItem('auth_token')
       if (!token) {
         setIsLoading(false)
+        setAuthChecked(true)
         return
       }
 
@@ -171,6 +209,7 @@ const App: React.FC = () => {
         }
       } finally {
         setIsLoading(false)
+        setAuthChecked(true)
       }
     }
     tryInit();
@@ -211,37 +250,7 @@ const App: React.FC = () => {
       const fetchedDocs = fetchedDocsRes.data || []
       setPagination({ page, limit: 50, total: fetchedDocsRes.meta?.total || 0 })
       
-      const normalized = (fetchedDocs || []).map((d: any) => ({
-        id: d.id,
-        barcode: d.barcode || d.barcode_id || '',
-        type: (String(d.type || '').toLowerCase().startsWith('in') || String(d.type) === 'وارد') ? DocType.INCOMING : DocType.OUTGOING,
-        title: d.subject || d.title || '',
-        sender: d.sender || '',
-        receiver: d.receiver || d.recipient || '',
-        recipient: d.receiver || d.recipient || '',
-        referenceNumber: d.referenceNumber || '',
-        internalRef: d.internalRef || '',
-        documentDate: d.date || '',
-        archiveDate: d.archived_at || '',
-        date: d.date ? d.date.split('T')?.[0] : (d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : ''),
-        subject: d.subject || '',
-        description: d.description || d.notes || '',
-        status: d.status || '',
-        security: d.security || '',
-        priority: (d.priority === 'عادي') ? 'عاديه' : (d.priority === 'عاجل') ? 'عاجله' : (d.priority === 'عاجل جداً' ? 'عاجل' : (d.priority || '')),
-        category: d.category || '',
-        physicalLocation: d.physical_location || '',
-        attachmentCount: Array.isArray(d.attachments) ? d.attachments.length : 0,
-        attachments: d.attachments || [],
-        signatory: d.signatory || '',
-        tags: d.tags || [],
-        created_at: d.created_at ? new Date(d.created_at) : new Date(),
-        createdBy: d.created_by || d.createdBy || '',
-        pdfFile: d.pdf || d.pdfFile || undefined,
-        user_id: d.user_id || null,
-        updated_at: d.updated_at ? new Date(d.updated_at) : new Date(),
-        notes: d.notes || ''
-      }))
+      const normalized = (fetchedDocs || []).map(normalizeDoc)
       setDocs(normalized as any)
     } catch (e) {
       console.error('Refresh documents failed', e)
@@ -264,7 +273,9 @@ const App: React.FC = () => {
 
     try {
       const savedDoc = await apiClient.createDocument(docToSave);
-      setDocs(prev => [savedDoc, ...prev]);
+      const normalized = normalizeDoc(savedDoc)
+      setDocs(prev => [normalized as any, ...prev]);
+      setPagination(prev => ({ ...prev, total: (prev.total || 0) + 1 }))
       setActiveTab('list');
     } catch (err: any) {
       console.error('Failed to save document', err);
@@ -280,7 +291,38 @@ const App: React.FC = () => {
     alert('Restore via the web UI is disabled. Use the server-side migration tools or contact the administrator to restore backups.');
   };
 
-  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('mdlbeast_session_user', JSON.stringify(u)); }} logoUrl='/mdlbeast/logo.png' />;
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('auth_token')
+
+  // Avoid showing Login briefly on refresh when a token exists; show a loading screen until auth check finishes.
+  if (!currentUser) {
+    if (hasToken && !authChecked) {
+      return (
+        <div className="min-h-[100dvh] bg-[#F8FAFC] flex items-center justify-center">
+          <div className="bg-white border border-slate-200 shadow-sm rounded-3xl p-8 w-full max-w-md text-center">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black">
+              MD
+            </div>
+            <div className="mt-4 text-slate-900 font-black">جارِ التحقق من الجلسة...</div>
+            <div className="mt-2 text-xs text-slate-500 font-bold">لن تحتاج لإعادة تسجيل الدخول</div>
+            <div className="mt-6 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 w-1/2 bg-slate-900 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <Login
+        onLogin={(u) => {
+          setCurrentUser(u)
+          localStorage.setItem('mdlbeast_session_user', JSON.stringify(u))
+          setAuthChecked(true)
+        }}
+        logoUrl='/mdlbeast/logo.png'
+      />
+    )
+  }
 
   const NavItem = ({ id, label, icon: Icon, adminOnly = false }: any) => {
     // Show admin-only items for users whose role is 'admin' (case-insensitive)
@@ -536,19 +578,68 @@ const App: React.FC = () => {
             <LanguageSwitcher />
 
             {/* Notifications Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-all group"
-              >
-                <Bell size={18} className="text-slate-600 group-hover:text-slate-900" />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
-                    {notificationCount > 9 ? '9+' : notificationCount}
-                  </span>
+            <DropdownMenu open={showNotificationDropdown} onOpenChange={setShowNotificationDropdown}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-all group"
+                  aria-label="Notifications"
+                >
+                  <Bell size={18} className="text-slate-600 group-hover:text-slate-900" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-[340px] rounded-2xl p-2">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>الإشعارات</span>
+                  {notificationCount > 0 && (
+                    <span className="text-[10px] font-black bg-red-50 text-red-700 px-2 py-0.5 rounded-full">
+                      غير مقروء: {notificationCount}
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {notificationPreviewLoading ? (
+                  <DropdownMenuItem disabled className="opacity-70">
+                    جارِ التحميل...
+                  </DropdownMenuItem>
+                ) : notificationPreview.length === 0 ? (
+                  <DropdownMenuItem disabled className="opacity-70">
+                    لا توجد إشعارات غير مقروءة
+                  </DropdownMenuItem>
+                ) : (
+                  notificationPreview.map((n: any) => (
+                    <DropdownMenuItem
+                      key={String(n.id)}
+                      onSelect={() => {
+                        setActiveTab('notifications')
+                        setShowNotificationDropdown(false)
+                      }}
+                      className="flex flex-col items-start gap-1"
+                    >
+                      <div className="text-sm font-black text-slate-900 line-clamp-1">{n.title || 'إشعار'}</div>
+                      {n.message && <div className="text-xs text-slate-500 line-clamp-2">{n.message}</div>}
+                    </DropdownMenuItem>
+                  ))
                 )}
-              </button>
-            </div>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setActiveTab('notifications')
+                    setShowNotificationDropdown(false)
+                  }}
+                  className="font-black"
+                >
+                  عرض كل الإشعارات
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             {/* User Quick Info */}
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50">

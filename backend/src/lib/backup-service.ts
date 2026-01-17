@@ -5,6 +5,30 @@ import { spawn } from 'child_process'
 import { uploadBuffer, getSignedDownloadUrl, deleteObject } from './r2-storage'
 import { query } from '../config/database'
 
+async function loadSystemSettingsSnapshot() {
+  const fallback = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
+  try {
+    const exists = await query("SELECT to_regclass('public.system_settings') as t")
+    if (!exists.rows?.[0]?.t) return fallback
+
+    const colsRes = await query("SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings'")
+    const cols = new Set((colsRes.rows || []).map((r: any) => String(r.column_name)))
+
+    if (cols.has('key') && cols.has('value')) {
+      const r = await query('SELECT key, value FROM system_settings')
+      return (r.rows || []).reduce((acc: any, row: any) => ((acc[row.key] = row.value), acc), {})
+    }
+
+    if (cols.has('name') && cols.has('value')) {
+      const r = await query('SELECT name, value FROM system_settings')
+      return (r.rows || []).reduce((acc: any, row: any) => ((acc[row.name] = row.value), acc), {})
+    }
+  } catch (e) {
+    // ignore and fall back
+  }
+  return fallback
+}
+
 export async function createAndUploadBackup(opts: { encryptAES?: boolean, gpgRecipient?: string, encryptGpg?: boolean, retentionCount?: number } = {}) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   const nameBase = `project-backup-${timestamp}`
@@ -28,13 +52,7 @@ export async function createAndUploadBackup(opts: { encryptAES?: boolean, gpgRec
     if (fs.existsSync(uploadsSrc)) fs.cpSync(uploadsSrc, uploadsDest, { recursive: true })
 
     // system snapshot
-    let settings: any = {}
-    try {
-      const r = await query('SELECT name, value FROM system_settings')
-      if (r && r.rows) settings = r.rows.reduce((acc: any, row: any) => ((acc[row.name] = row.value), acc), {})
-    } catch (e) {
-      settings = { orgName: process.env.ORG_NAME || null, orgNameEn: process.env.ORG_NAME_EN || null }
-    }
+    const settings = await loadSystemSettingsSnapshot()
     fs.writeFileSync(path.join(tmp, 'settings.json'), JSON.stringify({ snapshotAt: new Date().toISOString(), settings }, null, 2))
 
     const archiveName = `${nameBase}.tar.gz`
@@ -72,9 +90,17 @@ export async function createAndUploadBackup(opts: { encryptAES?: boolean, gpgRec
 
     const uploadRes = await uploadBuffer(uploadKey, finalBuf, 'application/gzip', 'private, max-age=0')
 
-    // insert backups table record if present
+    // insert backups/snapshots record if present (avoid noisy errors)
     try {
-      await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [uploadKey, null])
+      const meta = await query("SELECT to_regclass('public.snapshots') as snapshots, to_regclass('public.backups') as backups")
+      if (meta.rows?.[0]?.snapshots) {
+        await query(
+          'INSERT INTO snapshots (file_name, size_bytes, created_by, created_at) VALUES ($1,$2,$3,NOW())',
+          [uploadKey, finalBuf.length, null],
+        )
+      } else if (meta.rows?.[0]?.backups) {
+        await query('INSERT INTO backups (name, uploaded_by, created_at) VALUES ($1,$2,NOW())', [uploadKey, null])
+      }
     } catch (e) {
       // ignore
     }
