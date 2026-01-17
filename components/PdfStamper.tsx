@@ -257,7 +257,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
             >
               {/* Company Name */}
               <div className="text-[8px] font-black text-slate-900 text-center leading-[1.1] w-full border-b border-slate-300 pb-0.5 mb-0.5">
-                {settings?.orgNameEn || "Zaco"}
+                {settings?.orgNameEn || "MDLBEAST"}
               </div>
 
               {/* Barcode - Compact */}

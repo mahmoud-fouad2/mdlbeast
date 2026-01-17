@@ -36,7 +36,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
   try {
     await transporter.sendMail({
-      from: `"نظام الاتصالات الإدارية - زوايا" <${process.env.EMAIL_USER}>`,
+      from: `"MDLBEAST Communications" <${process.env.EMAIL_USER}>`,
       to: options.to,
       subject: options.subject,
       html: options.html
@@ -47,6 +47,30 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   } catch (error) {
     console.error('[EmailService] Failed to send email:', error)
     return false
+  }
+}
+
+/**
+ * Send email and return detailed result (used by email queue)
+ */
+export async function sendEmailWithResult(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
+  const transporter = createTransporter()
+  
+  if (!transporter) {
+    return { success: false, error: 'Email transporter not configured' }
+  }
+
+  try {
+    await transporter.sendMail({
+      from: `"MDLBEAST Communications" <${process.env.EMAIL_USER}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html
+    })
+    
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Unknown error' }
   }
 }
 
@@ -169,7 +193,7 @@ export function generateApprovalRequestEmail(data: {
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">🏛️ زوايا البناء للاستشارات الهندسية</div>
+      <div class="logo">� MDLBEAST Communications</div>
       <div class="subtitle">نظام الاتصالات الإدارية</div>
     </div>
     
@@ -198,7 +222,7 @@ export function generateApprovalRequestEmail(data: {
     </div>
     
     <div class="footer">
-      <strong>زوايا البناء للاستشارات الهندسية</strong>
+      <strong>MDLBEAST Entertainment Company</strong>
       <div class="footer-note">
         هذه رسالة تلقائية من نظام الاتصالات الإدارية. يرجى عدم الرد على هذه الرسالة.
       </div>
@@ -330,7 +354,7 @@ export function generateApprovalApprovedEmail(data: {
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">🏛️ زوايا البناء للاستشارات الهندسية</div>
+      <div class="logo">� MDLBEAST Communications</div>
       <div class="subtitle">نظام الاتصالات الإدارية</div>
     </div>
     
@@ -359,7 +383,7 @@ export function generateApprovalApprovedEmail(data: {
     </div>
     
     <div class="footer">
-      <strong>زوايا البناء للاستشارات الهندسية</strong>
+      <strong>MDLBEAST Entertainment Company</strong>
       <div class="footer-note">
         هذه رسالة تلقائية من نظام الاتصالات الإدارية. يرجى عدم الرد على هذه الرسالة.
       </div>
@@ -510,7 +534,7 @@ export function generateApprovalRejectedEmail(data: {
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">🏛️ زوايا البناء للاستشارات الهندسية</div>
+      <div class="logo">� MDLBEAST Communications</div>
       <div class="subtitle">نظام الاتصالات الإدارية</div>
     </div>
     
@@ -544,7 +568,7 @@ export function generateApprovalRejectedEmail(data: {
     </div>
     
     <div class="footer">
-      <strong>زوايا البناء للاستشارات الهندسية</strong>
+      <strong>MDLBEAST Entertainment Company</strong>
       <div class="footer-note">
         هذه رسالة تلقائية من نظام الاتصالات الإدارية. يرجى عدم الرد على هذه الرسالة.
       </div>

@@ -179,7 +179,7 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
                 <img 
                   src="/mdlbeast/dev.png" 
                   alt="Developer" 
-                  className="h-14 opacity-90 hover:opacity-100 transition-all"
+                  className="h-8 opacity-70 hover:opacity-100 transition-all"
                 />
               </div>
             </div>

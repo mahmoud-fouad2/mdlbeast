@@ -29,7 +29,7 @@ async function fetchBytes(url: string): Promise<Buffer> {
 function tryDeriveR2KeyFromUrl(rawUrl: string): { key: string | null; bucket: string | null } {
   try {
     const u = new URL(String(rawUrl))
-    const bucket = String(process.env.CF_R2_BUCKET || 'zaco')
+    const bucket = String(process.env.CF_R2_BUCKET || 'mdlbeast')
     
     // Extract pathname and remove leading slash
     let pathname = u.pathname.replace(/^\//, '')
@@ -556,7 +556,7 @@ router.get('/:id/attachment-url', async (req: AuthRequest, res: Response) => {
     }
     
     // Remove bucket name if present at the beginning
-    const bucket = String(process.env.CF_R2_BUCKET || 'zaco')
+    const bucket = String(process.env.CF_R2_BUCKET || 'mdlbeast')
     if (key.startsWith(bucket + '/')) {
       key = key.substring(bucket.length + 1)
     }

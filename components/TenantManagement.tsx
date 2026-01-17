@@ -97,7 +97,7 @@ export default function TenantManagement({ companies, onUpdate }: TenantManageme
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">اسم المؤسسة (بالعربي)</label>
               <input 
                 type="text" 
-                placeholder="مثال: شركة زوايا الهندسية" 
+                placeholder="مثال: MDLBEAST Entertainment" 
                 className="w-full p-4 md:p-5 bg-slate-50 border border-slate-200 rounded-2xl font-black focus:border-slate-900 outline-none transition-all text-slate-900 text-sm md:text-base" 
                 value={newCompany.nameAr} 
                 onChange={e => setNewCompany({...newCompany, nameAr: e.target.value})} 

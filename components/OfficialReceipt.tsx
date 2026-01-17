@@ -138,11 +138,11 @@ export default function OfficialReceipt({ doc, settings }: OfficialReceiptProps)
               <table class="header-table">
                 <tr>
                   <td width="30%" class="logo-cell">
-                    <img src="${settings.logoUrl || "https://www.zaco.sa/logo2.png"}">
+                    <img src="${settings.logoUrl || "/mdlbeast/logo.png"}">
                   </td>
                   <td width="40%" class="title-cell">
-                     <h1>${settings.orgName || "زوايا البناء للإستشارات الهندسية"}</h1>
-                     <p>${settings.orgNameEn || "ZAWAYA ALBINA ENGINEERING"}</p>
+                     <h1>${settings.orgName || "MDLBEAST Entertainment Company"}</h1>
+                     <p>${settings.orgNameEn || "MDLBEAST"}</p>
                   </td>
                   <td width="30%" class="barcode-cell">
                     <img src="${barcodeUrl}">

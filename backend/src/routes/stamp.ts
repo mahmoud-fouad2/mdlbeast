@@ -625,9 +625,9 @@ router.post('/:barcode/stamp', async (req, res) => {
         }
       }
       // fallback to configured org name or a sensible default
-      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'Zaco'
+      if (!companyNameEnglish) companyNameEnglish = process.env.ORG_NAME_EN || 'MDLBEAST'
     } catch (e) {
-      companyNameEnglish = process.env.ORG_NAME_EN || 'Zaco'
+      companyNameEnglish = process.env.ORG_NAME_EN || 'MDLBEAST'
     }
 
     // Smart date: if doc.date is date-only (YYYY-MM-DD) it becomes midnight; merge with created_at time when available
@@ -690,7 +690,7 @@ router.post('/:barcode/stamp', async (req, res) => {
     const rawAttachmentLabel = `المرفقات: ${attachmentText}`
     
     // Use company name directly (canvas will handle all Arabic processing)
-    const companyName = 'زوايا البناء للإستشارات الهندسيه'
+    const companyName = process.env.ORG_NAME || 'MDLBEAST Entertainment'
     
     console.debug('Stamp: texts to render:', {
       companyName,

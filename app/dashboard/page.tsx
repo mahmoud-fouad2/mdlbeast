@@ -60,9 +60,9 @@ export default function DashboardPage() {
     primaryColor: "#0f172a",
     footerText: "مركز الإتصالات الإدارية - جميع الحقوق محفوظة © 2025",
     showStamp: true,
-    orgName: "زوايا البناء للإستشارات الهندسية",
-    orgNameEn: "Zaco",
-    logoUrl: "https://www.zaco.sa/logo2.png",
+    orgName: "MDLBEAST Entertainment Company",
+    orgNameEn: "MDLBEAST",
+    logoUrl: "/mdlbeast/logo.png",
     companies: [],
   })
 

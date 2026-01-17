@@ -189,7 +189,7 @@ export default function DocumentForm({ type, onSave, companies }: DocumentFormPr
               قيد {type === "INCOMING" ? "وارد" : "صادر"} جديد
             </h2>
             <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em] mt-1">
-              المؤسسة المستقلة: زوايا البناء
+              MDLBEAST Entertainment Company
             </p>
             <p className="text-xs text-slate-500 mt-2">ملاحظة: سيُولد رقم المعاملة تلقائياً عند الحفظ بشكل رقمي متسلسل (مثال: 0000001).</p>
           </div>

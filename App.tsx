@@ -352,11 +352,11 @@ const App: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">اسم المؤسسة (بالعربي)</label>
-                          <input type="text" placeholder="مثال: شركة زوايا الهندسية" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl font-black focus:border-slate-900 outline-none transition-all text-slate-900" value={newCompany.nameAr} onChange={e => setNewCompany({...newCompany, nameAr: e.target.value})} />
+                          <input type="text" placeholder="مثال: MDLBEAST Entertainment" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl font-black focus:border-slate-900 outline-none transition-all text-slate-900" value={newCompany.nameAr} onChange={e => setNewCompany({...newCompany, nameAr: e.target.value})} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Entity Name (English)</label>
-                          <input type="text" placeholder="Example: ZAWAYA ARCHITECTURE" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl font-black focus:border-slate-900 outline-none transition-all text-slate-900" value={newCompany.nameEn} onChange={e => setNewCompany({...newCompany, nameEn: e.target.value})} />
+                          <input type="text" placeholder="Example: MDLBEAST" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl font-black focus:border-slate-900 outline-none transition-all text-slate-900" value={newCompany.nameEn} onChange={e => setNewCompany({...newCompany, nameEn: e.target.value})} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">رابط الشعار</label>

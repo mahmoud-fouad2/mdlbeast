@@ -13,7 +13,7 @@ async function convertToSignedUrls(user: any) {
     try {
       const urlObj = new URL(user.signature_url);
       let pathname = urlObj.pathname.replace(/^\//, '');
-      const bucket = process.env.CF_R2_BUCKET || 'zaco';
+      const bucket = process.env.CF_R2_BUCKET || 'mdlbeast';
       if (pathname.startsWith(bucket + '/')) {
         pathname = pathname.slice(bucket.length + 1);
       }
@@ -26,7 +26,7 @@ async function convertToSignedUrls(user: any) {
     try {
       const urlObj = new URL(user.stamp_url);
       let pathname = urlObj.pathname.replace(/^\//, '');
-      const bucket = process.env.CF_R2_BUCKET || 'zaco';
+      const bucket = process.env.CF_R2_BUCKET || 'mdlbeast';
       if (pathname.startsWith(bucket + '/')) {
         pathname = pathname.slice(bucket.length + 1);
       }
