@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 // Translations
 const translations = {
   en: {
-    title: "MDLBEAST Communications",
+    title: "MDLBEAST ERP SYSTEM",
     subtitle: "Enterprise Access Hub",
     username: "Username",
     password: "Password",
@@ -34,7 +34,7 @@ const translations = {
     protectedBy: "Protected by reCAPTCHA",
   },
   ar: {
-    title: "MDLBEAST Communications",
+    title: "MDLBEAST ERP SYSTEM",
     subtitle: "بوابة الوصول المؤسسي",
     username: "اسم المستخدم",
     password: "كلمة المرور",

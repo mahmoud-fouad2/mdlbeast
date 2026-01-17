@@ -80,32 +80,46 @@ router.use(authenticateToken)
 // Get all users (manager or admin only)
 router.get("/", isManager, async (req: AuthRequest, res: Response) => {
   try {
-    // detect schema columns and pick safe select
-    const hasEmail = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email' LIMIT 1")).rows.length > 0
-    const hasName = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'name' LIMIT 1")).rows.length > 0
-
-    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-
-    // Always include username if it exists in the table, even if we aliased email to username above
-    // This fixes the issue where 'username' column is not returned when 'email' column exists
-    if (hasEmail) {
-       // If we have email, we might have aliased it to username. Let's make sure we get the real username column too if it exists.
-       const hasUsernameCol = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username' LIMIT 1")).rows.length > 0
-       if (hasUsernameCol) {
-         select += ", username"
-       }
-    }
-
-    const result = await query(`SELECT ${select} FROM users ORDER BY created_at DESC`)
+    // Standard Select Query - Assumes Schema is Valid (Production Optimized)
+    // We fetch all needed columns directly. If a column is missing, DB will throw error,
+    // but schema should be stable now.
+    const queryText = `
+      SELECT 
+        id, 
+        username, 
+        email, 
+        full_name, 
+        role, 
+        created_at, 
+        manager_id, 
+        signature_url, 
+        stamp_url, 
+        avatar_url, 
+        position, 
+        department, 
+        phone, 
+        is_active, 
+        permissions 
+      FROM users 
+      ORDER BY id ASC
+    `
+    const result = await query(queryText)
     
     // Convert R2 URLs to signed URLs
     const usersWithSignedUrls = await Promise.all(result.rows.map(convertToSignedUrls))
     
     res.json(usersWithSignedUrls)
-  } catch (error) {
+  } catch (error: any) {
+    // Explicitly handle "column does not exist" to be safe, though unlikely now
+    if (error?.code === '42703') {
+       console.warn('Schema mismatch in users fetch, falling back to basic query')
+       try {
+         const fallback = await query(`SELECT id, username, full_name, role, created_at FROM users ORDER BY id ASC`)
+         return res.json(fallback.rows)
+       } catch (e) {
+          // ignore
+       }
+    }
     console.error("Get users error:", error)
     res.status(500).json({ error: "Failed to fetch users" })
   }

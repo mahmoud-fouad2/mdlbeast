@@ -150,19 +150,25 @@ const App: React.FC = () => {
       }
 
       try {
-        const u = await apiClient.getCurrentUser().then(u => u).catch(() => null)
+        const u = await apiClient.getCurrentUser()
+        // If successful
         if (u) {
           setCurrentUser(u)
           await loadInitialData()
-        } else {
-          // If getCurrentUser fails, clear session
-          setCurrentUser(null)
-          localStorage.removeItem('mdlbeast_session_user')
         }
-      } catch (_e) {
-        // Ignore initialization errors but clear session
-        setCurrentUser(null)
-        localStorage.removeItem('mdlbeast_session_user')
+      } catch (err: any) {
+        // Only clear session if strictly 401/403 (Auth failed)
+        // Ignore 429 (Rate Limit), 500 (Server Error) etc. to prevent auto-logout during storms
+        if (err?.status === 401 || err?.status === 403) {
+            console.warn('[App] Token invalid - logging out', err)
+            setCurrentUser(null)
+            localStorage.removeItem('mdlbeast_session_user')
+        } else {
+            console.error('[App] Init failed but keeping session (recoverable error)', err)
+            // Restore user from local storage if available for offline/error mode
+            const saved = localStorage.getItem('mdlbeast_session_user')
+            if (saved) setCurrentUser(JSON.parse(saved))
+        }
       } finally {
         setIsLoading(false)
       }
@@ -387,7 +393,10 @@ const App: React.FC = () => {
           {!isSidebarCollapsed && (
             <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> تسجيل الخروج</button>
           )}
-          
+        </nav>
+
+        {/* User Profile & Footer */}
+        <div className="flex flex-col p-4 w-full border-t border-slate-800/50 mt-auto">
           <button
             onClick={() => setUserSettingsOpen(true)}
             title={isSidebarCollapsed ? currentUser.full_name : ''}
@@ -411,22 +420,7 @@ const App: React.FC = () => {
              )}
           </button>
           
-          {!isSidebarCollapsed && (
-            <a href="https://zaco.sa" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center gap-1.5 mt-4 opacity-50 hover:opacity-100 transition-all">
-              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
-              <img src="/dev.png" className="h-6 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
-            </a>
-          )}div className="overflow-hidden text-right flex-1">
-               <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
-               <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير تنفيذي' : currentUser.role === 'supervisor' ? 'مدير مباشر' : 'مستخدم'}</div>
-             </div>
-             <Settings size={14} className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300" />
-          </button>
-          
-          <a href="https://zaco.sa" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center gap-1.5 mt-4 opacity-50 hover:opacity-100 transition-all">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
-            <img src="/dev.png" className="h-6 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
-          </a>
+
         </div>
       </aside>
 

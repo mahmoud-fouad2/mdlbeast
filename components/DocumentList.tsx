@@ -312,14 +312,9 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                                   try {
                                     const d = new Date((doc as any).displayDate || doc.date || doc.documentDate || '');
                                     if (isNaN(d.getTime())) return '---';
-                                    // Format: DD/MM/YYYY HH:mm
                                     return d.toLocaleString('en-GB', { 
-                                      day: '2-digit', 
-                                      month: '2-digit', 
-                                      year: 'numeric', 
-                                      hour: '2-digit', 
-                                      minute: '2-digit',
-                                      hour12: true 
+                                      day: '2-digit', month: '2-digit', year: 'numeric', 
+                                      hour: '2-digit', minute: '2-digit', hour12: true 
                                     }).replace(',', '');
                                   } catch (_e) { return '---' }
                                 })()}
@@ -327,12 +322,33 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                             </div>
                           )}
 
-                          {((doc as any).created_by_name || (doc as any).created_by_username) && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-blue-600 bg-blue-50 w-fit px-2 py-1 rounded-md border border-blue-100">
-                              <span className="font-bold">القيد بواسطة:</span>
-                              <span className="font-medium">{(doc as any).created_by_name || (doc as any).created_by_username}</span>
-                            </div>
-                          )}
+                          {/* Created By with Avatar */}
+                          {(() => {
+                             // Try to find creator in users list (best match)
+                             const creatorId = doc.user_id || (doc as any).created_by
+                             const creator = (_users || []).find(u => u.id === creatorId || u.id === Number(creatorId) || u.username === (doc as any).createdBy)
+                             
+                             // Fallback to text if user not found in list but name exists on doc
+                             const creatorName = creator?.full_name || creator?.username || (doc as any).created_by_name || (doc as any).created_by_username || (doc as any).createdBy
+                             
+                             if (!creatorName) return null
+
+                             return (
+                               <div className="flex items-center gap-2 mt-2 p-1.5 pr-2 bg-gradient-to-l from-indigo-50 to-white border border-indigo-100 rounded-full w-fit shadow-sm">
+                                  <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border border-white shadow-sm shrink-0">
+                                    {creator?.avatar_url ? (
+                                      <img src={creator.avatar_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-[9px] font-black text-indigo-600">{creatorName.substring(0,1).toUpperCase()}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col leading-none pl-1">
+                                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">بواسطة</span>
+                                    <span className="text-[10px] font-black text-indigo-700">{creatorName}</span>
+                                  </div>
+                               </div>
+                             )
+                          })()}
                         </div>
                       </td>
 

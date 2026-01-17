@@ -73,15 +73,15 @@ const loginLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 1000, // INCREASED from 100: Allow 1000 requests per 15 min per IP to prevent false positives in rich UI
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // 30 uploads per window
+  windowMs: 60 * 60 * 1000, // 1 hour (Uploads are heavy)
+  max: 60, // 60 uploads per hour
   message: { error: 'Too many upload requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
