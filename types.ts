@@ -42,6 +42,7 @@ export interface User {
   manager_id?: number | null
   signature_url?: string
   stamp_url?: string
+  avatar_url?: string
 }
 
 export interface ApprovalRequest {

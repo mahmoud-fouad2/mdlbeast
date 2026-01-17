@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, FilePlus, FileMinus, Search, Scan,
   Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
-  AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check, Menu, FileSignature 
+  AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check, Menu, FileSignature,
+  ChevronDown, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, User } from './types';
 import { apiClient } from './lib/api-client';
@@ -18,6 +19,8 @@ import AsyncButton from './components/ui/async-button'
 import { LoadingProvider } from './components/ui/loading-context'
 import AdminBackups from './components/AdminBackups';
 import Approvals from './components/Approvals';
+import UserProfile from './components/UserProfile';
+import UserSettingsModal from './components/UserSettingsModal';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -28,6 +31,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['documents', 'system']);
   
   const [settings] = useState<SystemSettings>({
     primaryColor: '#0f172a',
@@ -238,44 +243,110 @@ const App: React.FC = () => {
     );
   };
 
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
+
+  const SidebarSection = ({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) => {
+    const isExpanded = expandedSections.includes(id);
+    return (
+      <div className="mb-2">
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black text-slate-400 hover:bg-slate-50 transition-all uppercase tracking-wider"
+        >
+          <div className="flex items-center gap-2">
+            <Icon size={14} />
+            <span>{title}</span>
+          </div>
+          <ChevronDown 
+            size={14} 
+            className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+          />
+        </button>
+        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="space-y-1 pt-1 pr-2">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
+      {/* User Settings Modal */}
+      {currentUser && (
+        <UserSettingsModal
+          user={currentUser}
+          isOpen={userSettingsOpen}
+          onClose={() => setUserSettingsOpen(false)}
+          onUpdate={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            localStorage.setItem('mdlbeast_session_user', JSON.stringify(updatedUser));
+          }}
+        />
+      )}
+      
       <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-sm no-print h-full">
-        <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+        <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
            <div className="flex flex-col items-center text-center w-full">
-             <img src='/mdlbeast/logo.png' className="h-20 w-auto mb-4 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />
-             <div className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] mb-6 leading-relaxed">مركز الإتصالات الإدارية</div>
+             <img src='/mdlbeast/logo.png' className="h-16 w-auto mb-3 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300" alt="Logo" />
+             <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.15em] leading-relaxed">مركز الإتصالات الإدارية</div>
            </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar">
           <NavItem id="dashboard" label="لوحة التحكم" icon={LayoutDashboard} />
-          <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
-          <div className="h-px bg-slate-100 my-4 mx-4"></div>
-          <NavItem id="incoming" label="قيد وارد جديد" icon={FilePlus} />
-          <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
-          <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
-          <div className="h-px bg-slate-100 my-4 mx-4"></div>
-          <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
-          <NavItem id="change-password" label="تغيير كلمة المرور" icon={Lock} />
-          <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
-          <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
-          <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
+          
+          <SidebarSection id="documents" title="المراسلات" icon={FolderOpen}>
+            <NavItem id="incoming" label="قيد وارد جديد" icon={FilePlus} />
+            <NavItem id="outgoing" label="قيد صادر جديد" icon={FileMinus} />
+            <NavItem id="list" label="الأرشيف والبحث" icon={Search} />
+            <NavItem id="scanner" label="تتبع الباركود" icon={Scan} />
+          </SidebarSection>
+          
+          <SidebarSection id="workflow" title="سير العمل" icon={FileSignature}>
+            <NavItem id="approvals" label="نظام الإعتمادات" icon={FileSignature} />
+          </SidebarSection>
+          
+          <div className="h-px bg-slate-100 my-3"></div>
+          
+          <SidebarSection id="system" title="إدارة النظام" icon={Settings}>
+            <NavItem id="users" label="إدارة المستخدمين" icon={Users} adminOnly />
+            <NavItem id="backup" label="النسخ الاحتياطي" icon={Database} adminOnly />
+            <NavItem id="admin-status" label="حالة النظام" icon={AlertCircle} adminOnly />
+          </SidebarSection>
         </nav>
 
-        <div className="p-6 border-t border-slate-100 bg-slate-50/30">
-          <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-4"><LogOut size={16} /> تسجيل الخروج</button>
-          <div className="p-4 bg-slate-900 rounded-[1.5rem] flex items-center gap-3 text-white shadow-2xl mb-6">
-             <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center font-black text-sm">{currentUser.full_name?.substring(0, 1) || 'U'}</div>
-             <div className="overflow-hidden">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <button onClick={() => { localStorage.removeItem('mdlbeast_session_user'); localStorage.removeItem('auth_token'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all mb-3"><LogOut size={16} /> تسجيل الخروج</button>
+          
+          <button
+            onClick={() => setUserSettingsOpen(true)}
+            className="w-full p-3 bg-gradient-to-l from-slate-900 to-slate-800 rounded-2xl flex items-center gap-3 text-white shadow-xl hover:shadow-2xl transition-all group cursor-pointer"
+          >
+             <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center font-black text-sm overflow-hidden shrink-0 group-hover:bg-slate-600 transition-colors">
+               {currentUser.avatar_url ? (
+                 <img src={currentUser.avatar_url} alt="" className="w-full h-full object-cover" />
+               ) : (
+                 currentUser.full_name?.substring(0, 1) || 'U'
+               )}
+             </div>
+             <div className="overflow-hidden text-right flex-1">
                <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'مدير نظام' : currentUser.role === 'manager' ? 'مدير تنفيذي' : currentUser.role === 'supervisor' ? 'مدير مباشر' : 'مستخدم'}</div>
              </div>
-          </div>
+             <Settings size={14} className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300" />
+          </button>
           
-          <div className="flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 transition-all">
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
-            <img src="/dev.png" className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
+          <div className="flex flex-col items-center justify-center gap-1.5 mt-4 opacity-50 hover:opacity-100 transition-all">
+            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Developed By</span>
+            <img src="/dev.png" className="h-6 w-auto object-contain grayscale hover:grayscale-0 transition-all duration-500" alt="Developer" />
           </div>
         </div>
       </aside>
@@ -293,74 +364,8 @@ const App: React.FC = () => {
           {activeTab === 'scanner' && <BarcodeScanner />}
           {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
           {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}
-          {activeTab === 'change-password' && <ChangePassword />}
           {activeTab === 'admin-status' && <AdminStatus />}
-
-          {activeTab === 'backup' && (
-             <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
-                <div className="bg-white p-12 rounded-[3.5rem] border border-slate-200 shadow-3xl relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
-                   
-                   <header className="mb-14 flex items-center gap-6">
-                      <div className="bg-blue-600 p-5 rounded-[1.5rem] text-white shadow-2xl shadow-blue-200">
-                         <Database size={32} />
-                      </div>
-                      <div>
-                        <h2 className="text-4xl font-black text-slate-900 font-heading tracking-tight">مركز النسخ الاحتياطي الشامل</h2>
-                        <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
-                           <ShieldCheck size={14} className="text-green-500" /> تأمين كامل لبيانات النظام والمراسلات
-                        </p>
-                      </div>
-                   </header>
-
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="p-12 bg-slate-50 rounded-[3rem] border border-slate-200 flex flex-col items-center text-center group hover:bg-white hover:border-blue-500 hover:shadow-2xl transition-all duration-500">
-                         <div className="bg-white p-6 rounded-[2rem] shadow-sm text-slate-400 group-hover:text-blue-600 transition-colors mb-8">
-                            <DownloadCloud size={56} />
-                         </div>
-                         <h3 className="text-2xl font-black text-slate-900 font-heading mb-4">تصدير قاعدة البيانات</h3>
-                         <p className="text-slate-500 text-sm leading-relaxed mb-10 font-medium">
-                            سيتم إنشاء ملف JSON مشفر يحتوي على كافة البيانات: (المراسلات، المؤسسات، صور الشعارات، سجل النشاطات، والمستخدمين).
-                         </p>
-                         <button 
-                           onClick={handleExportBackup}
-                           className="w-full bg-slate-900 text-white py-6 rounded-[1.5rem] font-black text-lg flex items-center justify-center gap-4 hover:bg-black transition-all shadow-xl active:scale-95"
-                         >
-                           <DownloadCloud size={24} /> تحميل النسخة الآن
-                         </button>
-                      </div>
-
-                      <div className="p-12 bg-slate-50 rounded-[3rem] border border-slate-200 flex flex-col items-center text-center group hover:bg-white hover:border-red-500 hover:shadow-2xl transition-all duration-500 border-dashed border-2">
-                         <div className="bg-white p-6 rounded-[2rem] shadow-sm text-blue-500 group-hover:text-red-500 transition-colors mb-8">
-                            <UploadCloud size={56} />
-                         </div>
-                         <h3 className="text-2xl font-black text-slate-900 font-heading mb-4">استعادة من ملف خارجي</h3>
-                         <p className="text-slate-500 text-sm leading-relaxed mb-10 font-medium">
-                            قم برفع ملف النسخة الاحتياطية لاستعادة النظام لحالة سابقة. 
-                            <span className="text-red-500 block mt-2 font-black">تحذير: هذا الإجراء سيمسح البيانات الحالية تماماً.</span>
-                         </p>
-                         <input type="file" ref={backupFileInputRef} onChange={handleImportBackup} accept=".json" className="hidden" />
-                         <button 
-                           onClick={() => backupFileInputRef.current?.click()}
-                           className="w-full bg-blue-600 text-white py-6 rounded-[1.5rem] font-black text-lg flex items-center justify-center gap-4 hover:bg-blue-700 transition-all shadow-xl active:scale-95"
-                         >
-                           <RefreshCcw size={24} /> استيراد ورفع الملف
-                         </button>
-                      </div>
-                   </div>
-                   
-                   <div className="mt-14 p-8 bg-amber-50 rounded-[2rem] border border-amber-100 flex items-start gap-6 text-amber-900">
-                      <AlertCircle size={28} className="mt-1 shrink-0 text-amber-600" />
-                      <div className="space-y-2">
-                        <p className="text-sm font-black uppercase tracking-widest">توصية أمنية من فريق هندسة النظام</p>
-                        <p className="text-xs font-black leading-relaxed opacity-80">
-                           نوصي بشدة بإجراء عملية "التصدير" وحفظ الملف في مكان آمن (مثل Google Drive أو وحدة تخزين خارجية) بشكل أسبوعي. هذا الملف هو الضمان الوحيد لاستعادة بيانات المؤسسة في حال حدوث أي خلل تقني أو رغبة في نقل النظام لجهاز آخر.
-                        </p>
-                      </div>
-                   </div>
-                </div>
-             </div>
-          )}
+          {activeTab === 'backup' && <AdminBackups />}
         </div>
         
         <footer className="p-8 bg-white border-t border-slate-100 text-center no-print">

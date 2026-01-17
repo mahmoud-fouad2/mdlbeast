@@ -3,7 +3,23 @@ import type { Request, Response } from "express"
 import { query } from "../config/database"
 import { authenticateToken, isAdmin, isManager } from "../middleware/auth"
 import type { AuthRequest } from "../types"
-import { getSignedDownloadUrl } from "../lib/r2-storage"
+import { getSignedDownloadUrl, uploadBuffer } from "../lib/r2-storage"
+import multer from "multer"
+
+// Configure multer for memory storage (files stored in buffer)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only image files are allowed'))
+    }
+  }
+})
 
 const router = express.Router()
 
@@ -33,6 +49,26 @@ async function convertToSignedUrls(user: any) {
       user.stamp_url = await getSignedDownloadUrl(pathname);
     } catch (err) {
       console.error('Failed to generate signed URL for stamp:', err);
+    }
+  }
+  // Handle avatar_url - it stores the R2 key, convert to signed URL
+  if (user.avatar_url) {
+    try {
+      // If it's already a URL, extract the key; otherwise use it directly as a key
+      if (user.avatar_url.includes('r2.cloudflarestorage.com')) {
+        const urlObj = new URL(user.avatar_url);
+        let pathname = urlObj.pathname.replace(/^\//, '');
+        const bucket = process.env.CF_R2_BUCKET || 'mdlbeast';
+        if (pathname.startsWith(bucket + '/')) {
+          pathname = pathname.slice(bucket.length + 1);
+        }
+        user.avatar_url = await getSignedDownloadUrl(pathname);
+      } else if (!user.avatar_url.startsWith('http')) {
+        // It's a key, convert to signed URL
+        user.avatar_url = await getSignedDownloadUrl(user.avatar_url);
+      }
+    } catch (err) {
+      console.error('Failed to generate signed URL for avatar:', err);
     }
   }
   return user;
@@ -156,10 +192,10 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
     const hasEmail = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email' LIMIT 1")).rows.length > 0
     const hasName = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'name' LIMIT 1")).rows.length > 0
 
-    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
-    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
+    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
+    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
+    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
+    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, avatar_url"
 
     if (hasEmail) {
        const hasUsernameCol = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username' LIMIT 1")).rows.length > 0
@@ -181,6 +217,93 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Get user error:", error)
     res.status(500).json({ error: "Failed to fetch user" })
+  }
+})
+
+// Change own password
+router.post("/me/password", async (req: AuthRequest, res: Response) => {
+  try {
+    const { current_password, new_password } = req.body
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" })
+    }
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: "Missing required fields" })
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" })
+    }
+
+    // Get current password hash
+    const result = await query("SELECT password FROM users WHERE id = $1", [userId])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    const bcrypt = await import('bcrypt')
+    const isValid = await bcrypt.compare(current_password, result.rows[0].password)
+    
+    if (!isValid) {
+      return res.status(401).json({ error: "Current password is incorrect" })
+    }
+
+    // Hash and update new password
+    const hashedPassword = await bcrypt.hash(new_password, 10)
+    await query("UPDATE users SET password = $1 WHERE id = $2", [hashedPassword, userId])
+
+    res.json({ success: true, message: "Password changed successfully" })
+  } catch (error) {
+    console.error("Change password error:", error)
+    res.status(500).json({ error: "Failed to change password" })
+  }
+})
+
+// Upload avatar for current user
+router.post("/me/avatar", upload.single('avatar'), async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" })
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" })
+    }
+
+    // Check if avatar_url column exists
+    const hasAvatarCol = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar_url' LIMIT 1")).rows.length > 0
+    
+    if (!hasAvatarCol) {
+      // Create the column if it doesn't exist
+      await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT")
+    }
+
+    // Generate unique filename
+    const ext = req.file.originalname.split('.').pop() || 'jpg'
+    const filename = `avatars/${userId}_${Date.now()}.${ext}`
+    
+    // Upload to R2 - uploadBuffer returns the key as a string
+    await uploadBuffer(filename, req.file.buffer, req.file.mimetype)
+
+    // Get signed URL
+    const signedUrl = await getSignedDownloadUrl(filename)
+    
+    // Update user record with the R2 key
+    await query("UPDATE users SET avatar_url = $1 WHERE id = $2", [filename, userId])
+
+    res.json({ 
+      success: true, 
+      avatar_url: signedUrl,
+      key: filename
+    })
+  } catch (error) {
+    console.error("Avatar upload error:", error)
+    res.status(500).json({ error: "Failed to upload avatar" })
   }
 })
 

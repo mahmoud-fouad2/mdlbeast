@@ -28,7 +28,7 @@ const ChangePassword: React.FC = () => {
     }
     try {
       setLoading(true)
-      await apiClient.changePassword(current, newPass)
+      await apiClient.changePassword({ currentPassword: current, newPassword: newPass })
       setMessage('تم تحديث كلمة المرور بنجاح')
       setMessageType('success')
       toast({ 

@@ -518,11 +518,32 @@ class ApiClient {
   }
 
   // Change own password
-  async changePassword(current_password: string, new_password: string) {
+  async changePassword(data: { currentPassword: string; newPassword: string }) {
     return this.request<any>(`/users/me/password`, {
       method: 'POST',
-      body: JSON.stringify({ current_password, new_password }),
+      body: JSON.stringify({ current_password: data.currentPassword, new_password: data.newPassword }),
     })
+  }
+
+  // Upload user avatar
+  async uploadAvatar(formData: FormData) {
+    const headers: Record<string, string> = {}
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/users/me/avatar`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || errorData.error || 'Upload failed')
+    }
+    
+    return response.json()
   }
 
   // Admin: set another user's password
