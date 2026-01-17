@@ -27,7 +27,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Backend سيعمل على: https://zaco-backend.onrender.com
+Backend سيعمل على: https://mdlbeast.onrender.com
 
 ### 2️⃣ إنشاء قاعدة البيانات
 
@@ -67,11 +67,11 @@ Frontend سيعمل محليًا على المنفذ 3000 (http://<your-host>:30
 افتح http://<your-host>:3000 واستخدم:
 
 **Admin:**
-- Email: `admin@zaco.sa`
+- Email: `admin@mdlbeast.com`
 - Password: `admin123`
 
 **User:**
-- Email: `user@zaco.sa`
+- Email: `user@mdlbeast.com`
 - Password: `user123`
 
 ## ✅ اختبار النظام

@@ -41,7 +41,7 @@ npm start
 3. إضافة المتغير البيئي `NEXT_PUBLIC_API_URL` في إعدادات المشروع
 4. Deploy
 
-### رفع على خادم خاص (zaco.sa/archive)
+### رفع على خادم خاص (zaco.sa/mdlbeast)
 ```bash
 npm run build
 # نقل محتويات مجلد .next و public إلى الخادم

@@ -53,7 +53,7 @@ git push heroku main
    - Vercel سيتعرف تلقائياً على Next.js
    - سيتم النشر تلقائياً
 
-### على zaco.sa/archive
+### على zaco.sa/mdlbeast
 
 #### إصدار artifact ثابت عبر GitHub Actions (مناسب للرفع اليدوي إلى Bluehost)
 
@@ -61,8 +61,8 @@ git push heroku main
 
 - المسار إلى ملف الـ workflow: `.github/workflows/export-static.yml`
 - يمكنك تشغيله يدويًا من تبويب **Actions → Build & Export Static Frontend → Run workflow** وإدخال القيم التالية (أو ترك القيم الافتراضية):
-  - `next_public_api_url`: `https://zaco-backend.onrender.com/api`
-  - `next_base_path`: `/archive` (إن أردت رفع الملفات إلى `https://zaco.sa/archive`)
+  - `next_public_api_url`: `https://mdlbeast.onrender.com/api`
+  - `next_base_path`: `/mdlbeast` (إن أردت رفع الملفات إلى `https://zaco.sa/mdlbeast`)
 
 Workflow سيقوم ب:
 1. تثبيت الاعتماديات على بيئة Ubuntu (بما في ذلك أدوات البناء و libpq)
@@ -142,7 +142,7 @@ psql $DATABASE_URL < scripts/02_seed_data.sql
 -- تحديث كلمة مرور الأدمن
 UPDATE users 
 SET password = 'new_bcrypt_hash_here'
-WHERE username = 'admin@zaco.sa';
+WHERE username = 'admin@mdlbeast.com';
 ```
 
 لتوليد hash جديد:
@@ -169,12 +169,12 @@ curl https://your-backend-url.onrender.com/health
 # اختبار تسجيل الدخول
 curl -X POST https://your-backend-url.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin@zaco.sa","password":"admin123"}'
+  -d '{"username":"admin@mdlbeast.com","password":"admin123"}'
 ```
 
 ### اختبار Frontend
 
-1. افتح المتصفح واذهب إلى `https://zaco.sa/archive`
+1. افتح المتصفح واذهب إلى `https://zaco.sa/mdlbeast`
 2. جرب تسجيل الدخول بحساب الأدمن
 3. تأكد من عمل جميع المميزات
 

@@ -138,7 +138,7 @@ async function testAlternativeLibrary() {
     ctx.textAlign = 'right';
     ctx.direction = 'rtl';
     
-    const text = 'زوايا البناء للإستشارات الهندسيه';
+    const text = 'MDLBEAST Communications';
     ctx.fillText(text, 480, 50);
     
     // Save as PNG
