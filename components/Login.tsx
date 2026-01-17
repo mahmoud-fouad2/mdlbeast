@@ -1,13 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Lock, Mail, ShieldCheck, LogIn, Smartphone, Globe, RefreshCw } from "lucide-react"
+import { Lock, Mail, ShieldCheck, LogIn, Smartphone, Globe } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -22,16 +23,15 @@ const translations = {
     password: "Password",
     usernamePlaceholder: "admin",
     passwordPlaceholder: "••••••••",
-    captchaLabel: "Security Verification",
     login: "Secure Login",
     loggingIn: "Securing session...",
-    captchaError: "Please complete the security verification",
+    captchaError: "Security verification failed. Please try again.",
     loginError: "Invalid username or password",
     securityNote: "Enterprise Encrypted Session",
     havingIssues: "Having issues?",
     downloadApp: "Download Android App",
     copyright: "All rights reserved MDLBEAST Entertainment Company",
-    mathCaptcha: "Solve",
+    protectedBy: "Protected by reCAPTCHA",
   },
   ar: {
     title: "MDLBEAST Communications",
@@ -40,16 +40,15 @@ const translations = {
     password: "كلمة المرور",
     usernamePlaceholder: "admin",
     passwordPlaceholder: "••••••••",
-    captchaLabel: "التحقق الأمني",
     login: "دخول آمن للنظام",
     loggingIn: "تأمين الجلسة...",
-    captchaError: "يرجى إكمال التحقق الأمني",
+    captchaError: "فشل التحقق الأمني. يرجى المحاولة مرة أخرى.",
     loginError: "خطأ في اسم المستخدم أو كلمة المرور",
     securityNote: "جلسة مشفرة مؤسسية",
     havingIssues: "تواجه مشكلة؟",
     downloadApp: "تحميل تطبيق الأندرويد",
     copyright: "جميع الحقوق محفوظة MDLBEAST Entertainment Company",
-    mathCaptcha: "حل",
+    protectedBy: "محمي بواسطة reCAPTCHA",
   }
 }
 
@@ -68,90 +67,44 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
   const { toast } = useToast()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [lang, setLang] = useState<'en' | 'ar'>('en')
-  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false)
+  const [recaptchaReady, setRecaptchaReady] = useState(false)
   const [isClearCacheOpen, setIsClearCacheOpen] = useState(false)
-  const recaptchaRef = useRef<HTMLDivElement>(null)
-  const widgetId = useRef<number | null>(null)
-  
-  // Fallback math captcha when reCAPTCHA is not configured
-  const [mathCaptcha, setMathCaptcha] = useState({ q: "", a: 0 })
-  const [mathAnswer, setMathAnswer] = useState("")
-  const useGoogleRecaptcha = !!RECAPTCHA_SITE_KEY
 
   const t = translations[lang]
 
-  const generateMathCaptcha = useCallback(() => {
-    const n1 = Math.floor(Math.random() * 10) + 1
-    const n2 = Math.floor(Math.random() * 10) + 1
-    setMathCaptcha({ q: `${n1} + ${n2}`, a: n1 + n2 })
-    setMathAnswer("")
-  }, [])
-
-  // Load saved language preference
   useEffect(() => {
     const savedLang = localStorage.getItem("mdlbeast_lang") as 'en' | 'ar'
     if (savedLang) setLang(savedLang)
   }, [])
 
-  // Load reCAPTCHA script
   useEffect(() => {
-    if (!useGoogleRecaptcha) {
-      generateMathCaptcha()
+    if (!RECAPTCHA_SITE_KEY) return
+    if (window.grecaptcha && window.grecaptcha.execute) {
+      setRecaptchaReady(true)
       return
     }
-
-    // Check if already loaded
-    if (window.grecaptcha && window.grecaptcha.render) {
-      setRecaptchaLoaded(true)
-      return
-    }
-
-    // Define callback
-    window.onRecaptchaLoad = () => {
-      setRecaptchaLoaded(true)
-    }
-
-    // Load script
     const script = document.createElement('script')
-    script.src = `https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit`
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`
     script.async = true
-    script.defer = true
+    script.onload = () => {
+      window.grecaptcha.ready(() => setRecaptchaReady(true))
+    }
     document.head.appendChild(script)
+    return () => { try { document.head.removeChild(script) } catch (e) { void e } }
+  }, [])
 
-    return () => {
-      try { 
-        document.head.removeChild(script) 
-      } catch (_e) {
-        // Ignore cleanup errors
-      }
-    }
-  }, [useGoogleRecaptcha, generateMathCaptcha])
-
-  // Render reCAPTCHA widget
-  useEffect(() => {
-    if (!useGoogleRecaptcha || !recaptchaLoaded || !recaptchaRef.current) return
-    if (widgetId.current !== null) return
-
+  const getRecaptchaToken = async (): Promise<string | null> => {
+    if (!RECAPTCHA_SITE_KEY || !recaptchaReady) return null
     try {
-      widgetId.current = window.grecaptcha.render(recaptchaRef.current, {
-        sitekey: RECAPTCHA_SITE_KEY,
-        callback: (token: string) => {
-          setRecaptchaToken(token)
-          setError("")
-        },
-        'expired-callback': () => setRecaptchaToken(null),
-        theme: 'light',
-        size: 'normal',
-        hl: lang
-      })
+      return await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' })
     } catch (e) {
-      console.error('Failed to render reCAPTCHA:', e)
+      console.error('reCAPTCHA execute failed:', e)
+      return null
     }
-  }, [recaptchaLoaded, useGoogleRecaptcha, lang])
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,34 +112,24 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
     setIsLoading(true)
 
     try {
-      if (useGoogleRecaptcha) {
-        if (!recaptchaToken) {
+      let recaptchaToken: string | undefined
+      if (RECAPTCHA_SITE_KEY) {
+        const token = await getRecaptchaToken()
+        if (!token) {
           setError(t.captchaError)
           setIsLoading(false)
           return
         }
-      } else {
-        if (Number.parseInt(mathAnswer) !== mathCaptcha.a) {
-          setError(t.captchaError)
-          generateMathCaptcha()
-          setIsLoading(false)
-          return
-        }
+        recaptchaToken = token
       }
 
-      const data = await apiClient.login(username, password, useGoogleRecaptcha ? recaptchaToken || undefined : undefined)
+      const data = await apiClient.login(username, password, recaptchaToken)
       localStorage.setItem("mdlbeast_session_user", JSON.stringify(data.user))
       localStorage.setItem("mdlbeast_lang", lang)
       if (onLogin) onLogin(data.user)
       router.push("/dashboard")
     } catch (err: any) {
       setError(err.message || t.loginError)
-      if (useGoogleRecaptcha && window.grecaptcha && widgetId.current !== null) {
-        window.grecaptcha.reset(widgetId.current)
-        setRecaptchaToken(null)
-      } else {
-        generateMathCaptcha()
-      }
     } finally {
       setIsLoading(false)
     }
@@ -280,39 +223,6 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
               </div>
             </div>
 
-            {/* Captcha Section */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                  {t.captchaLabel}
-                </span>
-                {!useGoogleRecaptcha && (
-                  <button type="button" onClick={generateMathCaptcha} className="text-slate-300 hover:text-slate-900 transition-colors">
-                    <RefreshCw size={14} />
-                  </button>
-                )}
-              </div>
-              
-              {useGoogleRecaptcha ? (
-                <div className="flex justify-center">
-                  <div ref={recaptchaRef}></div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-white border border-slate-300 py-2.5 text-center rounded-xl font-black text-lg text-slate-900">
-                    {t.mathCaptcha}: {mathCaptcha.q} = ?
-                  </div>
-                  <input
-                    required
-                    type="number"
-                    className="w-20 p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-slate-900 font-black text-center text-slate-900"
-                    value={mathAnswer}
-                    onChange={(e) => setMathAnswer(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
             {error && (
               <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold text-center border border-red-100">
                 {error}
@@ -326,6 +236,13 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
             >
               {isLoading ? t.loggingIn : (<><LogIn size={20} /> {t.login}</>)}
             </button>
+
+            {RECAPTCHA_SITE_KEY && (
+              <p className="text-[9px] text-slate-400 text-center mt-2">
+                <ShieldCheck size={10} className="inline mr-1" />
+                {t.protectedBy}
+              </p>
+            )}
           </form>
 
           <footer className="mt-6 text-center">
@@ -365,6 +282,9 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
             <DialogTitle className="text-slate-900">
               {lang === 'ar' ? 'إصلاح مشاكل تسجيل الدخول' : 'Fix login issues'}
             </DialogTitle>
+            <DialogDescription className="text-slate-500 text-sm">
+              {lang === 'ar' ? 'مسح بيانات الجلسة المحفوظة لإصلاح مشاكل تسجيل الدخول' : 'Clear saved session data to fix login issues'}
+            </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
             <div className="rounded-xl overflow-hidden border border-slate-200">

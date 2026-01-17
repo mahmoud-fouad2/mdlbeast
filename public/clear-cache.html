@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حل مشكلة تسجيل الدخول - مسح البيانات</title>
+    <title>Clear Cache | حل مشكلة تسجيل الدخول</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background: #0f172a;
@@ -28,7 +24,6 @@
               radial-gradient(700px 350px at 80% 30%, rgba(14,165,233,0.25), transparent 60%),
               radial-gradient(900px 500px at 50% 90%, rgba(16,185,129,0.18), transparent 60%),
               #0f172a;
-            opacity: 1;
             pointer-events: none;
         }
         .container {
@@ -42,18 +37,8 @@
             border: 1px solid rgba(226,232,240,0.8);
             backdrop-filter: blur(12px);
         }
-        h1 {
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 900;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            color: #475569;
-            font-size: 12px;
-            margin-bottom: 30px;
-            font-weight: 700;
-        }
+        h1 { color: #0f172a; font-size: 22px; font-weight: 900; margin-bottom: 10px; }
+        .subtitle { color: #475569; font-size: 12px; margin-bottom: 30px; font-weight: 700; }
         .status {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -70,28 +55,11 @@
             background: white;
             border-radius: 8px;
         }
-        .status-item:last-child {
-            margin-bottom: 0;
-        }
-        .label {
-            font-weight: 900;
-            color: #334155;
-            font-size: 12px;
-        }
-        .badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 900;
-        }
-        .badge.success {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-        .badge.warning {
-            background: #feebc8;
-            color: #7c2d12;
-        }
+        .status-item:last-child { margin-bottom: 0; }
+        .label { font-weight: 900; color: #334155; font-size: 12px; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 900; }
+        .badge.success { background: #c6f6d5; color: #22543d; }
+        .badge.warning { background: #feebc8; color: #7c2d12; }
         button {
             background: #0f172a;
             color: white;
@@ -105,22 +73,10 @@
             margin-bottom: 10px;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
-        }
-        button:active {
-            transform: translateY(0);
-        }
-        .btn-secondary {
-            background: #fff;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
-        }
-        .btn-secondary:hover {
-            background: #f8fafc;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35); }
+        button:active { transform: translateY(0); }
+        .btn-secondary { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
+        .btn-secondary:hover { background: #f8fafc; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .success-message {
             background: #c6f6d5;
             border: 2px solid #9ae6b4;
@@ -132,8 +88,7 @@
             font-weight: 600;
         }
         .icon {
-            width: 56px;
-            height: 56px;
+            width: 56px; height: 56px;
             margin: 0 auto 16px;
             border-radius: 18px;
             background: #0f172a;
@@ -144,22 +99,29 @@
             font-weight: 900;
             box-shadow: 0 12px 28px rgba(15, 23, 42, 0.25);
         }
-        .hint {
-            margin-top: 14px;
+        .lang-toggle {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #f1f5f9;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
             font-size: 11px;
-            color: #64748b;
             font-weight: 700;
-            line-height: 1.6;
-            text-align: right;
+            cursor: pointer;
+            color: #475569;
         }
+        .lang-toggle:hover { background: #e2e8f0; }
     </style>
 </head>
 <body>
     <div class="bg"></div>
-    <div class="container">
+    <div class="container" style="position: relative;">
+        <button class="lang-toggle" onclick="toggleLang()">English</button>
         <div class="icon">CC</div>
-        <h1>حل مشكلة تسجيل الدخول</h1>
-        <p class="subtitle">مسح بيانات الجلسة/التوكن لإصلاح مشكلة Access token required</p>
+        <h1 id="title">حل مشكلة تسجيل الدخول</h1>
+        <p class="subtitle" id="subtitle">مسح بيانات الجلسة لإصلاح مشكلة Access token required</p>
         
         <div class="status">
             <div class="status-item">
@@ -176,79 +138,83 @@
             </div>
         </div>
 
-                <button onclick="clearAllData()">مسح البيانات الآن</button>
-                <button class="btn-secondary" onclick="goBack()">الرجوع</button>
-
-                <div class="hint">
-                    إذا كنت تفتح هذه الصفحة من داخل نافذة (Modal)، اضغط "الرجوع" للعودة بدون فتح صفحة جديدة.
-                </div>
+        <button id="clearBtn" onclick="clearAllData()">مسح البيانات الآن</button>
+        <button class="btn-secondary" id="backBtn" onclick="goBack()">الرجوع</button>
         
-        <div class="success-message" id="success">
-            ✅ تم المسح بنجاح! يرجى إعادة تسجيل الدخول
-        </div>
+        <div class="success-message" id="success">✅ تم المسح بنجاح! يرجى إعادة تسجيل الدخول</div>
     </div>
 
     <script>
-        // Check what's stored
+        var lang = 'ar';
+        var i18n = {
+            ar: {
+                title: 'حل مشكلة تسجيل الدخول',
+                subtitle: 'مسح بيانات الجلسة لإصلاح مشكلة Access token required',
+                clearBtn: 'مسح البيانات الآن',
+                backBtn: 'الرجوع',
+                success: '✅ تم المسح بنجاح! يرجى إعادة تسجيل الدخول',
+                exists: 'موجود',
+                empty: 'فارغ',
+                toggle: 'English'
+            },
+            en: {
+                title: 'Fix Login Issues',
+                subtitle: 'Clear session data to fix Access token required error',
+                clearBtn: 'Clear Data Now',
+                backBtn: 'Go Back',
+                success: '✅ Cleared successfully! Please login again',
+                exists: 'Exists',
+                empty: 'Empty',
+                toggle: 'العربية'
+            }
+        };
+
+        function toggleLang() {
+            lang = lang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            document.querySelector('.lang-toggle').textContent = i18n[lang].toggle;
+            document.getElementById('title').textContent = i18n[lang].title;
+            document.getElementById('subtitle').textContent = i18n[lang].subtitle;
+            document.getElementById('clearBtn').textContent = i18n[lang].clearBtn;
+            document.getElementById('backBtn').textContent = i18n[lang].backBtn;
+            document.getElementById('success').textContent = i18n[lang].success;
+            checkStorage();
+        }
+
         function checkStorage() {
-            const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-            const docs = localStorage.getItem('archive_docs');
-            const user = localStorage.getItem('archive_user') || localStorage.getItem('mdlbeast_session_user');
+            var token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+            var docs = localStorage.getItem('archive_docs');
+            var user = localStorage.getItem('archive_user') || localStorage.getItem('mdlbeast_session_user');
             
-            document.getElementById('token-status').textContent = token ? 'موجود' : 'فارغ';
+            document.getElementById('token-status').textContent = token ? i18n[lang].exists : i18n[lang].empty;
             document.getElementById('token-status').className = token ? 'badge warning' : 'badge success';
             
-            document.getElementById('docs-status').textContent = docs ? 'موجود' : 'فارغ';
+            document.getElementById('docs-status').textContent = docs ? i18n[lang].exists : i18n[lang].empty;
             document.getElementById('docs-status').className = docs ? 'badge warning' : 'badge success';
             
-            document.getElementById('user-status').textContent = user ? 'موجود' : 'فارغ';
+            document.getElementById('user-status').textContent = user ? i18n[lang].exists : i18n[lang].empty;
             document.getElementById('user-status').className = user ? 'badge warning' : 'badge success';
         }
 
         function clearAllData() {
-            // Clear all possible localStorage keys
-            const keysToRemove = [
-                'auth_token',
-                'token',
-                'refresh_token',
-                'archive_docs',
-                'archive_user',
-                'mdlbeast_session_user',
-                'archivx_session_user',
-                'archive_tenant',
-                'selectedTenantId'
+            var keysToRemove = [
+                'auth_token', 'token', 'refresh_token', 'archive_docs', 'archive_user',
+                'mdlbeast_session_user', 'archivx_session_user', 'archive_tenant', 'selectedTenantId'
             ];
-            
-            keysToRemove.forEach(key => {
-                localStorage.removeItem(key);
-            });
-            
-            // Clear sessionStorage too
+            keysToRemove.forEach(function(key) { localStorage.removeItem(key); });
             sessionStorage.clear();
-            
-            // Update UI
             checkStorage();
             document.getElementById('success').style.display = 'block';
-            
-            console.log('✅ All data cleared successfully!');
-            console.log('📋 Cleared keys:', keysToRemove);
-            
-                        // Notify parent (modal) if embedded
-                        try {
-                            window.parent && window.parent.postMessage({ type: 'mdlbeast:clear-cache:done' }, '*')
-                        } catch (e) { /* ignore */ }
+            try { window.parent && window.parent.postMessage({ type: 'mdlbeast:clear-cache:done' }, '*'); } catch (e) {}
         }
 
-                function goBack() {
-                    try {
-                        window.parent && window.parent.postMessage({ type: 'mdlbeast:clear-cache:close' }, '*')
-                    } catch (e) { /* ignore */ }
-                    // Fallback behavior for direct open
-                    if (history.length > 1) history.back();
-                    else window.location.href = '/mdlbeast/';
-                }
+        function goBack() {
+            try { window.parent && window.parent.postMessage({ type: 'mdlbeast:clear-cache:close' }, '*'); } catch (e) {}
+            if (history.length > 1) history.back();
+            else window.location.href = '/mdlbeast/';
+        }
 
-        // Check on load
         checkStorage();
     </script>
 </body>
