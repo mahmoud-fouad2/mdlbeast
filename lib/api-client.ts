@@ -82,18 +82,26 @@ class ApiClient {
         
         if (this.cachedVersion && this.cachedVersion !== newVersion) {
           console.warn('[ApiClient] Deployment detected - version changed from', this.cachedVersion, 'to', newVersion)
-          console.warn('[ApiClient] Forcing hard refresh to load new code')
+          console.warn('[ApiClient] Forcing logout and refresh to load new code')
           
-          // Force hard refresh to clear all caches
+          // Clear tokens to force fresh login
+          this.clearToken()
+          
+          // Clear user session
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('mdlbeast_session_user')
+          }
+          
+          // Disable service worker cache for this reload
+          if (typeof window !== 'undefined' && navigator.serviceWorker) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+              registrations.forEach(reg => reg.unregister())
+            })
+          }
+          
+          // Hard refresh with cache busting
           if (typeof window !== 'undefined' && window.location) {
-            // Disable service worker cache for this reload
-            if (navigator.serviceWorker) {
-              navigator.serviceWorker.getRegistrations().then(registrations => {
-                registrations.forEach(reg => reg.unregister())
-              })
-            }
-            // Hard refresh with cache busting
-            window.location.href = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 't=' + Date.now()
+            window.location.href = window.location.pathname + (window.location.search ? '&' : '?') + 't=' + Date.now()
           }
         }
         
@@ -159,11 +167,16 @@ class ApiClient {
     } catch { /* ignore */ }
 
     // Public endpoints (everything else requires an access token)
-    const publicPrefixes = ['/auth/', '/version', '/admin/maintenance-status']
+    const publicPrefixes = ['/auth/', '/version']
     const isPublic = publicPrefixes.some(p => endpoint.startsWith(p))
 
     // If endpoint requires auth and we don't have a token, fail fast to avoid noisy 401s
     if (!this.token && !isPublic) {
+      // Clear stale session and notify user
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('mdlbeast_session_user')
+      }
+      this.emitSessionExpired()
       throw new Error('Access token required')
     }
 
@@ -196,10 +209,16 @@ class ApiClient {
 
     // If 401, try to refresh token once and retry (only if we had a refresh token)
     if (response.status === 401) {
+      console.warn('[ApiClient] 401 received - token invalid or expired')
+      
       if (!this.refreshToken) {
-        console.warn('[ApiClient] 401 received and no refresh token available')
+        console.warn('[ApiClient] No refresh token available, clearing session')
         this.clearToken()
-        try { this.emitSessionExpired() } catch { /* ignore */ }
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('mdlbeast_session_user')
+        }
+        this.emitSessionExpired()
+        throw new Error('Access token required')
       } else {
         const refreshed = await this.refreshAccessToken()
         if (refreshed) {
@@ -223,12 +242,25 @@ class ApiClient {
           } finally {
             clearTimeout(retryTimeout)
           }
-        } else {
-          console.warn('[ApiClient] 401 and refresh failed, clearing tokens')
-          this.clearToken()
-          try {
+          
+          // If still 401 after refresh, clear and logout
+          if (response.status === 401) {
+            console.warn('[ApiClient] Still 401 after refresh, forcing logout')
+            this.clearToken()
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('mdlbeast_session_user')
+            }
             this.emitSessionExpired()
-          } catch { /* ignore */ }
+            throw new Error('Access token required')
+          }
+        } else {
+          console.warn('[ApiClient] Refresh failed, forcing logout')
+          this.clearToken()
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('mdlbeast_session_user')
+          }
+          this.emitSessionExpired()
+          throw new Error('Access token required')
         }
       }
     }

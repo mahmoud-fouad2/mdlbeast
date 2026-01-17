@@ -72,12 +72,21 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
   const [lang, setLang] = useState<'en' | 'ar'>('en')
   const [recaptchaReady, setRecaptchaReady] = useState(false)
   const [isClearCacheOpen, setIsClearCacheOpen] = useState(false)
+  const [showDeploymentNotice, setShowDeploymentNotice] = useState(false)
 
   const t = translations[lang]
 
   useEffect(() => {
     const savedLang = localStorage.getItem("mdlbeast_lang") as 'en' | 'ar'
     if (savedLang) setLang(savedLang)
+    
+    // Check if this is a fresh login after deployment (no token but had session)
+    const hadSession = localStorage.getItem('mdlbeast_session_user')
+    const hasToken = localStorage.getItem('auth_token')
+    if (hadSession && !hasToken) {
+      setShowDeploymentNotice(true)
+      setTimeout(() => setShowDeploymentNotice(false), 10000) // Hide after 10s
+    }
   }, [])
 
   useEffect(() => {
@@ -193,6 +202,15 @@ export default function Login({ onLogin, logoUrl }: { onLogin?: (u: any) => void
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {showDeploymentNotice && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-bold text-center mb-4">
+                <ShieldCheck size={16} className="inline ml-2" />
+                {lang === 'ar' 
+                  ? 'تم تحديث النظام. يرجى تسجيل الدخول مرة أخرى.' 
+                  : 'System updated. Please login again.'}
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">{t.username}</label>
               <div className="relative">

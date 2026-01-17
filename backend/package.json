@@ -1,6 +1,6 @@
 {
   "name": "mdlbeast-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend API for MDLBEAST Correspondence Management System",
   "repository": {
     "type": "git",

@@ -130,6 +130,15 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('mdlbeast_session_user');
     if (savedUser) setCurrentUser(JSON.parse(savedUser));
 
+    // Listen for session expiry (token invalid/expired)
+    apiClient.onSessionExpired(() => {
+      console.warn('[App] Session expired - forcing logout')
+      setCurrentUser(null)
+      localStorage.removeItem('mdlbeast_session_user')
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('refresh_token')
+    })
+
     // If user token exists, try to fetch current user and then load data
     const tryInit = async () => {
       const token = localStorage.getItem('auth_token')
@@ -143,9 +152,15 @@ const App: React.FC = () => {
         if (u) {
           setCurrentUser(u)
           await loadInitialData()
+        } else {
+          // If getCurrentUser fails, clear session
+          setCurrentUser(null)
+          localStorage.removeItem('mdlbeast_session_user')
         }
       } catch (_e) {
-        // Ignore initialization errors
+        // Ignore initialization errors but clear session
+        setCurrentUser(null)
+        localStorage.removeItem('mdlbeast_session_user')
       } finally {
         setIsLoading(false)
       }
