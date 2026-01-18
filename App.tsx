@@ -365,15 +365,19 @@ const App: React.FC = () => {
       <div className="mb-2">
         <button
           onClick={() => toggleSection(id)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black text-slate-600 hover:bg-white hover:shadow-sm transition-all uppercase tracking-wider"
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[11px] font-black transition-all group ${
+            dir === 'rtl' 
+              ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-900' 
+              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 uppercase tracking-widest'
+          } ${isExpanded ? 'bg-slate-50 text-slate-900' : ''}`}
         >
-          <div className="flex items-center gap-2">
-            <Icon size={14} />
-            <span>{title}</span>
+          <div className="flex items-center gap-2 text-start leading-tight overflow-hidden">
+            <Icon size={16} className={`${isExpanded ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-900'} transition-colors shrink-0`} />
+            <span className="truncate">{title}</span>
           </div>
           <ChevronDown 
             size={14} 
-            className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+            className={`transition-transform duration-200 text-slate-400 group-hover:text-slate-900 ${isExpanded ? 'rotate-180 text-slate-900' : ''} shrink-0`} 
           />
         </button>
         <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
@@ -431,7 +435,7 @@ const App: React.FC = () => {
               </button>
 
               <div className="mt-3">
-                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.adminComms')}</div>
+                <div className={`px-4 py-2 text-[11px] font-black text-slate-400 ${dir === 'rtl' ? '' : 'uppercase tracking-wider'}`}>{t('sidebar.adminComms')}</div>
                 {([
                   ['incoming', t('nav.incoming'), FilePlus],
                   ['outgoing', t('nav.outgoing'), FileMinus],
@@ -457,7 +461,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="mt-3">
-                <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.workflow')}</div>
+                <div className={`px-4 py-2 text-[11px] font-black text-slate-400 ${dir === 'rtl' ? '' : 'uppercase tracking-wider'}`}>{t('sidebar.workflow')}</div>
                 {([
                   ['approvals', t('nav.approvals'), FileSignature],
                   ['internal', t('nav.internal'), FileText],
@@ -480,7 +484,7 @@ const App: React.FC = () => {
 
               {(hasPermission(currentUser, 'users', 'view_idx') || hasPermission(currentUser, 'system', 'view_idx')) && (
                 <div className="mt-3">
-                  <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.administration')}</div>
+                  <div className={`px-4 py-2 text-[11px] font-black text-slate-400 ${dir === 'rtl' ? '' : 'uppercase tracking-wider'}`}>{t('sidebar.administration')}</div>
                   {([
                     ['users', t('nav.users'), Users],
                     ['audit', t('nav.audit'), ShieldCheck],
