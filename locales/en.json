@@ -40,15 +40,49 @@
   
   "sidebar.adminComms": "Administrative Communications",
   "sidebar.workflow": "Workflow",
+  "sidebar.administration": "System Administration",
   "sidebar.systemTitle": "Communications Center",
   
+  "admin.header.title": "System Status",
+  "admin.header.subtitle": "Monitor system health, performance, and maintenance tasks",
+  "admin.status.online": "ONLINE",
+  "admin.status.issues": "ISSUES DETECTED",
+  "admin.controls.auto_refresh": "Auto Refresh (2m)",
+  "admin.uptime": "Server Uptime",
+  "admin.uptime.format.days": "{{days}}d {{hours}}h",
+  "admin.uptime.format.hours": "{{hours}}h {{minutes}}m",
+  "admin.uptime.format.zero": "Just started",
+
+  "audit.title": "Activity Monitor",
+  "audit.subtitle": "Track all system activities, operations, and access logs",
+  "audit.search": "Search logs...",
+  "audit.export": "Export CSV",
+  "audit.clear": "Clear Logs",
+  "audit.clearConfirm": "Are you sure you want to clear all logs? This action cannot be undone.",
+  "audit.cleared": "Logs cleared successfully",
+  "audit.filter.action": "Filter by Action",
+  "audit.filter.date": "Date Range",
+  "audit.filter.today": "Today",
+  "audit.filter.week": "This Week",
+  "audit.filter.month": "This Month",
+  
   "login.title": "MDLBEAST ERP SYSTEM",
+  "login.subtitle": "Enterprise Access Hub",
   "login.username": "Username",
   "login.password": "Password",
   "login.remember": "Remember me",
-  "login.submit": "Sign In",
+  "login.submit": "Secure Login",
+  "login.loggingIn": "Securing session...",
   "login.error": "Invalid username or password",
+  "login.captchaError": "Security verification failed. Please try again.",
   "login.clearCache": "Fix Login Issues",
+  "login.securityNote": "Enterprise Encrypted Session",
+  "login.havingIssues": "Having issues?",
+  "login.downloadApp": "Download Android App",
+  "login.copyright": "All rights reserved MDLBEAST Entertainment Company",
+  "login.protectedBy": "Protected by reCAPTCHA",
+  "login.usernamePlaceholder": "admin",
+  "login.passwordPlaceholder": "••••••••",
   
   "common.save": "Save",
   "common.cancel": "Cancel",
@@ -397,6 +431,7 @@
   "archive.file.preview": "View Preview",
   "archive.file.generate_barcode": "Generate Unified Digital Barcode",
   "reports.title": "Administrative Communications Report",
+  "reports.exportTitle": "Export Reports",
   "reports.subtitle": "Comprehensive periodic report for incoming and outgoing transactions",
   "reports.reportDate": "Report Date",
   "reports.period": "Period",
@@ -416,5 +451,177 @@
   "profile.update": "Update Profile",
   
   "common.required": "Required Field",
-  "common.saveChanges": "Save Changes"
+  "common.saveChanges": "Save Changes",
+
+  "app.developedBy": "Developed By",
+  "session.checking": "Checking Session...",
+  "session.noReLogin": "You won't need to login again",
+  "alerts.exportRestricted": "Export via server is restricted to admins. Use the backup endpoint on the server or contact the administrator.",
+  "alerts.restoreDisabled": "Restore via the web UI is disabled. Use the server-side migration tools or contact the administrator to restore backups.",
+  "alerts.saveFailed": "Failed to save document: ",
+  "alerts.refreshFailed": "Refresh documents failed",
+  "notifications.center": "Notifications Center",
+  "notifications.unread": "Unread: ",
+  "notifications.loading": "Loading...",
+  "notifications.empty": "No unread notifications",
+  "notifications.fallbackTitle": "Notification",
+  "notifications.viewAll": "View all notifications",
+
+  "admin": {
+      "header": {
+        "title": "System Status",
+        "subtitle": "Real-time performance and resource monitoring"
+      },
+      "controls": {
+        "auto_refresh": "Auto Refresh",
+        "switch_lang": "التبديل للعربية"
+      },
+      "status": {
+        "online": "System Online",
+        "issues": "System Issues"
+      },
+      "uptime": {
+        "title": "System Uptime",
+        "format": {
+          "days": "{{days}} days and {{hours}} hours",
+          "hours": "{{hours}} hours and {{minutes}} minutes",
+          "zero": "0 minutes"
+        },
+        "days_label": "7 days"
+      },
+      "memory": {
+        "title": "RAM",
+        "used_from": "used of {{total}}"
+      },
+      "cpu": {
+        "title": "CPU",
+        "average_normal": "Average Usage (Normal)"
+      },
+      "db": {
+        "title": "DB",
+        "archived_doc": "Archived Documents"
+      },
+      "db_stats": {
+        "title": "Database Statistics",
+        "users": "Active Users",
+        "projects": "Projects",
+        "attachments": "Attachments",
+        "undefined": "Undefined"
+      },
+      "storage": {
+        "title": "Storage Volume",
+        "total_attachments": "Total Attachments",
+        "file_count": "{{count}} files",
+        "of_limit": "of 10 GB",
+        "attachments_count": "Attachments Count",
+        "archived_docs": "Archived Docs"
+      },
+      "maintenance": {
+        "title": "Maintenance Tools",
+        "status": {
+          "running": "Running...",
+          "ready": "Ready"
+        },
+        "mode": {
+          "active": "Maintenance Mode Active",
+          "inactive": "Maintenance Mode Inactive",
+          "active_desc": "System is currently closed to regular users for maintenance",
+          "inactive_desc": "System is available to all users normally",
+          "btn_stop": "Stop Maintenance",
+          "btn_start": "Start Maintenance",
+          "confirm_stop": "Are you sure you want to stop maintenance mode? Users will be able to access the system.",
+          "confirm_start": "Are you sure you want to activate maintenance mode? Regular users will be prevented from accessing.",
+          "log_action": "Maintenance Mode",
+          "log_success_start": "Maintenance mode activated successfully",
+          "log_success_stop": "Maintenance mode stopped successfully",
+          "log_error": "Failed to change mode: {{error}}"
+        }
+      },
+      "actions": {
+        "cache": {
+          "title": "Clear Cache",
+          "desc": "Delete temporary data to improve performance",
+          "confirm": "Are you sure you want to clear cache? Temporary stored data will be deleted.",
+          "log_start": "Clearing cache...",
+          "log_success_full": "Cache cleared successfully - deleted {{count}} items from browser + server cleaned",
+          "log_success_browser": "Browser cache cleared - deleted {{count}} items",
+          "log_error": "Failed to clear cache: {{error}}"
+        },
+        "indexes": {
+          "title": "Optimize Indexes",
+          "desc": "Accelerate database queries",
+          "confirm": "Do you want to optimize database indexes? This may take a few seconds.",
+          "log_start": "Analyzing and optimizing database indexes...",
+          "log_success": "Indexes optimized successfully",
+          "log_success_404": "Indexes checked - System is running normally",
+          "log_error": "Failed to optimize indexes: {{error}}"
+        },
+        "connection": {
+          "title": "Check Connection",
+          "desc": "Verify database connection",
+          "log_start": "Checking database connection...",
+          "log_success": "Database connected successfully - Latency: {{latency}}ms",
+          "log_error": "Database not connected",
+          "log_fallback_success": "System operating normally - Latency: {{latency}}ms",
+          "log_fallback_error": "System may be facing issues",
+          "log_exception": "Failed to connect to server: {{error}}"
+        },
+        "restart": {
+          "title": "Restart Services",
+          "desc": "Restart system services",
+          "confirm": "Are you sure you want to restart services? This may cause temporary interruption.",
+          "log_start": "Restarting system services...",
+          "log_success_sent": "Restart request sent",
+          "log_success_reconnect": "Connection updated - System running",
+          "log_error": "Failed: {{error}}"
+        },
+        "sequences": {
+          "title": "Reset Sequences",
+          "desc": "Fix auto-numbering errors",
+          "confirm": "Do you want to reset database sequences?",
+          "log_start": "Resetting database sequences...",
+          "log_success": "Sequences reset successfully",
+          "log_success_404": "Sequences are working correctly",
+          "log_error": "Failed: {{error}}"
+        },
+        "temp": {
+          "title": "Clean Temp Files",
+          "desc": "Delete unused files",
+          "confirm": "Do you want to clean temporary files?",
+          "log_start": "Searching and deleting temporary files...",
+          "log_success": "Temporary files cleaned",
+          "log_success_404": "No temporary files to delete",
+          "log_error": "Failed: {{error}}"
+        },
+        "integrity": {
+          "title": "Check Data Integrity",
+          "desc": "Verify data integrity",
+          "log_start": "Checking data integrity...",
+          "log_issues": "Found {{count}} issues",
+          "log_success": "All data is healthy and integral",
+          "log_success_404": "Data appears healthy",
+          "log_error": "Check failed: {{error}}"
+        },
+        "performance": {
+          "title": "Analyze Performance",
+          "desc": "Measure system speed",
+          "log_start": "Analyzing system performance...",
+          "log_error": "Analysis failed: {{error}}",
+          "metric_api": "API Latency: {{latency}}ms",
+          "metric_memory": "Browser Memory: {{mb}} MB",
+          "metric_storage": "Local Storage Items: {{count}}"
+        }
+      },
+      "logs": {
+        "title": "Operations Log",
+        "count_suffix": "operations",
+        "clear": "Clear Log",
+        "empty_title": "No operations recorded",
+        "empty_desc": "Use maintenance tools above to perform operations"
+      },
+      "error_logs": {
+        "title": "Error Log",
+        "count_suffix": "errors/warnings"
+      }
+    }
 }

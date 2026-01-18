@@ -1,7 +1,11 @@
 {
   "name": "mdlbeast-backend",
-  "version": "1.1.0",
-  "description": "Backend API for MDLBEAST Correspondence Management System",
+  "version": "2.0.0",
+  "description": "Backend API for MDLBEAST Archive & Communications System",
+  "author": {
+    "name": "Mahmoud Fouad",
+    "email": "mahmoud.a.fouad2@gmail.com"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mfouad-del/mdlbeast"

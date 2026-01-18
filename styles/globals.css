@@ -24,20 +24,7 @@ html[dir="ltr"] body {
   text-align: left;
 }
 
-/* Fix flex/grid alignment in RTL */
-html[dir="rtl"] .flex {
-  flex-direction: row-reverse;
-}
-
-html[dir="rtl"] .flex-row-reverse {
-  flex-direction: row;
-}
-
 /* Prevent layout shift during locale change */
-* {
-  transition: none !important;
-}
-
 body.rtl,
 body.ltr {
   transition: direction 0s;

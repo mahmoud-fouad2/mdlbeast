@@ -1,12 +1,16 @@
 {
-  "name": "mdlbeast-archive-frontend",
-  "version": "1.1.0",
+  "name": "mdlbeast-archive-system",
+  "version": "2.0.0",
   "private": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/mfouad-del/mdlbeast.git"
   },
-  "description": "نظام الاتصالات الإدارية - MDLBEAST - Frontend",
+  "description": "Archive and Communications Management System for MDLBEAST Entertainment Company",
+  "author": {
+    "name": "Mahmoud Fouad",
+    "email": "mahmoud.a.fouad2@gmail.com"
+  },
   "scripts": {
     "build": "next build",
     "export": "next build",

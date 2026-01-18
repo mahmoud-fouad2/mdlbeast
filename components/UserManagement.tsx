@@ -29,6 +29,7 @@ import { apiClient } from '../lib/api-client'
 import { useToast } from '../hooks/use-toast'
 import { useI18n } from '@/lib/i18n-context'
 import type { User } from '../types'
+import { UserPermissions, DEFAULT_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, mergePermissions } from '@/lib/permissions'
 import { ReactFlow, Background, Controls, useNodesState, useEdgesState, Position, useReactFlow, Node, Edge, ReactFlowProvider, Handle, MarkerType } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
@@ -51,68 +52,7 @@ interface UserWithChildren extends User {
   notify_on_report?: boolean
 }
 
-// ============================================================================
-// هيكل الصلاحيات - مشروع الاتصالات الإدارية
-// Administrative Communications Project - Permissions Structure
-// ============================================================================
-interface UserPermissions {
-  // 1. الاتصالات الإدارية (الأرشيف - الصادر/الوارد)
-  archive?: {
-    view_idx?: boolean    // عرض القسم في السايدبار
-    view_all?: boolean    // عرض جميع المستندات
-    view_own?: boolean    // عرض المستندات الخاصة فقط
-    create?: boolean      // إنشاء مستند جديد
-    edit?: boolean        // تعديل المستندات
-    delete?: boolean      // حذف المستندات
-    stamp?: boolean       // ختم المستندات
-    export?: boolean      // تصدير/طباعة المستندات
-  }
-
-  // 2. التقارير
-  reports?: {
-    view_idx?: boolean          // عرض القسم في السايدبار
-    view_all?: boolean          // عرض جميع التقارير
-    view_own?: boolean          // عرض التقارير الخاصة فقط
-    create?: boolean            // إنشاء تقرير
-    export?: boolean            // تصدير/طباعة التقارير
-  }
-
-  // 3. إدارة المستخدمين
-  users?: {
-    view_idx?: boolean          // عرض القسم في السايدبار
-    view_list?: boolean         // عرض قائمة المستخدمين
-    create?: boolean            // إضافة مستخدم جديد
-    edit?: boolean              // تعديل بيانات المستخدمين
-    delete?: boolean            // حذف المستخدمين
-    manage_permissions?: boolean // إدارة الصلاحيات
-    view_audit_logs?: boolean   // عرض سجل العمليات
-  }
-
-  // 4. إعدادات النظام
-  system?: {
-    view_idx?: boolean          // عرض القسم في السايدبار
-    manage_settings?: boolean   // تعديل الإعدادات
-    manage_backups?: boolean    // إدارة النسخ الاحتياطي
-  }
-
-  // 5. التواصل الداخلي
-  communication?: {
-    access_chat?: boolean       // الوصول للدردشة
-    view_announcements?: boolean // مشاهدة الإعلانات
-    moderate_chat?: boolean     // إدارة الدردشة
-  }
-
-  // 6. الموافقات والاعتمادات
-  approvals?: {
-    view_idx?: boolean          // عرض القسم في السايدبار
-    view_own?: boolean          // عرض طلباتي
-    view_pending?: boolean      // عرض الطلبات المعلقة
-    action_approve?: boolean    // صلاحية الموافقة
-    action_reject?: boolean     // صلاحية الرفض
-  }
-
-  __mode?: 'inherit' | 'custom'
-}
+// UserPermissions interface moved to @/lib/permissions
 
 interface UserManagementProps {
   users: User[]
@@ -139,86 +79,7 @@ interface CustomNode {
 
 // Constants definitions moved to inner component
 
-
-// ============================================================================
-// الصلاحيات الافتراضية - مشروع الاتصالات الإدارية
-// ============================================================================
-const DEFAULT_PERMISSIONS: UserPermissions = {
-  archive: { view_idx: true, view_all: false, view_own: true, create: true, edit: false, delete: false, stamp: false, export: false },
-  reports: { view_idx: true, view_all: false, view_own: true, create: false, export: false },
-  users: { view_idx: false, view_list: false, create: false, edit: false, delete: false, manage_permissions: false, view_audit_logs: false },
-  system: { view_idx: false, manage_settings: false, manage_backups: false },
-  communication: { access_chat: true, view_announcements: true, moderate_chat: false },
-  approvals: { view_idx: true, view_own: true, view_pending: false, action_approve: false, action_reject: false }
-}
-
-// الصلاحيات الافتراضية لكل دور
-const ROLE_DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
-  // مدير النظام - صلاحيات كاملة
-  admin: {
-    archive: { view_idx: true, view_all: true, view_own: true, create: true, edit: true, delete: true, stamp: true, export: true },
-    reports: { view_idx: true, view_all: true, view_own: true, create: true, export: true },
-    users: { view_idx: true, view_list: true, create: true, edit: true, delete: true, manage_permissions: true, view_audit_logs: true },
-    system: { view_idx: true, manage_settings: true, manage_backups: true },
-    communication: { access_chat: true, view_announcements: true, moderate_chat: true },
-    approvals: { view_idx: true, view_own: true, view_pending: true, action_approve: true, action_reject: true }
-  },
-  
-  // المدير - صلاحيات إدارية محدودة
-  manager: {
-    archive: { view_idx: true, view_all: true, view_own: true, create: true, edit: true, delete: false, stamp: true, export: true },
-    reports: { view_idx: true, view_all: true, view_own: true, create: true, export: true },
-    users: { view_idx: true, view_list: true, create: true, edit: true, delete: false, manage_permissions: false, view_audit_logs: true },
-    system: { view_idx: false, manage_settings: false, manage_backups: false },
-    communication: { access_chat: true, view_announcements: true, moderate_chat: true },
-    approvals: { view_idx: true, view_own: true, view_pending: true, action_approve: true, action_reject: true }
-  },
-  
-  // المشرف - صلاحيات تشغيلية
-  supervisor: { 
-    archive: { view_idx: true, view_all: true, view_own: true, create: true, edit: true, delete: false, stamp: false, export: true },
-    reports: { view_idx: true, view_all: true, view_own: true, create: true, export: false },
-    users: { view_idx: false, view_list: false, create: false, edit: false, delete: false, manage_permissions: false, view_audit_logs: false },
-    system: { view_idx: false, manage_settings: false, manage_backups: false },
-    communication: { access_chat: true, view_announcements: true, moderate_chat: false },
-    approvals: { view_idx: true, view_own: true, view_pending: false, action_approve: false, action_reject: false }
-  },
-
-  // العضو العادي - صلاحيات أساسية
-  member: {
-    archive: { view_idx: true, view_all: false, view_own: true, create: true, edit: false, delete: false, stamp: false, export: false },
-    reports: { view_idx: true, view_all: false, view_own: true, create: false, export: false },
-    users: { view_idx: false, view_list: false, create: false, edit: false, delete: false, manage_permissions: false, view_audit_logs: false },
-    system: { view_idx: false, manage_settings: false, manage_backups: false },
-    communication: { access_chat: true, view_announcements: true, moderate_chat: false },
-    approvals: { view_idx: true, view_own: true, view_pending: false, action_approve: false, action_reject: false }
-  }
-}
-
-// دمج الصلاحيات (المخصصة تتجاوز الافتراضية)
-function mergePermissions(base: UserPermissions, custom: Partial<UserPermissions> | null | undefined): UserPermissions {
-  if (!custom) return { ...base }
-  
-  const merged: any = {}
-  
-  for (const [module, perms] of Object.entries(base)) {
-    if (perms && typeof perms === 'object') {
-      merged[module] = {
-        ...perms,
-        ...(custom as any)[module]
-      }
-    }
-  }
-  
-  return merged as UserPermissions
-}
-
-// جلب الصلاحيات النهائية لمستخدم (دمج الدور + المخصصة)
-function getUserMergedPermissions(role: string, customPermissions?: Partial<UserPermissions> | null): UserPermissions {
-  const normalizedRole = (role || 'member').toLowerCase()
-  const roleDefaults = ROLE_DEFAULT_PERMISSIONS[normalizedRole] || ROLE_DEFAULT_PERMISSIONS.member
-  return mergePermissions(roleDefaults, customPermissions)
-}
+// Constants moved to @/lib/permissions
 
 // حساب الاختلافات بين الصلاحيات المعدلة والصلاحيات الافتراضية للدور
 // يُرجع فقط الصلاحيات المختلفة للحفظ في قاعدة البيانات
@@ -1363,22 +1224,13 @@ const UserManagementInner: React.FC<UserManagementProps> = ({
               </label>
               <div className="relative">
                 <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <select
+                <input
+                  type="text"
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  className="w-full pr-12 p-4 bg-slate-50 rounded-xl outline-none font-bold transition-all appearance-none focus:bg-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">{t('position.none')}</option>
-                  <option value="General Manager">{t('position.gm')}</option>
-                  <option value="Project Manager">{t('position.pm')}</option>
-                  <option value="Department Manager">{t('position.dept_manager')}</option>
-                  <option value="Supervisor">{t('position.supervisor')}</option>
-                  <option value="Engineer">{t('position.engineer')}</option>
-                  <option value="Technician">{t('position.technician')}</option>
-                  <option value="Employee">{t('position.employee')}</option>
-                  <option value="Trainee">{t('position.trainee')}</option>
-                  <option value="External Consultant">{t('position.consultant')}</option>
-                </select>
+                  className="w-full pr-12 p-4 bg-slate-50 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 font-bold transition-all"
+                  placeholder={t('user.form.position_placeholder') || "المسمى الوظيفي"}
+                />
               </div>
             </div>
 
@@ -1589,8 +1441,8 @@ const UserManagementInner: React.FC<UserManagementProps> = ({
           {canManagePermissions && (
             <div className="mt-6">
               <PermissionsEditor
-                permissions={formData.permissions}
-                onChange={(p) => setFormData({ ...formData, permissions: p })}
+                permissions={formData.permissions || {}}
+                onChange={(p) => setFormData({ ...formData, permissions: p })} // Ensure 'permissions' is set directly
                 canManagePermissions={canManagePermissions}
                 role={formData.role}
               />

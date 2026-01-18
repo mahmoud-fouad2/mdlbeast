@@ -4,8 +4,9 @@ import fetch from 'node-fetch'
 import { body, validationResult } from "express-validator"
 import { PDFDocument } from 'pdf-lib'
 import { query } from "../config/database"
-import { authenticateToken } from "../middleware/auth"
+import { authenticateToken, requirePermission } from "../middleware/auth"
 import type { AuthRequest } from "../types"
+import { hasPermission } from "../lib/permissions"
 
 const router = express.Router()
 
@@ -289,7 +290,7 @@ router.post('/:barcode/stamp', async (req: AuthRequest, res: Response) => {
 })
 
 // Get all documents
-router.get("/", async (req: AuthRequest, res: Response) => {
+router.get("/", authenticateToken, requirePermission('archive', 'view_idx'), async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, search } = req.query
     const limitNum = Math.max(1, Math.min(1000, Number(req.query.limit ?? 100) || 100))
@@ -315,14 +316,16 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       paramCount++
     }
 
-    // Scope results based on user role (no tenant scoping exists in DB)
-    if (user.role === 'admin' || user.role === 'manager' || user.role === 'supervisor') {
+    // Scope results based on permissions
+    if (hasPermission(user, 'archive', 'view_all')) {
       // Can see all documents
-    } else {
+    } else if (hasPermission(user, 'archive', 'view_own')) {
       // Member/other roles see their own documents only
       baseWhere += ` AND d.user_id = $${paramCount}`
       queryParams.push(user.id)
       paramCount++
+    } else {
+      return res.json({ documents: [], total: 0, totalPages: 0, currentPage: 1 })
     }
 
     if (search) {
@@ -474,6 +477,8 @@ const docService = new DocumentService()
 // Create document
 router.post(
   "/",
+  authenticateToken,
+  requirePermission('archive', 'create'),
   [
     // Accept both server-side 'type' (document type) and client-side direction flag (INCOMING/OUTGOING) as optional
     body("type").optional().trim(),
@@ -488,10 +493,8 @@ router.post(
     body("status").optional().isIn(["وارد", "صادر", "محفوظ"]).withMessage("Invalid status"),
   ],
   async (req: AuthRequest, res: Response) => {
-    // Ensure only allowed roles can create
-    const allowed = ['member','supervisor','manager','admin']
-    const user = req.user
-    if (!user || !allowed.includes(String(user.role))) return res.status(403).json({ error: 'Insufficient role to create documents' })
+    // Permission check handled by middleware
+    const user = req.user!
     
     const errors = validationResult(req)
     if (!errors.isEmpty()) {

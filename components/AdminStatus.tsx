@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState, useCallback } from 'react'
 import { apiClient } from '@/lib/api-client'
-import { useLanguage, LanguageSwitcher } from '@/lib/language-context'
+import { useI18n } from '@/lib/i18n-context'
 import { 
   Clock, RefreshCw, Trash2, 
   HardDrive, Database, Cpu, MemoryStick, Activity, Zap, Cloud, 
@@ -48,7 +48,10 @@ interface MaintenanceLog {
 }
 
 export default function AdminStatus() {
-  const { language, toggleLanguage, t } = useLanguage()
+  const { t, dir, locale, setLocale } = useI18n()
+  const language = locale
+  const toggleLanguage = () => setLocale(locale === 'ar' ? 'en' : 'ar')
+
   const [status, setStatus] = useState<AdminStatusData | null>(null)
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -72,8 +75,8 @@ export default function AdminStatus() {
 
   const toggleMaintenanceMode = async () => {
     if (!confirm(maintenanceMode 
-       ? 'هل أنت متأكد من إيقاف وضع الصيانة؟ سيتمكن المستخدمون من الدخول للنظام.' 
-       : 'هل أنت متأكد من تفعيل وضع الصيانة؟ سيتم منع المستخدمين (غير المسؤولين) من الدخول.')) return
+       ? t('admin.maintenance.mode.confirm_stop')
+       : t('admin.maintenance.mode.confirm_start'))) return
 
     setRunningAction('maintenance')
     try {
@@ -82,9 +85,9 @@ export default function AdminStatus() {
         body: JSON.stringify({ value: !maintenanceMode })
       })
       setMaintenanceMode(!maintenanceMode)
-      addLog('وضع الصيانة', 'success', `تم ${!maintenanceMode ? 'تفعيل' : 'إيقاف'} وضع الصيانة بنجاح`)
+      addLog(t('admin.maintenance.mode.log_action'), 'success', !maintenanceMode ? t('admin.maintenance.mode.log_success_start') : t('admin.maintenance.mode.log_success_stop'))
     } catch (e: any) {
-      addLog('وضع الصيانة', 'error', `فشل تغيير الوضع: ${e.message}`)
+      addLog(t('admin.maintenance.mode.log_action'), 'error', t('admin.maintenance.mode.log_error').replace('{{error}}', e.message))
     } finally {
       setRunningAction(null)
     }
@@ -126,15 +129,16 @@ export default function AdminStatus() {
     const days = Math.floor(seconds / 86400)
     const hours = Math.floor((seconds % 86400) / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    if (days > 0) return `${days} يوم و ${hours} ساعة`
-    return `${hours} ساعة و ${minutes} دقيقة`
+    if (days > 0) return t('admin.uptime.format.days').replace('{{days}}', String(days)).replace('{{hours}}', String(hours))
+    if (hours > 0) return t('admin.uptime.format.hours').replace('{{hours}}', String(hours)).replace('{{minutes}}', String(minutes))
+    return t('admin.uptime.format.zero')
   }
 
   // === أدوات الصيانة الحقيقية ===
 
   const clearCache = useCallback(async () => {
     setRunningAction('cache')
-    addLog('تنظيف الكاش', 'pending', 'جارٍ تنظيف ذاكرة التخزين المؤقتة...')
+    addLog(t('admin.actions.cache.title'), 'pending', t('admin.actions.cache.log_start'))
     
     try {
       const keysToRemove: string[] = []
@@ -149,40 +153,40 @@ export default function AdminStatus() {
       
       try {
         await (apiClient as any).request('/admin/clear-cache', { method: 'POST' })
-        addLog('تنظيف الكاش', 'success', `تم تنظيف الكاش بنجاح - حذف ${keysToRemove.length} عنصر من المتصفح + تنظيف السيرفر`)
+        addLog(t('admin.actions.cache.title'), 'success', t('admin.actions.cache.log_success_full').replace('{{count}}', String(keysToRemove.length)))
       } catch {
-        addLog('تنظيف الكاش', 'success', `تم تنظيف كاش المتصفح - حذف ${keysToRemove.length} عنصر`)
+        addLog(t('admin.actions.cache.title'), 'success', t('admin.actions.cache.log_success_browser').replace('{{count}}', String(keysToRemove.length)))
       }
       
       await load()
     } catch (e: any) {
-      addLog('تنظيف الكاش', 'error', `فشل في تنظيف الكاش: ${e.message || 'خطأ غير معروف'}`)
+      addLog(t('admin.actions.cache.title'), 'error', t('admin.actions.cache.log_error').replace('{{error}}', e.message || 'Error'))
     } finally {
       setRunningAction(null)
     }
-  }, [load])
+  }, [load, t])
 
   const optimizeIndexes = useCallback(async () => {
     setRunningAction('indexes')
-    addLog('تحسين الفهارس', 'pending', 'جارٍ تحليل وتحسين فهارس قاعدة البيانات...')
+    addLog(t('admin.actions.indexes.title'), 'pending', t('admin.actions.indexes.log_start'))
     
     try {
       const result = await (apiClient as any).request('/admin/optimize-indexes', { method: 'POST' })
-      addLog('تحسين الفهارس', 'success', result?.message || 'تم تحسين الفهارس بنجاح')
+      addLog(t('admin.actions.indexes.title'), 'success', result?.message || t('admin.actions.indexes.log_success'))
     } catch (e: any) {
       if (e.message?.includes('404') || e.message?.includes('Not Found')) {
-        addLog('تحسين الفهارس', 'success', 'تم فحص الفهارس - النظام يعمل بشكل طبيعي')
+        addLog(t('admin.actions.indexes.title'), 'success', t('admin.actions.indexes.log_success_404'))
       } else {
-        addLog('تحسين الفهارس', 'error', `فشل في تحسين الفهارس: ${e.message || 'خطأ في الاتصال'}`)
+        addLog(t('admin.actions.indexes.title'), 'error', t('admin.actions.indexes.log_error').replace('{{error}}', e.message || 'Error'))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
   const checkDatabaseConnection = useCallback(async () => {
     setRunningAction('connection')
-    addLog('فحص الاتصال', 'pending', 'جارٍ فحص اتصال قاعدة البيانات...')
+    addLog(t('admin.actions.connection.title'), 'pending', t('admin.actions.connection.log_start'))
     
     const startTime = Date.now()
     try {
@@ -190,112 +194,112 @@ export default function AdminStatus() {
       const latency = Date.now() - startTime
       
       if (result?.database === 'connected' || result?.healthy) {
-        addLog('فحص الاتصال', 'success', `قاعدة البيانات متصلة بنجاح - زمن الاستجابة: ${latency}ms`)
+        addLog(t('admin.actions.connection.title'), 'success', t('admin.actions.connection.log_success').replace('{{latency}}', String(latency)))
       } else {
-        addLog('فحص الاتصال', 'error', 'قاعدة البيانات غير متصلة')
+        addLog(t('admin.actions.connection.title'), 'error', t('admin.actions.connection.log_error'))
       }
     } catch (e: any) {
       try {
         const fallback = await apiClient.getAdminStatus()
         const latency = Date.now() - startTime
         if (fallback?.healthy) {
-          addLog('فحص الاتصال', 'success', `النظام يعمل بشكل طبيعي - زمن الاستجابة: ${latency}ms`)
+          addLog(t('admin.actions.connection.title'), 'success', t('admin.actions.connection.log_fallback_success').replace('{{latency}}', String(latency)))
         } else {
-          addLog('فحص الاتصال', 'error', 'النظام قد يواجه مشاكل')
+          addLog(t('admin.actions.connection.title'), 'error', t('admin.actions.connection.log_fallback_error'))
         }
-      } catch {
-        addLog('فحص الاتصال', 'error', `فشل في الاتصال بالخادم: ${e.message || 'تحقق من اتصال الإنترنت'}`)
+      } catch (err: any) {
+        addLog(t('admin.actions.connection.title'), 'error', t('admin.actions.connection.log_exception').replace('{{error}}', err?.message || e.message || 'Error'))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
   const resetSequences = useCallback(async () => {
     setRunningAction('sequences')
-    addLog('إعادة ضبط التسلسل', 'pending', 'جارٍ إعادة ضبط تسلسلات قاعدة البيانات...')
+    addLog(t('admin.actions.sequences.title'), 'pending', t('admin.actions.sequences.log_start'))
     
     try {
       const result = await (apiClient as any).request('/admin/reset-sequences', { method: 'POST' })
-      addLog('إعادة ضبط التسلسل', 'success', result?.message || 'تم إعادة ضبط التسلسلات بنجاح')
+      addLog(t('admin.actions.sequences.title'), 'success', result?.message || t('admin.actions.sequences.log_success'))
     } catch (e: any) {
       if (e.message?.includes('404')) {
-        addLog('إعادة ضبط التسلسل', 'success', 'التسلسلات تعمل بشكل صحيح')
+        addLog(t('admin.actions.sequences.title'), 'success', t('admin.actions.sequences.log_success_404'))
       } else {
-        addLog('إعادة ضبط التسلسل', 'error', `فشل: ${e.message || 'خطأ غير معروف'}`)
+        addLog(t('admin.actions.sequences.title'), 'error', t('admin.actions.sequences.log_error').replace('{{error}}', e.message || 'Error'))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
   const cleanTempFiles = useCallback(async () => {
     setRunningAction('temp')
-    addLog('تنظيف الملفات المؤقتة', 'pending', 'جارٍ البحث عن الملفات المؤقتة وحذفها...')
+    addLog(t('admin.actions.temp.title'), 'pending', t('admin.actions.temp.log_start'))
     
     try {
       const result = await (apiClient as any).request('/admin/clean-temp', { method: 'POST' })
-      addLog('تنظيف الملفات المؤقتة', 'success', result?.message || 'تم تنظيف الملفات المؤقتة')
+      addLog(t('admin.actions.temp.title'), 'success', result?.message || t('admin.actions.temp.log_success'))
     } catch (e: any) {
       if (e.message?.includes('404')) {
-        addLog('تنظيف الملفات المؤقتة', 'success', 'لا توجد ملفات مؤقتة للحذف')
+        addLog(t('admin.actions.temp.title'), 'success', t('admin.actions.temp.log_success_404'))
       } else {
-        addLog('تنظيف الملفات المؤقتة', 'error', `فشل: ${e.message || 'خطأ'}`)
+        addLog(t('admin.actions.temp.title'), 'error', t('admin.actions.temp.log_error').replace('{{error}}', e.message || 'Error'))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
   const restartServices = useCallback(async () => {
-    if (!confirm('هل أنت متأكد من إعادة تشغيل الخدمات؟ قد يتسبب هذا في انقطاع مؤقت.')) return
+    if (!confirm(t('admin.actions.restart.confirm'))) return
     
     setRunningAction('restart')
-    addLog('إعادة تشغيل', 'pending', 'جارٍ إعادة تشغيل خدمات النظام...')
+    addLog(t('admin.actions.restart.title'), 'pending', t('admin.actions.restart.log_start'))
     
     try {
       await (apiClient as any).request('/admin/restart', { method: 'POST' })
-      addLog('إعادة تشغيل', 'success', 'تم إرسال طلب إعادة التشغيل')
+      addLog(t('admin.actions.restart.title'), 'success', t('admin.actions.restart.log_success_sent'))
       setTimeout(() => { window.location.reload() }, 3000)
     } catch (e: any) {
       if (e.message?.includes('404')) {
-        addLog('إعادة تشغيل', 'success', 'تم تحديث الاتصال - النظام يعمل')
+        addLog(t('admin.actions.restart.title'), 'success', t('admin.actions.restart.log_success_reconnect'))
         await load()
       } else {
-        addLog('إعادة تشغيل', 'error', `فشل: ${e.message || 'غير متاح'}`)
+        addLog(t('admin.actions.restart.title'), 'error', t('admin.actions.restart.log_error').replace('{{error}}', e.message || 'Error'))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [load])
+  }, [load, t])
 
   const checkDataIntegrity = useCallback(async () => {
     setRunningAction('integrity')
-    addLog('فحص السلامة', 'pending', 'جارٍ فحص سلامة البيانات...')
+    addLog(t('admin.actions.integrity.title'), 'pending', t('admin.actions.integrity.log_start'))
     
     try {
       const result = await (apiClient as any).request('/admin/data-integrity', { method: 'GET' })
       if (result?.issues && result.issues.length > 0) {
-        addLog('فحص السلامة', 'error', `تم العثور على ${result.issues.length} مشكلة`)
+        addLog(t('admin.actions.integrity.title'), 'error', t('admin.actions.integrity.log_issues').replace('{{count}}', String(result.issues.length)))
       } else {
-        addLog('فحص السلامة', 'success', 'جميع البيانات سليمة ومتكاملة')
+        addLog(t('admin.actions.integrity.title'), 'success', t('admin.actions.integrity.log_success'))
       }
     } catch (e: any) {
       if (e.message?.includes('404')) {
-        addLog('فحص السلامة', 'success', 'البيانات تبدو سليمة')
+        addLog(t('admin.actions.integrity.title'), 'success', t('admin.actions.integrity.log_success_404'))
       } else {
-        addLog('فحص السلامة', 'error', `فشل الفحص: ${e.message}`)
+        addLog(t('admin.actions.integrity.title'), 'error', t('admin.actions.integrity.log_error').replace('{{error}}', e.message))
       }
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
 
 
   const analyzePerformance = useCallback(async () => {
     setRunningAction('performance')
-    addLog('تحليل الأداء', 'pending', 'جارٍ تحليل أداء النظام...')
+    addLog(t('admin.actions.performance.title'), 'pending', t('admin.actions.performance.log_start'))
     
     const metrics: string[] = []
     const startTime = Date.now()
@@ -303,23 +307,23 @@ export default function AdminStatus() {
     try {
       await apiClient.getAdminStatus()
       const apiLatency = Date.now() - startTime
-      metrics.push(`زمن استجابة API: ${apiLatency}ms`)
+      metrics.push(t('admin.actions.performance.metric_api').replace('{{latency}}', String(apiLatency)))
       
       if ((performance as any).memory) {
         const mem = (performance as any).memory
         const usedMB = Math.round(mem.usedJSHeapSize / 1048576)
-        metrics.push(`ذاكرة المتصفح: ${usedMB} MB`)
+        metrics.push(t('admin.actions.performance.metric_memory').replace('{{mb}}', String(usedMB)))
       }
       
-      metrics.push(`عناصر التخزين المحلي: ${localStorage.length}`)
+      metrics.push(t('admin.actions.performance.metric_storage').replace('{{count}}', String(localStorage.length)))
       
-      addLog('تحليل الأداء', 'success', metrics.join(' | '))
+      addLog(t('admin.actions.performance.title'), 'success', metrics.join(' | '))
     } catch (e: any) {
-      addLog('تحليل الأداء', 'error', `فشل التحليل: ${e.message}`)
+      addLog(t('admin.actions.performance.title'), 'error', t('admin.actions.performance.log_error').replace('{{error}}', e.message))
     } finally {
       setRunningAction(null)
     }
-  }, [])
+  }, [t])
 
   const displayStatus: AdminStatusData = status || {
     healthy: true,
@@ -344,9 +348,9 @@ export default function AdminStatus() {
             <div className="p-3 bg-red-600 rounded-2xl text-white shadow-lg shadow-red-200">
               <Activity size={28} />
             </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">حالة النظام</h1>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">{t('admin.header.title')}</h1>
           </div>
-          <p className="text-slate-500 font-bold text-sm">مراقبة الأداء واستهلاك الموارد في الوقت الفعلي</p>
+          <p className="text-slate-500 font-bold text-sm">{t('admin.header.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -367,7 +371,7 @@ export default function AdminStatus() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="w-4 h-4 rounded"
             />
-            <span className="text-xs font-bold text-slate-600">تحديث تلقائي</span>
+            <span className="text-xs font-bold text-slate-600">{t('admin.controls.auto_refresh')}</span>
           </label>
           
           <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
@@ -376,7 +380,7 @@ export default function AdminStatus() {
               <span className={`relative inline-flex rounded-full h-3 w-3 ${displayStatus.healthy ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </span>
             <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
-              {displayStatus.healthy ? 'System Online' : 'System Issues'}
+              {displayStatus.healthy ? t('admin.status.online') : t('admin.status.issues')}
             </span>
           </div>
           
@@ -396,7 +400,7 @@ export default function AdminStatus() {
         <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10"><Clock size={100} /></div>
           <div className="relative z-10">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">وقت العمل المتواصل</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">{t('admin.uptime.title')}</p>
             <h3 className="text-2xl font-black mb-2">{formatUptime(displayStatus.uptime_seconds)}</h3>
             <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-4">
               {/* Progress based on 7 days max (604800 seconds) */}
@@ -409,7 +413,7 @@ export default function AdminStatus() {
             </div>
             <div className="flex justify-between mt-2 text-[10px] text-slate-500">
               <span>0</span>
-              <span>7 أيام</span>
+              <span>{t('admin.uptime.days_label')}</span>
             </div>
           </div>
         </div>
@@ -470,7 +474,7 @@ export default function AdminStatus() {
           </div>
           <div>
             <h3 className="text-3xl font-black text-slate-900 mb-1">{displayStatus.db_stats?.documents}</h3>
-            <p className="text-slate-500 text-xs font-bold">سجل وثيقة مؤرشفة</p>
+            <p className="text-slate-500 text-xs font-bold">{t('admin.db.archived_doc')}</p>
           </div>
         </div>
       </div>
@@ -482,7 +486,7 @@ export default function AdminStatus() {
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6">
             <Binary className="text-slate-400" />
-            <h3 className="text-xl font-black text-slate-900">إحصائيات قاعدة البيانات</h3>
+            <h3 className="text-xl font-black text-slate-900">{t('admin.db_stats.title')}</h3>
           </div>
           
           <div className="space-y-4">
@@ -491,7 +495,7 @@ export default function AdminStatus() {
                 <div className="p-2 rounded-xl bg-blue-100 text-blue-600">
                   <Users size={20} />
                 </div>
-                <span className="font-bold text-slate-700">المستخدمين النشطين</span>
+                <span className="font-bold text-slate-700">{t('admin.db_stats.users')}</span>
               </div>
               <div className="text-right">
                 <span className="block font-black text-slate-900 text-lg">{displayStatus.db_stats?.users}</span>
@@ -503,7 +507,7 @@ export default function AdminStatus() {
                 <div className="p-2 rounded-xl bg-indigo-100 text-indigo-600">
                   <FolderKanban size={20} />
                 </div>
-                <span className="font-bold text-slate-700">المشاريع</span>
+                <span className="font-bold text-slate-700">{t('admin.db_stats.projects')}</span>
               </div>
               <div className="text-right">
                 <span className="block font-black text-slate-900 text-lg">{displayStatus.db_stats?.projects}</span>
@@ -515,11 +519,11 @@ export default function AdminStatus() {
                 <div className="p-2 rounded-xl bg-amber-100 text-amber-600">
                   <HardDrive size={20} />
                 </div>
-                <span className="font-bold text-slate-700">الملفات المرفقة</span>
+                <span className="font-bold text-slate-700">{t('admin.db_stats.attachments')}</span>
               </div>
               <div className="text-right">
                 <span className="block font-black text-slate-900 text-lg">{displayStatus.storage?.total.count || displayStatus.db_stats?.attachmentsCount || 0}</span>
-                <span className="block text-xs font-bold text-slate-400">{displayStatus.storage?.total.size_formatted || 'غير محدد'}</span>
+                <span className="block text-xs font-bold text-slate-400">{displayStatus.storage?.total.size_formatted || t('admin.db_stats.undefined')}</span>
               </div>
             </div>
           </div>
@@ -529,7 +533,7 @@ export default function AdminStatus() {
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6">
             <Cloud className="text-slate-400" />
-            <h3 className="text-xl font-black text-slate-900">حجم التخزين</h3>
+            <h3 className="text-xl font-black text-slate-900">{t('admin.storage.title')}</h3>
           </div>
           
           <div className="space-y-6">
@@ -537,7 +541,7 @@ export default function AdminStatus() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <HardDrive size={24} className="text-slate-400" />
-                  <span className="text-sm font-bold text-slate-300">إجمالي المرفقات</span>
+                  <span className="text-sm font-bold text-slate-300">{t('admin.storage.total_attachments')}</span>
                 </div>
                 <span className="text-2xl font-black">{displayStatus.storage?.total.size_formatted || '0 MB'}</span>
               </div>
@@ -592,10 +596,10 @@ export default function AdminStatus() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <ShieldCheck className="text-slate-400" />
-            <h3 className="text-xl font-black text-slate-900">أدوات الصيانة</h3>
+            <h3 className="text-xl font-black text-slate-900">{t('admin.maintenance.title')}</h3>
           </div>
           <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-            {runningAction ? 'جارٍ التنفيذ...' : 'جاهز'}
+            {runningAction ? t('admin.maintenance.status.running') : t('admin.maintenance.status.ready')}
           </span>
         </div>
         {/* Maintenance Toggle Alert */}
@@ -611,12 +615,12 @@ export default function AdminStatus() {
               </div>
               <div>
                 <h4 className={`text-lg font-black ${maintenanceMode ? 'text-red-800' : 'text-slate-700'}`}>
-                  وضع الصيانة {maintenanceMode ? 'مفعل' : 'معطل'}
+                  {maintenanceMode ? t('admin.maintenance.mode.active') : t('admin.maintenance.mode.inactive')}
                 </h4>
                 <p className={`text-sm font-bold ${maintenanceMode ? 'text-red-600' : 'text-slate-500'}`}>
                   {maintenanceMode 
-                    ? 'النظام مغلق حالياً أمام المستخدمين العاديين بغرض الصيانة' 
-                    : 'النظام متاح لجميع المستخدمين بشكل طبيعي'}
+                    ? t('admin.maintenance.mode.active_desc')
+                    : t('admin.maintenance.mode.inactive_desc')}
                 </p>
               </div>
             </div>
@@ -630,33 +634,33 @@ export default function AdminStatus() {
                   : 'bg-slate-900 text-white hover:bg-slate-800'
               } disabled:opacity-50`}
             >
-              {maintenanceMode ? 'إيقاف الصيانة' : 'تفعيل الصيانة'}
+              {maintenanceMode ? t('admin.maintenance.mode.btn_stop') : t('admin.maintenance.mode.btn_start')}
             </button>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <button 
-            onClick={() => { if (window.confirm('هل أنت متأكد من تنظيف الكاش؟ سيتم حذف البيانات المؤقتة المخزنة.')) clearCache(); }}
+            onClick={() => { if (window.confirm(t('admin.actions.cache.confirm'))) clearCache(); }}
             disabled={runningAction !== null}
             className="flex flex-col items-center justify-center gap-2 p-5 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-red-200 hover:bg-red-50 hover:shadow-lg transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="p-3 bg-red-100 text-red-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'cache' ? <Loader2 size={24} className="animate-spin" /> : <Trash2 size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">تنظيف الكاش</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">حذف البيانات المؤقتة لتحسين الأداء</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.cache.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.cache.desc')}</span>
           </button>
 
           <button 
-            onClick={() => { if (window.confirm('هل تريد تحسين فهارس قاعدة البيانات؟ قد يستغرق بضع ثوان.')) optimizeIndexes(); }}
+            onClick={() => { if (window.confirm(t('admin.actions.indexes.confirm'))) optimizeIndexes(); }}
             disabled={runningAction !== null}
             className="flex flex-col items-center justify-center gap-2 p-5 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-indigo-200 hover:bg-indigo-50 hover:shadow-lg transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'indexes' ? <Loader2 size={24} className="animate-spin" /> : <Zap size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">تحسين الفهارس</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">تسريع استعلامات قاعدة البيانات</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.indexes.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.indexes.desc')}</span>
           </button>
 
           <button 
@@ -667,47 +671,47 @@ export default function AdminStatus() {
             <div className="p-3 bg-blue-100 text-blue-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'connection' ? <Loader2 size={24} className="animate-spin" /> : <Database size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">فحص الاتصال</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">التحقق من اتصال قاعدة البيانات</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.connection.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.connection.desc')}</span>
           </button>
 
           <button 
-            onClick={() => { if (window.confirm('⚠️ هل أنت متأكد من إعادة تشغيل الخدمات؟ قد يتسبب في انقطاع مؤقت.')) restartServices(); }}
+            onClick={() => { if (window.confirm(t('admin.actions.restart.confirm'))) restartServices(); }}
             disabled={runningAction !== null}
             className="flex flex-col items-center justify-center gap-2 p-5 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-emerald-200 hover:bg-emerald-50 hover:shadow-lg transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'restart' ? <Loader2 size={24} className="animate-spin" /> : <RefreshCw size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">إعادة تشغيل</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">إعادة تشغيل خدمات النظام</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.restart.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.restart.desc')}</span>
           </button>
         </div>
 
         {/* أدوات إضافية */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <button 
-            onClick={() => { if (window.confirm('هل تريد إعادة ضبط تسلسلات قاعدة البيانات؟')) resetSequences(); }}
+            onClick={() => { if (window.confirm(t('admin.actions.sequences.confirm'))) resetSequences(); }}
             disabled={runningAction !== null}
             className="flex flex-col items-center justify-center gap-2 p-5 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-amber-200 hover:bg-amber-50 hover:shadow-lg transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="p-3 bg-amber-100 text-amber-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'sequences' ? <Loader2 size={24} className="animate-spin" /> : <RotateCcw size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">إعادة ضبط التسلسل</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">إصلاح أخطاء الترقيم التلقائي</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.sequences.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.sequences.desc')}</span>
           </button>
 
           <button 
-            onClick={() => { if (window.confirm('هل تريد تنظيف الملفات المؤقتة؟')) cleanTempFiles(); }}
+            onClick={() => { if (window.confirm(t('admin.actions.temp.confirm'))) cleanTempFiles(); }}
             disabled={runningAction !== null}
             className="flex flex-col items-center justify-center gap-2 p-5 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-orange-200 hover:bg-orange-50 hover:shadow-lg transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="p-3 bg-orange-100 text-orange-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'temp' ? <Loader2 size={24} className="animate-spin" /> : <HardDrive size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">تنظيف الملفات المؤقتة</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">حذف الملفات غير المستخدمة</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.temp.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.temp.desc')}</span>
           </button>
 
           <button 
@@ -718,8 +722,8 @@ export default function AdminStatus() {
             <div className="p-3 bg-purple-100 text-purple-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'integrity' ? <Loader2 size={24} className="animate-spin" /> : <ShieldCheck size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">فحص سلامة البيانات</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">التحقق من تكامل البيانات</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.integrity.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.integrity.desc')}</span>
           </button>
 
           <button 
@@ -730,8 +734,8 @@ export default function AdminStatus() {
             <div className="p-3 bg-cyan-100 text-cyan-600 rounded-full group-hover:scale-110 transition-transform">
               {runningAction === 'performance' ? <Loader2 size={24} className="animate-spin" /> : <BarChart size={24} />}
             </div>
-            <span className="font-bold text-slate-700 text-sm">تحليل الأداء</span>
-            <span className="text-[10px] text-slate-400 text-center leading-tight">قياس سرعة النظام</span>
+            <span className="font-bold text-slate-700 text-sm">{t('admin.actions.performance.title')}</span>
+            <span className="text-[10px] text-slate-400 text-center leading-tight">{t('admin.actions.performance.desc')}</span>
           </button>
         </div>
 
@@ -740,10 +744,10 @@ export default function AdminStatus() {
           <div className="flex items-center justify-between p-4 border-b border-slate-800">
             <div className="flex items-center gap-2 text-slate-300 text-sm font-bold">
               <Terminal size={16} />
-              <span>سجل العمليات</span>
+              <span>{t('admin.logs.title')}</span>
               {maintenanceLogs.length > 0 && (
                 <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {maintenanceLogs.length} عملية
+                  {maintenanceLogs.length} {t('admin.logs.count_suffix')}
                 </span>
               )}
             </div>
@@ -752,7 +756,7 @@ export default function AdminStatus() {
               disabled={maintenanceLogs.length === 0}
               className="text-xs text-slate-500 hover:text-red-400 font-bold px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              مسح السجل
+              {t('admin.logs.clear')}
             </button>
           </div>
           
@@ -760,8 +764,8 @@ export default function AdminStatus() {
             {maintenanceLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                 <Terminal size={40} className="text-slate-700 mb-3" />
-                <p className="font-bold">لا توجد عمليات مسجلة</p>
-                <p className="text-xs text-slate-600 mt-1">استخدم أدوات الصيانة أعلاه لتنفيذ عمليات</p>
+                <p className="font-bold">{t('admin.logs.empty_title')}</p>
+                <p className="text-xs text-slate-600 mt-1">{t('admin.logs.empty_desc')}</p>
               </div>
             ) : (
               maintenanceLogs.map((log) => (
@@ -799,9 +803,9 @@ export default function AdminStatus() {
               <div className="flex items-center justify-between p-4 border-b border-red-900/30">
                 <div className="flex items-center gap-2 text-red-300 text-sm font-bold">
                   <AlertCircle size={16} />
-                  <span>سجل الأخطاء</span>
+                  <span>{t('admin.error_logs.title')}</span>
                   <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {errorLogs.length} خطأ/تحذير
+                    {errorLogs.length} {t('admin.error_logs.count_suffix')}
                   </span>
                 </div>
               </div>

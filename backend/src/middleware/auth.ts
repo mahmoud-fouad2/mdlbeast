@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 import type { AuthRequest } from "../types"
+import { ROLE_DEFAULT_PERMISSIONS, mergePermissions, hasPermission } from "../lib/permissions"
 
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers["authorization"]
@@ -29,7 +30,12 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       const username = u.username || u.email || u.name || null
       const role = u.role || u.user_role || 'member'
 
-      req.user = { id: u.id, username, role }
+      // Calculate permissions
+      const defaults = ROLE_DEFAULT_PERMISSIONS[role] || ROLE_DEFAULT_PERMISSIONS['member']
+      const custom = u.permissions || {}
+      const effective = mergePermissions(defaults, custom)
+
+      req.user = { id: u.id, username, role, permissions: effective }
       next()
     } catch (dbErr: any) {
       console.error('Auth DB error:', dbErr && dbErr.message ? dbErr.message : dbErr)
@@ -47,6 +53,24 @@ export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction) => 
   }
   next()
 }
+
+export const requirePermission = (module: string, action: string) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" })
+    
+    // Admin bypass
+    if (req.user.role === 'admin') return next()
+
+    // Check permissions
+    // @ts-ignore
+    if (req.user.permissions?.[module]?.[action]) {
+        return next()
+    }
+
+    return res.status(403).json({ error: `Insufficient permissions: ${module}.${action} required` })
+  }
+}
+
 
 export const isManager = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!(req.user && (req.user.role === 'manager' || req.user.role === 'admin'))) {

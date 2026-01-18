@@ -1,55 +1,74 @@
-# نظام الأرشفة الموحد - Frontend (Next.js)
+# MDLBEAST Frontend
 
-## التثبيت والتشغيل
+React-based frontend application for MDLBEAST Archive & Communications System.
 
-### 1. تثبيت المكتبات
+## 🚀 Quick Start
+
+### Installation
 ```bash
 npm install
 ```
 
-### 2. إعداد المتغيرات البيئية
-انسخ ملف `.env.local.example` إلى `.env.local` وقم بتحديث الإعدادات:
-
+### Environment Setup
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env.local
 ```
 
-عدل قيمة `NEXT_PUBLIC_API_URL` لتشير إلى عنوان الـ Backend API الخاص بك.
+Configure API endpoint in `.env.local`:
+```env
+VITE_API_URL=http://localhost:3001/api
+```
 
-### 3. تشغيل التطبيق
-
-وضع التطوير:
+### Development
 ```bash
 npm run dev
 ```
 
-بناء للإنتاج:
+### Production Build
 ```bash
 npm run build
-npm start
+npm run preview
 ```
 
-## الاتصال بالـ Backend
+## 🏗️ Tech Stack
 
-تأكد من أن الـ Backend API يعمل على `https://zaco-backend.onrender.com` أو عدل المتغير البيئي.
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **shadcn/ui** - Component library
+- **React Flow** - Interactive diagrams
+- **React Query** - Data fetching
 
-## رفع على الاستضافة
+## 📁 Project Structure
 
-### رفع على Vercel
-1. ربط المشروع بـ GitHub
-2. استيراد المشروع في Vercel
-3. إضافة المتغير البيئي `NEXT_PUBLIC_API_URL` في إعدادات المشروع
-4. Deploy
-
-### رفع على خادم خاص (zaco.sa/mdlbeast)
-```bash
-npm run build
-# نقل محتويات مجلد .next و public إلى الخادم
-# تشغيل: npm start
+```
+frontend/
+├── components/          # React components
+│   ├── ui/             # Reusable UI components
+│   └── ...             # Feature components
+├── lib/                # Utilities and helpers
+├── hooks/              # Custom React hooks
+├── locales/            # Internationalization
+├── public/             # Static assets
+└── styles/             # Global styles
 ```
 
-## معلومات تسجيل الدخول الافتراضية
-- اسم المستخدم: `admin`
-- كلمة المرور: `admin123`
+## 🎨 Features
 
-**مهم:** يجب تغيير كلمة المرور بعد أول تسجيل دخول!
+- Bilingual interface (Arabic/English)
+- Responsive design
+- Dark mode support
+- Real-time updates
+- Drag-and-drop file upload
+- Interactive organizational chart
+- Advanced search and filtering
+
+## 📝 Version
+
+Current Version: **2.0.0**
+
+---
+
+**Developer:** Mahmoud Fouad  
+**Email:** mahmoud.a.fouad2@gmail.com

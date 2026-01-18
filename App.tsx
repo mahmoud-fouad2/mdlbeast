@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FilePlus, FileMinus, Search, Scan,
   Users, Briefcase, LogOut, Trash2, Building2, Plus, Lock,
   AlertCircle, DownloadCloud, UploadCloud, Database, RefreshCcw, ShieldCheck, Edit3, X, Check, Menu, FileSignature,
-  ChevronDown, ChevronLeft, ChevronRight, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign, Stamp, Bell
+  ChevronDown, ChevronLeft, ChevronRight, FolderOpen, CreditCard, FileText, BarChart3, Settings, DollarSign, Stamp, Bell, Activity
 } from 'lucide-react';
 import { DocType, Correspondence, DocStatus, SystemSettings, User } from './types';
 import { apiClient } from './lib/api-client';
@@ -26,6 +26,7 @@ import InternalCommunication from './components/InternalCommunication';
 import ReportGenerator from './components/ReportGenerator';
 import AuditLogs from './components/AuditLogs';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import { hasPermission } from './lib/permissions';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -281,16 +282,16 @@ const App: React.FC = () => {
       setActiveTab('list');
     } catch (err: any) {
       console.error('Failed to save document', err);
-      alert('فشل حفظ المعاملة: ' + (err?.message || 'تحقق من الاتصال والصلاحيات.'));
+      alert(t('alerts.saveFailed') + (err?.message || t('alerts.refreshFailed')));
     }
   };
 
   const handleExportBackup = async () => {
-    alert('Export via server is restricted to admins. Use the backup endpoint on the server or contact the administrator.');
+    alert(t('alerts.exportRestricted'));
   };
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    alert('Restore via the web UI is disabled. Use the server-side migration tools or contact the administrator to restore backups.');
+    alert(t('alerts.restoreDisabled'));
   };
 
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('auth_token')
@@ -304,8 +305,8 @@ const App: React.FC = () => {
             <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black">
               MD
             </div>
-            <div className="mt-4 text-slate-900 font-black">جارِ التحقق من الجلسة...</div>
-            <div className="mt-2 text-xs text-slate-500 font-bold">لن تحتاج لإعادة تسجيل الدخول</div>
+            <div className="mt-4 text-slate-900 font-black">{t('session.checking')}</div>
+            <div className="mt-2 text-xs text-slate-500 font-bold">{t('session.noReLogin')}</div>
             <div className="mt-6 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
               <div className="h-2 w-1/2 bg-slate-900 rounded-full animate-pulse" />
             </div>
@@ -333,7 +334,7 @@ const App: React.FC = () => {
       <button 
         onClick={() => setActiveTab(id)} 
         title={isSidebarCollapsed ? label : ''}
-        className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-5'} py-3.5 rounded-xl text-sm font-black transition-all ${activeTab === id ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+        className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-5'} py-3.5 rounded-xl text-sm font-bold transition-all ${activeTab === id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'}`}
       >
         <Icon size={isSidebarCollapsed ? 20 : 18} />
         {!isSidebarCollapsed && <span>{label}</span>}
@@ -354,7 +355,7 @@ const App: React.FC = () => {
 
     if (isSidebarCollapsed) {
       return (
-        <div className="mb-2 py-2 border-t border-slate-50">
+        <div className="mb-2 py-2 border-t border-slate-200">
           {children}
         </div>
       )
@@ -364,7 +365,7 @@ const App: React.FC = () => {
       <div className="mb-2">
         <button
           onClick={() => toggleSection(id)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black text-slate-400 hover:bg-slate-50 transition-all uppercase tracking-wider"
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black text-slate-600 hover:bg-white hover:shadow-sm transition-all uppercase tracking-wider"
         >
           <div className="flex items-center gap-2">
             <Icon size={14} />
@@ -376,7 +377,7 @@ const App: React.FC = () => {
           />
         </button>
         <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="space-y-1 pt-1 pr-2">
+          <div className="space-y-1 pt-1 ps-3">
             {children}
           </div>
         </div>
@@ -437,7 +438,14 @@ const App: React.FC = () => {
                   ['list', t('nav.archive'), Search],
                   ['scanner', t('nav.scanner'), Scan],
                   ['reports', t('nav.reports'), BarChart3],
-                ] as any[]).map(([id, label, Icon]) => (
+                ] as any[])
+                .filter(([id]) => {
+                  if (id === 'incoming' || id === 'outgoing' || id === 'scanner') return hasPermission(currentUser, 'archive', 'create');
+                  if (id === 'list') return hasPermission(currentUser, 'archive', 'view_idx');
+                  if (id === 'reports') return hasPermission(currentUser, 'reports', 'view_idx');
+                  return true;
+                })
+                .map(([id, label, Icon]) => (
                   <button
                     key={id}
                     onClick={() => { setActiveTab(id); setMobileMenuOpen(false) }}
@@ -453,7 +461,13 @@ const App: React.FC = () => {
                 {([
                   ['approvals', t('nav.approvals'), FileSignature],
                   ['internal', t('nav.internal'), FileText],
-                ] as any[]).map(([id, label, Icon]) => (
+                ] as any[])
+                .filter(([id]) => {
+                  if (id === 'approvals') return hasPermission(currentUser, 'approvals', 'view_idx');
+                  if (id === 'internal') return hasPermission(currentUser, 'archive', 'create');
+                  return true;
+                })
+                .map(([id, label, Icon]) => (
                   <button
                     key={id}
                     onClick={() => { setActiveTab(id); setMobileMenuOpen(false) }}
@@ -463,6 +477,34 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
+
+              {(hasPermission(currentUser, 'users', 'view_idx') || hasPermission(currentUser, 'system', 'view_idx')) && (
+                <div className="mt-3">
+                  <div className="px-4 py-2 text-[11px] font-black text-slate-400 uppercase tracking-wider">{t('sidebar.administration')}</div>
+                  {([
+                    ['users', t('nav.users'), Users],
+                    ['audit', t('nav.audit'), ShieldCheck],
+                    ['admin-status', t('nav.admin'), Activity],
+                    ['backup', t('nav.backup'), Database],
+                  ] as any[])
+                  .filter(([id]) => {
+                    if (id === 'users') return hasPermission(currentUser, 'users', 'view_idx');
+                    if (id === 'audit') return hasPermission(currentUser, 'users', 'view_audit_logs');
+                    if (id === 'admin-status') return hasPermission(currentUser, 'system', 'view_idx');
+                    if (id === 'backup') return hasPermission(currentUser, 'system', 'manage_backups');
+                    return false;
+                  })
+                  .map(([id, label, Icon]) => (
+                    <button
+                      key={id}
+                      onClick={() => { setActiveTab(id); setMobileMenuOpen(false) }}
+                      className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-black transition-all ${activeTab === id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    >
+                      <Icon size={18} /> {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </nav>
 
             <div className="p-4 border-t border-slate-200">
@@ -478,7 +520,7 @@ const App: React.FC = () => {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-72'} bg-white ${dir === 'rtl' ? 'border-l' : 'border-r'} border-slate-200 hidden md:flex flex-col shrink-0 z-20 shadow-sm no-print h-full transition-all duration-300 relative`}>
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-72'} bg-slate-50 ${dir === 'rtl' ? 'border-l' : 'border-r'} border-slate-200 hidden md:flex flex-col shrink-0 z-20 shadow-sm no-print h-full transition-all duration-300 relative`}>
         {/* Collapse Toggle */}
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -491,11 +533,11 @@ const App: React.FC = () => {
           )}
         </button>
 
-        <div className={`p-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'py-6 px-2' : 'p-4'}`}>
+        <div className={`p-4 border-b border-slate-200 bg-white overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'py-6 px-2' : 'p-4'}`}>
            <div className="flex flex-col items-center text-center w-full">
              <img src='/mdlbeast/logo.png' className={`${isSidebarCollapsed ? 'h-8 w-auto' : 'w-48 h-auto max-w-[180px]'} mb-3 object-contain drop-shadow-sm hover:scale-105 transition-all duration-300`} alt="Logo" />
              {!isSidebarCollapsed && (
-               <div className="text-[10px] font-black text-slate-600 uppercase tracking-[0.12em] leading-relaxed whitespace-nowrap">{t('sidebar.systemTitle')}</div>
+               <div className="text-[11px] font-bold text-slate-800 uppercase tracking-widest leading-relaxed whitespace-nowrap">{t('sidebar.systemTitle')}</div>
              )}
            </div>
         </div>
@@ -504,17 +546,26 @@ const App: React.FC = () => {
           <NavItem id="dashboard" label={t('nav.dashboard')} icon={LayoutDashboard} />
           
           <SidebarSection id="documents" title={t('sidebar.adminComms')} icon={FolderOpen}>
-            <NavItem id="incoming" label={t('nav.incoming')} icon={FilePlus} />
-            <NavItem id="outgoing" label={t('nav.outgoing')} icon={FileMinus} />
-            <NavItem id="list" label={t('nav.archive')} icon={Search} />
-            <NavItem id="scanner" label={t('nav.scanner')} icon={Scan} />
-            <NavItem id="reports" label={t('nav.reports')} icon={BarChart3} />
+            {hasPermission(currentUser, 'archive', 'create') && <NavItem id="incoming" label={t('nav.incoming')} icon={FilePlus} />}
+            {hasPermission(currentUser, 'archive', 'create') && <NavItem id="outgoing" label={t('nav.outgoing')} icon={FileMinus} />}
+            {hasPermission(currentUser, 'archive', 'view_idx') && <NavItem id="list" label={t('nav.archive')} icon={Search} />}
+            {hasPermission(currentUser, 'archive', 'create') && <NavItem id="scanner" label={t('nav.scanner')} icon={Scan} />}
+            {hasPermission(currentUser, 'reports', 'view_idx') && <NavItem id="reports" label={t('nav.reports')} icon={BarChart3} />}
           </SidebarSection>
           
           <SidebarSection id="workflow" title={t('sidebar.workflow')} icon={FileSignature}>
-            <NavItem id="approvals" label={t('nav.approvals')} icon={FileSignature} />
-            <NavItem id="internal" label={t('nav.internal')} icon={FileText} />
+            {hasPermission(currentUser, 'approvals', 'view_idx') && <NavItem id="approvals" label={t('nav.approvals')} icon={FileSignature} />}
+            {hasPermission(currentUser, 'archive', 'create') && <NavItem id="internal" label={t('nav.internal')} icon={FileText} />}
           </SidebarSection>
+
+          {(hasPermission(currentUser, 'users', 'view_idx') || hasPermission(currentUser, 'system', 'view_idx')) && (
+            <SidebarSection id="administration" title={t('sidebar.administration')} icon={Settings}>
+              {hasPermission(currentUser, 'users', 'view_idx') && <NavItem id="users" label={t('nav.users')} icon={Users} />}
+              {hasPermission(currentUser, 'users', 'view_audit_logs') && <NavItem id="audit" label={t('nav.audit')} icon={ShieldCheck} />}
+              {hasPermission(currentUser, 'system', 'view_idx') && <NavItem id="admin-status" label={t('nav.admin')} icon={Activity} />}
+              {hasPermission(currentUser, 'system', 'manage_backups') && <NavItem id="backup" label={t('nav.backup')} icon={Database} />}
+            </SidebarSection>
+          )}
           
           <div className="h-px bg-slate-100 my-3"></div>
           {!isSidebarCollapsed && (
@@ -538,7 +589,7 @@ const App: React.FC = () => {
              </div>
              {!isSidebarCollapsed && (
                <>
-                 <div className="overflow-hidden text-right flex-1">
+                 <div className="overflow-hidden text-start flex-1">
                    <div className="text-[11px] font-black truncate leading-tight">{currentUser.full_name}</div>
                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? t('role.admin') : currentUser.role === 'manager' ? t('role.manager') : currentUser.role === 'supervisor' ? t('role.supervisor') : t('role.member')}</div>
                  </div>
@@ -549,7 +600,7 @@ const App: React.FC = () => {
           
           {!isSidebarCollapsed && (
              <div className="mt-4 flex flex-col items-center justify-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Developed By</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{t('app.developedBy')}</span>
                 <a href="https://zaco.sa" target="_blank" rel="noopener noreferrer">
                    <img src="/dev.png" alt="ZACO" className="h-6 w-auto opacity-80 hover:opacity-100 transition-all" />
                 </a>
@@ -609,10 +660,10 @@ const App: React.FC = () => {
 
               <DropdownMenuContent align="end" className="w-[340px] rounded-2xl p-2">
                 <DropdownMenuLabel className="flex items-center justify-between">
-                  <span>الإشعارات</span>
+                  <span>{t('notifications.title')}</span>
                   {notificationCount > 0 && (
                     <span className="text-[10px] font-black bg-red-50 text-red-700 px-2 py-0.5 rounded-full">
-                      غير مقروء: {notificationCount}
+                      {t('notifications.unread')}: {notificationCount}
                     </span>
                   )}
                 </DropdownMenuLabel>
@@ -620,11 +671,11 @@ const App: React.FC = () => {
 
                 {notificationPreviewLoading ? (
                   <DropdownMenuItem disabled className="opacity-70">
-                    جارِ التحميل...
+                    {t('common.loading')}
                   </DropdownMenuItem>
                 ) : notificationPreview.length === 0 ? (
                   <DropdownMenuItem disabled className="opacity-70">
-                    لا توجد إشعارات غير مقروءة
+                    {t('notifications.empty_unread')}
                   </DropdownMenuItem>
                 ) : (
                   notificationPreview.map((n: any) => (
@@ -636,7 +687,7 @@ const App: React.FC = () => {
                       }}
                       className="flex flex-col items-start gap-1"
                     >
-                      <div className="text-sm font-black text-slate-900 line-clamp-1">{n.title || 'إشعار'}</div>
+                      <div className="text-sm font-black text-slate-900 line-clamp-1">{n.title || t('notifications.default_title')}</div>
                       {n.message && <div className="text-xs text-slate-500 line-clamp-2">{n.message}</div>}
                     </DropdownMenuItem>
                   ))
@@ -650,14 +701,14 @@ const App: React.FC = () => {
                   }}
                   className="font-black"
                 >
-                  عرض كل الإشعارات
+                  {t('notifications.view_all')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             
             {/* User Quick Info */}
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50">
-              <div className="text-right">
+              <div className="text-end">
                 <div className="text-xs font-black text-slate-800">{currentUser.full_name}</div>
                 <div className="text-[10px] text-slate-500 font-bold">
                   {currentUser.role === 'admin' ? t('role.admin') : currentUser.role === 'manager' ? t('role.manager') : currentUser.role === 'supervisor' ? t('role.supervisor') : t('role.member')}
@@ -679,22 +730,22 @@ const App: React.FC = () => {
             <div className="mb-6 p-3 bg-red-50 text-red-700 rounded-xl font-bold">{globalError}</div>
           )}
           {activeTab === 'dashboard' && <Dashboard docs={docs} />}
-          {activeTab === 'incoming' && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} companies={[]} />}
-          {activeTab === 'outgoing' && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={[]} />}
-          {activeTab === 'list' && <DocumentList docs={docs} settings={{...settings, orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png', orgNameEn: 'MDLBEAST'}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} /> }
-          {activeTab === 'scanner' && <BarcodeScanner />}
-          {activeTab === 'reports' && <ReportGenerator docs={docs} settings={{orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png'}} />}
-          {activeTab === 'audit' && <AuditLogs />}
-          {activeTab === 'approvals' && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
+          {activeTab === 'incoming' && hasPermission(currentUser, 'archive', 'create') && <DocumentForm type={DocType.INCOMING} onSave={handleSaveDoc} companies={[]} />}
+          {activeTab === 'outgoing' && hasPermission(currentUser, 'archive', 'create') && <DocumentForm type={DocType.OUTGOING} onSave={handleSaveDoc} companies={[]} />}
+          {activeTab === 'list' && hasPermission(currentUser, 'archive', 'view_idx') && <DocumentList docs={docs} settings={{...settings, orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png', orgNameEn: 'MDLBEAST'}} currentUser={currentUser} users={users} onRefresh={refreshDocuments} /> }
+          {activeTab === 'scanner' && hasPermission(currentUser, 'archive', 'create') && <BarcodeScanner />}
+          {activeTab === 'reports' && hasPermission(currentUser, 'reports', 'view_idx') && <ReportGenerator docs={docs} settings={{orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png'}} />}
+          {activeTab === 'audit' && hasPermission(currentUser, 'users', 'view_audit_logs') && <AuditLogs />}
+          {activeTab === 'approvals' && hasPermission(currentUser, 'approvals', 'view_idx') && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
           {activeTab === 'notifications' && <NotificationCenter />}
-          {activeTab === 'internal' && <InternalCommunication currentUser={currentUser} users={users} />}
-          {activeTab === 'users' && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}
-          {activeTab === 'admin-status' && <AdminStatus />}
-          {activeTab === 'backup' && <AdminBackups />}
+          {activeTab === 'internal' && hasPermission(currentUser, 'archive', 'create') && <InternalCommunication currentUser={currentUser} users={users} />}
+          {activeTab === 'users' && hasPermission(currentUser, 'users', 'view_idx') && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}
+          {activeTab === 'admin-status' && hasPermission(currentUser, 'system', 'view_idx') && <AdminStatus />}
+          {activeTab === 'backup' && hasPermission(currentUser, 'system', 'manage_backups') && <AdminBackups />}
         </div>
         
         <footer className="p-8 bg-white border-t border-slate-100 text-center no-print">
-           <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">{settings.footerText}</p>
+           <p className="text-[11px] font-black text-slate-400 uppercase">{t('app.footer')}</p>
         </footer>
       </main>
       </LoadingProvider>

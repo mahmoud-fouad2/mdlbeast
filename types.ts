@@ -1,3 +1,5 @@
+import { UserPermissions } from './lib/permissions'
+
 export enum DocType {
   INCOMING = 'INCOMING',
   OUTGOING = 'OUTGOING'
@@ -45,7 +47,7 @@ export interface User {
   stamp_url?: string
   avatar_url?: string
   profile_picture_url?: string  // Alias for avatar_url
-  permissions?: any  // User permissions object
+  permissions?: UserPermissions  // User permissions object
 }
 
 export interface ApprovalRequest {

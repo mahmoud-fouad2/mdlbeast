@@ -1,8 +1,9 @@
 import express from "express"
 import type { Request, Response } from "express"
 import { query } from "../config/database"
-import { authenticateToken, isAdmin, isManager } from "../middleware/auth"
+import { authenticateToken, requirePermission } from "../middleware/auth"
 import type { AuthRequest } from "../types"
+import { numeric } from "../lib/utils" // Implicit or global? No, sticking to imports.
 import { getSignedDownloadUrl, uploadBuffer } from "../lib/r2-storage"
 import multer from "multer"
 
@@ -77,8 +78,8 @@ async function convertToSignedUrls(user: any) {
 // All routes require authentication
 router.use(authenticateToken)
 
-// Get all users (manager or admin only)
-router.get("/", isManager, async (req: AuthRequest, res: Response) => {
+// Get all users (manager permission removed, using granular permission)
+router.get("/", requirePermission('users', 'view_list'), async (req: AuthRequest, res: Response) => {
   try {
     // Standard Select Query - Assumes Schema is Valid (Production Optimized)
     // We fetch all needed columns directly. If a column is missing, DB will throw error,
@@ -97,8 +98,11 @@ router.get("/", isManager, async (req: AuthRequest, res: Response) => {
         avatar_url, 
         position, 
         department, 
-        phone, 
-        is_active, 
+        phone,
+        permissions
+      FROM users
+      ORDER BY id ASC
+    `        is_active, 
         permissions 
       FROM users 
       ORDER BY id ASC
@@ -125,10 +129,10 @@ router.get("/", isManager, async (req: AuthRequest, res: Response) => {
   }
 })
 
-// Create user (manager or admin only)
-router.post("/", isManager, async (req: AuthRequest, res: Response) => {
+// Create user (granular permission)
+router.post("/", requirePermission('users', 'create'), async (req: AuthRequest, res: Response) => {
   try {
-    const { username, password, full_name, role, email } = req.body
+    const { username, password, full_name, role, email, position, department, phone, permissions } = req.body
     if (!username || !password || !full_name || !role) return res.status(400).json({ error: 'Missing fields' })
 
     const exists = await query('SELECT id FROM users WHERE username = $1 LIMIT 1', [username])
@@ -136,16 +140,27 @@ router.post("/", isManager, async (req: AuthRequest, res: Response) => {
 
     const hashed = await import('bcrypt').then(b => b.hash(password, 10))
     
-    // Check if email column exists
+    // Check if email column exists (legacy check, but safe to keep)
     const hasEmail = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email' LIMIT 1")).rows.length > 0
     
-    let ins
-    if (hasEmail && email) {
-      ins = await query('INSERT INTO users (username, password, full_name, role, email) VALUES ($1,$2,$3,$4,$5) RETURNING id, username, full_name, role, email, created_at', [username, hashed, full_name, role, email])
-    } else {
-      ins = await query('INSERT INTO users (username, password, full_name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, full_name, role, created_at', [username, hashed, full_name, role])
-    }
+    // Using dynamic insert to handle optional new columns without complex logic
+    // But for simplicity/readability, we'll assume the migration ran or columns exist based on previous checks
+    // We'll construct the query dynamically to be safe
     
+    const columns = ['username', 'password', 'full_name', 'role']
+    const placeholders = ['$1', '$2', '$3', '$4']
+    const values = [username, hashed, full_name, role]
+    let pIdx = 5
+
+    if (hasEmail && email) { columns.push('email'); placeholders.push(`$${pIdx++}`); values.push(email) }
+    if (position) { columns.push('position'); placeholders.push(`$${pIdx++}`); values.push(position) }
+    if (department) { columns.push('department'); placeholders.push(`$${pIdx++}`); values.push(department) }
+    if (phone) { columns.push('phone'); placeholders.push(`$${pIdx++}`); values.push(phone) }
+    if (permissions) { columns.push('permissions'); placeholders.push(`$${pIdx++}`); values.push(permissions) }
+
+    const q = `INSERT INTO users (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id, username, full_name, role, created_at`
+    
+    const ins = await query(q, values)
     res.status(201).json(ins.rows[0])
   } catch (err: any) {
     console.error('Create user error:', err)
@@ -153,11 +168,19 @@ router.post("/", isManager, async (req: AuthRequest, res: Response) => {
   }
 })
 
-// Update user (manager or admin only)
-router.put('/:id', isManager, async (req: AuthRequest, res: Response) => {
+// Update user (granular permission)
+router.put('/:id', requirePermission('users', 'edit'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
-    const { full_name, role, password, email, username, manager_id, signature_url, stamp_url } = req.body
+    // Allow updating permissions
+    const { full_name, role, password, email, username, manager_id, signature_url, stamp_url, permissions, position, department, phone } = req.body
+    
+    // Only admin or high-level manager can changing permissions to prevent privilege escalation
+    // Ideally this should be a separate permission like 'users.manage_permissions'
+    if (permissions && !req.user?.permissions?.users?.manage_permissions && req.user?.role !== 'admin') {
+         return res.status(403).json({ error: 'Insufficient rights to modify permissions' })
+    }
+
     const parts: string[] = []
     const values: any[] = []
     let idx = 1
@@ -169,9 +192,15 @@ router.put('/:id', isManager, async (req: AuthRequest, res: Response) => {
     if (manager_id !== undefined) { parts.push(`manager_id = $${idx++}`); values.push(manager_id || null) }
     if (signature_url !== undefined) { parts.push(`signature_url = $${idx++}`); values.push(signature_url) }
     if (stamp_url !== undefined) { parts.push(`stamp_url = $${idx++}`); values.push(stamp_url) }
+    // New fields
+    if (permissions !== undefined) { parts.push(`permissions = $${idx++}`); values.push(permissions) }
+    if (position !== undefined) { parts.push(`position = $${idx++}`); values.push(position) }
+    if (department !== undefined) { parts.push(`department = $${idx++}`); values.push(department) }
+    if (phone !== undefined) { parts.push(`phone = $${idx++}`); values.push(phone) }
+
     if (!parts.length) return res.status(400).json({ error: 'No updates provided' })
     values.push(id)
-    const q = `UPDATE users SET ${parts.join(', ')} WHERE id = $${idx} RETURNING id, username, full_name, role, created_at, manager_id, signature_url, stamp_url`
+    const q = `UPDATE users SET ${parts.join(', ')} WHERE id = $${idx} RETURNING id, username, full_name, role, created_at, manager_id, signature_url, stamp_url, permissions, position, department, phone`
     const r = await query(q, values)
     if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' })
     
@@ -185,8 +214,8 @@ router.put('/:id', isManager, async (req: AuthRequest, res: Response) => {
   }
 })
 
-// Delete user (manager or admin only)
-router.delete('/:id', isManager, async (req: AuthRequest, res: Response) => {
+// Delete user (granular permission)
+router.delete('/:id', requirePermission('users', 'delete'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
     const r = await query('DELETE FROM users WHERE id = $1 RETURNING id', [id])
@@ -207,12 +236,12 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
     const hasName = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'name' LIMIT 1")).rows.length > 0
     const hasAvatarUrl = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar_url' LIMIT 1")).rows.length > 0
 
-    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url"
+    let select = "id, username AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, permissions, position, department, phone"
     if (hasAvatarUrl) select += ", avatar_url"
     
-    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
-    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
-    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url" + (hasAvatarUrl ? ", avatar_url" : "")
+    if (hasEmail && hasName) select = "id, email AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, permissions, position, department, phone" + (hasAvatarUrl ? ", avatar_url" : "")
+    else if (hasEmail) select = "id, email AS username, full_name AS full_name, role, created_at, manager_id, signature_url, stamp_url, permissions, position, department, phone" + (hasAvatarUrl ? ", avatar_url" : "")
+    else if (hasName) select = "id, username AS username, name AS full_name, role, created_at, manager_id, signature_url, stamp_url, permissions, position, department, phone" + (hasAvatarUrl ? ", avatar_url" : "")
 
     if (hasEmail) {
        const hasUsernameCol = (await query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username' LIMIT 1")).rows.length > 0

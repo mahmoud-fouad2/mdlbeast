@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { apiClient } from '@/lib/api-client'
+import { useI18n } from '@/lib/i18n-context'
 import { formatDateTimeGregorian } from "@/lib/utils"
 import { 
   Shield, Search, RefreshCw, Clock, 
@@ -194,6 +195,7 @@ const DetailsViewer = ({ details }: { details: string }) => {
 }
 
 export default function AuditLogs() {
+  const { t } = useI18n()
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -348,8 +350,8 @@ export default function AuditLogs() {
                 <Shield size={26} className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-slate-900">مراقبة التفاعل</h1>
-                <p className="text-sm text-slate-500 font-bold">تتبع جميع الأنشطة والعمليات في النظام (القيود، التعديلات، الدخول)</p>
+                <h1 className="text-2xl font-black text-slate-900">{t('audit.title')}</h1>
+                <p className="text-sm text-slate-500 font-bold">{t('audit.subtitle')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
