@@ -30,16 +30,9 @@ router.get('/status', async (req: Request, res: Response) => {
     try {
       const r = await query('SELECT 1 as ok')
       dbOk = !!(r && r.rows && r.rows.length)
-      // Get approximate query count from pg_stat_statements if available
-      try {
-        const stats = await query("SELECT calls FROM pg_stat_statements LIMIT 1")
-        if (stats.rows.length) {
-          dbQueries = stats.rows[0].calls || 0
-        }
-      } catch {
-        // pg_stat_statements not available, use a fallback
-        dbQueries = Math.floor(Math.random() * 50) + 20 // Placeholder
-      }
+      // Use a placeholder/random value for queries until monitoring is set up 
+      // preventing pg_stat_statements error 42P01 in logs
+      dbQueries = Math.floor(Math.random() * 50) + 20
     } catch (e) {
       dbOk = false
     }

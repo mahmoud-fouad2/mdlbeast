@@ -2,7 +2,6 @@
   "app.title": "مركز اتصالات MDLBEAST",
   "app.description": "نظام إدارة الاتصالات والأرشيف المتكامل",
   "app.footer": "مركز اتصالات MDLBEAST - جميع الحقوق محفوظة © 2026",
-  
   "nav.dashboard": "لوحة التحكم",
   "nav.incoming": "قيد وارد جديد",
   "nav.outgoing": "قيد صادر جديد",
@@ -10,14 +9,16 @@
   "nav.scanner": "تتبع الباركود",
   "nav.reports": "تقارير الأرشيف",
   "nav.audit": "مراقبة التفاعل",
-  "nav.approvals": "نظام الاعتمادات",
+  "nav.approvals": "نظام الإعتمادات",
   "nav.notifications": "مركز الإشعارات",
   "nav.internal": "التواصل الداخلي",
   "nav.users": "إدارة المستخدمين",
   "nav.admin": "حالة النظام",
-  "nav.backup": "النسخ الاحتياطي",
+  "nav.system_status": "حالة النظام",
+  "nav.backup": "مركز النسخ الاحتياطي",
+  "nav.backup_center": "مركز النسخ الاحتياطي",
+  "nav.approvals_system": "نظام الإعتمادات",
   "nav.logout": "تسجيل الخروج",
-
   "dashboard.title": "لوحة التحكم",
   "dashboard.subtitle": "نظرة عامة على حركة المراسلات والإحصائيات",
   "dashboard.total": "الإجمالي",
@@ -37,22 +38,10 @@
   "dashboard.latest5": "أحدث 5 معاملات",
   "dashboard.lastUpdate": "آخر تحديث: الآن",
   "dashboard.noActivity": "لا يوجد نشاط مسجل بعد",
-
   "sidebar.adminComms": "الاتصالات الإدارية",
   "sidebar.workflow": "سير العمل",
   "sidebar.administration": "إدارة النظام",
   "sidebar.systemTitle": "مركز الإتصالات الإدارية",
-  
-  "admin.header.title": "حالة النظام",
-  "admin.header.subtitle": "مراقبة صحة النظام والأداء ومهام الصيانة",
-  "admin.status.online": "متصل",
-  "admin.status.issues": "توجد مشاكل",
-  "admin.controls.auto_refresh": "تحديث تلقائي (دقيقتين)",
-  "admin.uptime": "وقت التشغيل",
-  "admin.uptime.format.days": "{{days}} يوم {{hours}} ساعة",
-  "admin.uptime.format.hours": "{{hours}} ساعة {{minutes}} دقيقة",
-  "admin.uptime.format.zero": "بدأ للتو",
-  
   "audit.title": "مراقبة التفاعل",
   "audit.subtitle": "تتبع جميع الأنشطة والعمليات وسجلات الدخول في النظام",
   "audit.search": "بحث في السجلات...",
@@ -65,7 +54,6 @@
   "audit.filter.today": "اليوم",
   "audit.filter.week": "هذا الأسبوع",
   "audit.filter.month": "هذا الشهر",
-
   "login.title": "نظام MDLBEAST الإداري",
   "login.subtitle": "بوابة الوصول المؤسسي",
   "login.username": "اسم المستخدم",
@@ -83,7 +71,6 @@
   "login.protectedBy": "محمي بواسطة reCAPTCHA",
   "login.usernamePlaceholder": "admin",
   "login.passwordPlaceholder": "••••••••",
-  
   "common.save": "حفظ",
   "common.cancel": "إلغاء",
   "common.delete": "حذف",
@@ -107,7 +94,6 @@
   "common.close": "إغلاق",
   "common.view": "عرض",
   "common.download": "تحميل",
-  
   "documents.title": "المعاملات",
   "documents.create": "معاملة جديدة",
   "documents.incoming": "وارد",
@@ -125,7 +111,6 @@
   "documents.priority.very_urgent": "عاجل",
   "documents.createdBy": "أنشأ بواسطة",
   "documents.attachments": "المرفقات",
-  
   "users.title": "إدارة المستخدمين",
   "users.create": "مستخدم جديد",
   "users.username": "اسم المستخدم",
@@ -139,22 +124,19 @@
   "users.status": "الحالة",
   "users.active": "نشط",
   "users.inactive": "غير نشط",
-  
   "role.admin": "مدير نظام",
   "role.manager": "مدير",
   "role.supervisor": "مشرف",
   "role.member": "مستخدم",
-  
   "notifications.title": "مركز الإشعارات",
   "notifications.markAllRead": "قراءة الكل",
   "notifications.clear": "مسح الكل",
-  "notifications.empty": "لا توجد إشعارات",
-  "notifications.unread": "غير مقروء",
+  "notifications.empty": "لا توجد إشعارات غير مقروءة",
+  "notifications.unread": "غير مقروء: ",
   "notifications.viewAll": "عرض كل الإشعارات",
   "notifications.new": "جديد",
   "notifications.read": "قراءة",
   "notifications.delete": "حذف",
-  
   "reports.title": "تقارير الأرشيف",
   "reports.generate": "إنشاء تقرير",
   "reports.dateFrom": "من تاريخ",
@@ -163,26 +145,23 @@
   "reports.all": "الكل",
   "reports.print": "طباعة التقرير",
   "reports.export": "تصدير Excel / CSV",
-  
+  "reports.customize": "تخصيص التقرير",
+  "reports.barcode_tracking": "تتبع الباركود",
   "approvals.title": "نظام الإعتمادات",
   "approvals.pending": "قيد الإنتظار",
   "approvals.approved": "معتمد",
   "approvals.rejected": "مرفوض",
-  
   "backup.title": "النسخ الاحتياطي والاستعادة",
   "backup.create": "إنشاء نسخة احتياطية",
   "backup.restore": "استعادة",
   "backup.download": "تحميل",
-  
   "settings.title": "الإعدادات",
   "settings.language": "اللغة",
   "settings.theme": "السمة",
   "settings.profile": "الملف الشخصي",
   "settings.changePassword": "تغيير كلمة المرور",
-  
   "language.english": "English",
   "language.arabic": "عربي",
-
   "archive.searchTitle": "بحث سريع",
   "archive.searchPlaceholder": "الباركود، الموضوع، الجهة...",
   "common.fromDate": "من تاريخ",
@@ -204,7 +183,8 @@
   "archive.pagination": "عرض",
   "archive.paginationOf": "من أصل",
   "archive.page": "صفحة",
-
+  "archive.noResults": "لم يتم العثور على نتائج",
+  "archive.tryChangingFilters": "حاول تغيير عوامل التصفية أو كلمات البحث",
   "internal.title": "التواصل الداخلي",
   "internal.subtitle": "نظام المراسلات الآمن",
   "internal.placeholder": "اكتب رسالتك...",
@@ -240,7 +220,6 @@
   "internal.open": "فتح",
   "internal.select_recipient": "الرجاء اختيار مستلم",
   "internal.private_to": "خاص لـ :",
-
   "permissions.archive": "الاتصالات الإدارية",
   "permissions.archive.desc": "إدارة المستندات والصادر والوارد والختم الإلكتروني",
   "permissions.reports": "التقارير",
@@ -253,7 +232,6 @@
   "permissions.communication.desc": "الدردشة الداخلية والإعلانات",
   "permissions.approvals": "الاعتمادات",
   "permissions.approvals.desc": "الموافقات والطلبات",
-
   "permissions.action.view_idx": "عرض في السايدبار",
   "permissions.action.view_all": "عرض الكل",
   "permissions.action.view_own": "عرض الخاص فقط",
@@ -273,13 +251,11 @@
   "permissions.action.view_pending": "الطلبات المعلقة",
   "permissions.action.action_approve": "الموافقة",
   "permissions.action.action_reject": "الرفض",
-
   "permissions.manage_title": "إدارة الصلاحيات",
   "permissions.manage_subtitle": "تحكم دقيق بصلاحيات الوصول والعمليات في النظام",
   "permissions.mode_inherit": "وراثة (Role Based)",
   "permissions.mode_custom": "مخصص",
   "permissions.custom_warning": "تنبيه: أنت الآن في الوضع المخصص. لن يتأثر هذا المستخدم بأي تحديثات مستقبلية لصلاحيات دوره الأساسي.",
-
   "permissions.group.access": "الوصول",
   "permissions.group.manage": "الإدارة",
   "permissions.group.tools": "الأدوات",
@@ -288,19 +264,16 @@
   "permissions.group.chat": "الدردشة",
   "permissions.group.display": "العرض",
   "permissions.group.actions": "الإجراءات",
-
   "user.role.admin": "مدير نظام",
   "user.role.manager": "مدير",
   "user.role.supervisor": "مشرف",
   "user.role.member": "مستخدم",
   "user.role.accountant": "محاسب",
-
   "user.role.desc.member": "مستخدم عادي",
   "user.role.desc.supervisor": "مشرف (صلاحيات إشراف)",
   "user.role.desc.accountant": "محاسب (صلاحيات مالية)",
   "user.role.desc.manager": "مدير (تحكم محدود)",
   "user.role.desc.admin": "مدير نظام (تحكم كامل)",
-
   "position.gm": "مدير عام",
   "position.pm": "مدير مشاريع",
   "position.dept_manager": "مدير قسم",
@@ -311,12 +284,10 @@
   "position.trainee": "متدرب",
   "position.consultant": "استشاري خارجي",
   "position.none": "-- لم يُحدد --",
-
   "scope.self": "بياناته فقط",
   "scope.children": "المرؤوسين المباشرين",
   "scope.tree": "كامل الفرع",
   "scope.all": "كل النظام",
-
   "user.form.title.add": "إضافة مستخدم جديد",
   "user.form.title.edit": "تعديل مستخدم",
   "user.form.fullname": "الاسم الكامل",
@@ -434,17 +405,13 @@
   "archive.type": "النوع",
   "archive.date": "التاريخ",
   "archive.statement": "البيان (اختياري)",
-  "archive.statementPlaceholder": "البيان والوصف الرسمي:\nتم قيد هذه المعاملة رقميًا وتوثيقها في السجل الموحد للمؤسسة، وتعتبر هذه النسخة أصلية بموجب\nالباركود المرجعي المسجل في أنظمة الحوكمة الرقمية",
-
+  "archive.statementPlaceholder": "البيان والوصف الرسمي:\\nتم قيد هذه المعاملة رقميًا وتوثيقها في السجل الموحد للمؤسسة، وتعتبر هذه النسخة أصلية بموجب\\nالباركود المرجعي المسجل في أنظمة الحوكمة الرقمية",
   "users.manage": "إدارة المستخدمين",
   "users.addUser": "إضافة مستخدم",
-
   "profile.title": "الملف الشخصي",
   "profile.update": "تحديث الملف",
-
   "common.required": "حقل مطلوب",
   "common.saveChanges": "حفظ التغييرات",
-
   "app.developedBy": "تطوير",
   "session.checking": "جارِ التحقق من الجلسة...",
   "session.noReLogin": "لن تحتاج لإعادة تسجيل الدخول",
@@ -453,167 +420,115 @@
   "alerts.saveFailed": "فشل حفظ المعاملة: ",
   "alerts.refreshFailed": "فشل تحديث الوثائق",
   "notifications.center": "مركز الإشعارات",
-  "notifications.unread": "غير مقروء: ",
   "notifications.loading": "جارِ التحميل...",
-  "notifications.empty": "لا توجد إشعارات غير مقروءة",
   "notifications.fallbackTitle": "إشعار",
-  "notifications.viewAll": "عرض كل الإشعارات",
-
-  "admin": {
-      "header": {
-        "title": "حالة النظام",
-        "subtitle": "مراقبة الأداء واستهلاك الموارد في الوقت الفعلي"
-      },
-      "controls": {
-        "auto_refresh": "تحديث تلقائي",
-        "switch_lang": "English"
-      },
-      "status": {
-        "online": "النظام متصل",
-        "issues": "مشاكل في النظام"
-      },
-      "uptime": {
-        "title": "وقت العمل المتواصل",
-        "format": {
-          "days": "{{days}} يوم و {{hours}} ساعة",
-          "hours": "{{hours}} ساعة و {{minutes}} دقيقة",
-          "zero": "0 دقيقة"
-        },
-        "days_label": "7 أيام"
-      },
-      "memory": {
-        "title": "RAM",
-        "used_from": "مستخدم من أصل {{total}}"
-      },
-      "cpu": {
-        "title": "CPU",
-        "average_normal": "متوسط الاستهلاك (طبيعي)"
-      },
-      "db": {
-        "title": "DB",
-        "archived_doc": "سجل وثيقة مؤرشفة"
-      },
-      "db_stats": {
-        "title": "إحصائيات قاعدة البيانات",
-        "users": "المستخدمين النشطين",
-        "projects": "المشاريع",
-        "attachments": "الملفات المرفقة",
-        "undefined": "غير محدد"
-      },
-      "storage": {
-        "title": "حجم التخزين",
-        "total_attachments": "إجمالي المرفقات",
-        "file_count": "{{count}} ملف",
-        "of_limit": "من أصل 10 GB",
-        "attachments_count": "عدد المرفقات",
-        "archived_docs": "الوثائق المؤرشفة"
-      },
-      "maintenance": {
-        "title": "أدوات الصيانة",
-        "status": {
-          "running": "جارٍ التنفيذ...",
-          "ready": "جاهز"
-        },
-        "mode": {
-          "active": "وضع الصيانة مفعل",
-          "inactive": "وضع الصيانة معطل",
-          "active_desc": "النظام مغلق حالياً أمام المستخدمين العاديين بغرض الصيانة",
-          "inactive_desc": "النظام متاح لجميع المستخدمين بشكل طبيعي",
-          "btn_stop": "إيقاف الصيانة",
-          "btn_start": "تفعيل الصيانة",
-          "confirm_stop": "هل أنت متأكد من إيقاف وضع الصيانة؟ سيتمكن المستخدمون من الدخول للنظام.",
-          "confirm_start": "هل أنت متأكد من تفعيل وضع الصيانة؟ سيتم منع المستخدمين (غير المسؤولين) من الدخول.",
-          "log_action": "وضع الصيانة",
-          "log_success_start": "تم تفعيل وضع الصيانة بنجاح",
-          "log_success_stop": "تم إيقاف وضع الصيانة بنجاح",
-          "log_error": "فشل تغيير الوضع: {{error}}"
-        }
-      },
-      "actions": {
-        "cache": {
-          "title": "تنظيف الكاش",
-          "desc": "حذف البيانات المؤقتة لتحسين الأداء",
-          "confirm": "هل أنت متأكد من تنظيف الكاش؟ سيتم حذف البيانات المؤقتة المخزنة.",
-          "log_start": "جارٍ تنظيف ذاكرة التخزين المؤقتة...",
-          "log_success_full": "تم تنظيف الكاش بنجاح - حذف {{count}} عنصر من المتصفح + تنظيف السيرفر",
-          "log_success_browser": "تم تنظيف كاش المتصفح - حذف {{count}} عنصر",
-          "log_error": "فشل في تنظيف الكاش: {{error}}"
-        },
-        "indexes": {
-          "title": "تحسين الفهارس",
-          "desc": "تسريع استعلامات قاعدة البيانات",
-          "confirm": "هل تريد تحسين فهارس قاعدة البيانات؟ قد يستغرق بضع ثوان.",
-          "log_start": "جارٍ تحليل وتحسين فهارس قاعدة البيانات...",
-          "log_success": "تم تحسين الفهارس بنجاح",
-          "log_success_404": "تم فحص الفهارس - النظام يعمل بشكل طبيعي",
-          "log_error": "فشل في تحسين الفهارس: {{error}}"
-        },
-        "connection": {
-          "title": "فحص الاتصال",
-          "desc": "التحقق من اتصال قاعدة البيانات",
-          "log_start": "جارٍ فحص اتصال قاعدة البيانات...",
-          "log_success": "قاعدة البيانات متصلة بنجاح - زمن الاستجابة: {{latency}}ms",
-          "log_error": "قاعدة البيانات غير متصلة",
-          "log_fallback_success": "النظام يعمل بشكل طبيعي - زمن الاستجابة: {{latency}}ms",
-          "log_fallback_error": "النظام قد يواجه مشاكل",
-          "log_exception": "فشل في الاتصال بالخادم: {{error}}"
-        },
-        "restart": {
-          "title": "إعادة تشغيل",
-          "desc": "إعادة تشغيل خدمات النظام",
-          "confirm": "هل أنت متأكد من إعادة تشغيل الخدمات؟ قد يتسبب هذا في انقطاع مؤقت.",
-          "log_start": "جارٍ إعادة تشغيل خدمات النظام...",
-          "log_success_sent": "تم إرسال طلب إعادة التشغيل",
-          "log_success_reconnect": "تم تحديث الاتصال - النظام يعمل",
-          "log_error": "فشل: {{error}}"
-        },
-        "sequences": {
-          "title": "إعادة ضبط التسلسل",
-          "desc": "إصلاح أخطاء الترقيم التلقائي",
-          "confirm": "هل تريد إعادة ضبط تسلسلات قاعدة البيانات؟",
-          "log_start": "جارٍ إعادة ضبط تسلسلات قاعدة البيانات...",
-          "log_success": "تم إعادة ضبط التسلسلات بنجاح",
-          "log_success_404": "التسلسلات تعمل بشكل صحيح",
-          "log_error": "فشل: {{error}}"
-        },
-        "temp": {
-          "title": "تنظيف الملفات المؤقتة",
-          "desc": "حذف الملفات غير المستخدمة",
-          "confirm": "هل تريد تنظيف الملفات المؤقتة؟",
-          "log_start": "جارٍ البحث عن الملفات المؤقتة وحذفها...",
-          "log_success": "تم تنظيف الملفات المؤقتة",
-          "log_success_404": "لا توجد ملفات مؤقتة للحذف",
-          "log_error": "فشل: {{error}}"
-        },
-        "integrity": {
-          "title": "فحص سلامة البيانات",
-          "desc": "التحقق من تكامل البيانات",
-          "log_start": "جارٍ فحص سلامة البيانات...",
-          "log_issues": "تم العثور على {{count}} مشكلة",
-          "log_success": "جميع البيانات سليمة ومتكاملة",
-          "log_success_404": "البيانات تبدو سليمة",
-          "log_error": "فشل الفحص: {{error}}"
-        },
-        "performance": {
-          "title": "تحليل الأداء",
-          "desc": "قياس سرعة النظام",
-          "log_start": "جارٍ تحليل أداء النظام...",
-          "log_error": "فشل التحليل: {{error}}",
-          "metric_api": "زمن استجابة API: {{latency}}ms",
-          "metric_memory": "ذاكرة المتصفح: {{mb}} MB",
-          "metric_storage": "عناصر التخزين المحلي: {{count}}"
-        }
-      },
-      "logs": {
-        "title": "سجل العمليات",
-        "count_suffix": "عملية",
-        "clear": "مسح السجل",
-        "empty_title": "لا توجد عمليات مسجلة",
-        "empty_desc": "استخدم أدوات الصيانة أعلاه لتنفيذ عمليات"
-      },
-      "error_logs": {
-        "title": "سجل الأخطاء",
-        "count_suffix": "خطأ/تحذير"
-      }
-    }
+  "admin.header.title": "حالة النظام",
+  "admin.header.subtitle": "مراقبة صحة النظام والأداء ومهام الصيانة",
+  "admin.controls.auto_refresh": "تحديث تلقائي (دقيقتين)",
+  "admin.controls.switch_lang": "English",
+  "admin.status.online": "متصل",
+  "admin.status.issues": "توجد مشاكل",
+  "admin.uptime.title": "وقت التشغيل",
+  "admin.uptime.format.days": "{{days}} يوم {{hours}} ساعة",
+  "admin.uptime.format.hours": "{{hours}} ساعة {{minutes}} دقيقة",
+  "admin.uptime.format.zero": "بدأ للتو",
+  "admin.uptime.days_label": "7 أيام",
+  "admin.memory.title": "الذاكرة",
+  "admin.memory.used_from": "مستخدم من أصل {{total}}",
+  "admin.cpu.title": "المعالج",
+  "admin.cpu.average_normal": "المتوسط (طبيعي)",
+  "admin.db.title": "قاعدة البيانات",
+  "admin.db.archived_doc": "وثيقة مؤرشفة",
+  "admin.db_stats.title": "إحصائيات قاعدة البيانات",
+  "admin.db_stats.users": "المستخدمين",
+  "admin.db_stats.projects": "المشاريع",
+  "admin.db_stats.attachments": "المرفقات",
+  "admin.db_stats.undefined": "غير محدد",
+  "admin.storage.title": "استخدام التخزين",
+  "admin.storage.total_attachments": "إجمالي المرفقات",
+  "admin.storage.file_count": "{{count}} ملف",
+  "admin.storage.of_limit": "من أصل 10 GB",
+  "admin.storage.attachments_count": "عدد المرفقات",
+  "admin.storage.archived_docs": "الوثائق المؤرشفة",
+  "admin.storage.unit_mb": "ميجيابايت",
+  "admin.storage.unit_gb": "جيجابايت",
+  "admin.maintenance.title": "أدوات الصيانة",
+  "admin.maintenance.status.running": "جارٍ التنفيذ...",
+  "admin.maintenance.status.ready": "جاهز",
+  "admin.maintenance.mode.active": "وضع الصيانة مفعل",
+  "admin.maintenance.mode.inactive": "وضع الصيانة غير نشط",
+  "admin.maintenance.mode.active_desc": "النظام مغلق حالياً أمام المستخدمين العاديين بغرض الصيانة",
+  "admin.maintenance.mode.inactive_desc": "النظام يعمل بشكل طبيعي ويستقبل طلبات المستخدمين",
+  "admin.maintenance.mode.btn_stop": "إيقاف الصيانة",
+  "admin.maintenance.mode.btn_start": "تفعيل الصيانة",
+  "admin.maintenance.mode.confirm_stop": "هل أنت متأكد من إيقاف وضع الصيانة؟ سيتمكن المستخدمون من الدخول للنظام.",
+  "admin.maintenance.mode.confirm_start": "هل أنت متأكد من تفعيل وضع الصيانة؟ سيتم منع المستخدمين (غير المسؤولين) من الدخول.",
+  "admin.maintenance.mode.log_action": "وضع الصيانة",
+  "admin.maintenance.mode.log_success_start": "تم تفعيل وضع الصيانة بنجاح",
+  "admin.maintenance.mode.log_success_stop": "تم إيقاف وضع الصيانة بنجاح",
+  "admin.maintenance.mode.log_error": "فشل تغيير الوضع: {{error}}",
+  "admin.actions.cache.title": "مسح الذاكرة المؤقتة",
+  "admin.actions.cache.desc": "حذف الملفات المؤقتة لتحسين الأداء",
+  "admin.actions.cache.confirm": "تأكيد مسح الذاكرة المؤقتة؟",
+  "admin.actions.cache.log_start": "بدء مسح الذاكرة المؤقتة...",
+  "admin.actions.cache.log_success_full": "تم المسح بنجاح ({{count}} ملفات)",
+  "admin.actions.cache.log_success_browser": "تم مسح ذاكرة المتصفح ({{count}} ملفات)",
+  "admin.actions.cache.log_error": "خطأ في المسح: {{error}}",
+  "admin.actions.indexes.title": "تحسين الفهارس",
+  "admin.actions.indexes.desc": "تسريع استعلامات قاعدة البيانات",
+  "admin.actions.indexes.confirm": "تأكيد تحسين الفهارس؟",
+  "admin.actions.indexes.log_start": "تحسين الفهارس...",
+  "admin.actions.indexes.log_success": "تم التحسين بنجاح",
+  "admin.actions.indexes.log_success_404": "النظام يعمل بشكل طبيعي",
+  "admin.actions.indexes.log_error": "خطأ: {{error}}",
+  "admin.actions.connection.title": "فحص الاتصال",
+  "admin.actions.connection.desc": "التحقق من الاتصال بقاعدة البيانات",
+  "admin.actions.connection.log_start": "فحص الاتصال...",
+  "admin.actions.connection.log_success": "متصل بنجاح ({{latency}}ms)",
+  "admin.actions.connection.log_error": "خطأ في الاتصال",
+  "admin.actions.connection.log_fallback_success": "النظام يعمل ({{latency}}ms)",
+  "admin.actions.connection.log_fallback_error": "مشاكل محتملة",
+  "admin.actions.connection.log_exception": "خطأ: {{error}}",
+  "admin.actions.restart.title": "إعادة تشغيل",
+  "admin.actions.restart.desc": "إعادة تشغيل الخدمات",
+  "admin.actions.restart.confirm": "تأكيد إعادة التشغيل؟",
+  "admin.actions.restart.log_start": "إعادة التشغيل...",
+  "admin.actions.restart.log_success_sent": "تم الإرسال",
+  "admin.actions.restart.log_success_reconnect": "تم إعادة الاتصال",
+  "admin.actions.restart.log_error": "فشل: {{error}}",
+  "admin.actions.sequences.title": "ضبط التسلسلات",
+  "admin.actions.sequences.desc": "إصلاح الترقيم التلقائي",
+  "admin.actions.sequences.confirm": "تأكيد ضبط التسلسلات؟",
+  "admin.actions.sequences.log_start": "ضبط التسلسلات...",
+  "admin.actions.sequences.log_success": "تم الضبط بنجاح",
+  "admin.actions.sequences.log_success_404": "التسلسلات صحيحة",
+  "admin.actions.sequences.log_error": "فشل: {{error}}",
+  "admin.actions.temp.title": "تنظيف المؤقتات",
+  "admin.actions.temp.desc": "حذف الملفات غير المستخدمة",
+  "admin.actions.temp.confirm": "تأكيد التنظيف؟",
+  "admin.actions.temp.log_start": "التنظيف...",
+  "admin.actions.temp.log_success": "تم التنظيف بنجاح",
+  "admin.actions.temp.log_success_404": "لا توجد ملفات",
+  "admin.actions.temp.log_error": "فشل: {{error}}",
+  "admin.actions.integrity.title": "فحص السلامة",
+  "admin.actions.integrity.desc": "التحقق من البيانات",
+  "admin.actions.integrity.log_start": "فحص...",
+  "admin.actions.integrity.log_issues": "وجد {{count}} مشكلة",
+  "admin.actions.integrity.log_success": "البيانات سليمة",
+  "admin.actions.integrity.log_success_404": "لا توجد مشاكل",
+  "admin.actions.integrity.log_error": "فشل: {{error}}",
+  "admin.actions.performance.title": "تحليل الأداء",
+  "admin.actions.performance.desc": "قياس السرعة",
+  "admin.actions.performance.log_start": "تحليل...",
+  "admin.actions.performance.log_error": "فشل: {{error}}",
+  "admin.actions.performance.metric_api": "زمن API: {{latency}}ms",
+  "admin.actions.performance.metric_memory": "الذاكرة: {{mb}} MB",
+  "admin.actions.performance.metric_storage": "عناصر التخزين: {{count}}",
+  "admin.logs.title": "سجلات النظام",
+  "admin.logs.count_suffix": "عملية",
+  "admin.logs.clear": "مسح السجل",
+  "admin.logs.empty_title": "لا توجد سجلات",
+  "admin.logs.empty_desc": "لم يتم تسجيل أي نشاط أو أخطاء مؤخراً",
+  "admin.error_logs.title": "سجلات الأخطاء",
+  "admin.error_logs.count_suffix": "خطأ"
 }
