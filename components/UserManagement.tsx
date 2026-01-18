@@ -816,7 +816,7 @@ const UserManagementInner: React.FC<UserManagementProps> = ({
   const handleEdit = (user: UserWithChildren) => {
     setEditingUser(user)
     // دمج صلاحيات الدور مع الصلاحيات المخصصة للعرض في الـ UI
-    const mergedPerms = getUserMergedPermissions(user.role, user.permissions)
+    const mergedPerms = mergePermissions(user.role, user.permissions)
     // الحفاظ على وضع الصلاحيات (inherit/custom)
     if (user.permissions && user.permissions.__mode) {
       mergedPerms.__mode = user.permissions.__mode

@@ -108,7 +108,16 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
   }
 }
 
-export function mergePermissions(base: UserPermissions, custom: Partial<UserPermissions> | null | undefined): UserPermissions {
+export function mergePermissions(roleOrBase: string | UserPermissions, custom: Partial<UserPermissions> | null | undefined): UserPermissions {
+  // If first parameter is a role string, get its default permissions
+  let base: UserPermissions
+  if (typeof roleOrBase === 'string') {
+    const normalizedRole = roleOrBase.toLowerCase()
+    base = ROLE_DEFAULT_PERMISSIONS[normalizedRole] || ROLE_DEFAULT_PERMISSIONS.member
+  } else {
+    base = roleOrBase
+  }
+  
   if (!custom) return { ...base }
   
   const merged: any = {}

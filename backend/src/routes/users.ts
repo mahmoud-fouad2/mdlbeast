@@ -3,7 +3,6 @@ import type { Request, Response } from "express"
 import { query } from "../config/database"
 import { authenticateToken, requirePermission } from "../middleware/auth"
 import type { AuthRequest } from "../types"
-import { numeric } from "../lib/utils" // Implicit or global? No, sticking to imports.
 import { getSignedDownloadUrl, uploadBuffer } from "../lib/r2-storage"
 import multer from "multer"
 
@@ -99,12 +98,9 @@ router.get("/", requirePermission('users', 'view_list'), async (req: AuthRequest
         position, 
         department, 
         phone,
+        is_active,
         permissions
       FROM users
-      ORDER BY id ASC
-    `        is_active, 
-        permissions 
-      FROM users 
       ORDER BY id ASC
     `
     const result = await query(queryText)
@@ -378,7 +374,7 @@ router.get("/managers", async (req: AuthRequest, res: Response) => {
 })
 
 // Update user permissions (Admin only)
-router.put("/:id/permissions", authenticateToken, isAdmin, async (req: AuthRequest, res: Response) => {
+router.put("/:id/permissions", authenticateToken, requirePermission('users', 'manage_permissions'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
     const { permissions } = req.body
