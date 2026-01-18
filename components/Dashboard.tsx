@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { useI18n } from "@/lib/i18n-context"
 import { useEffect, useState } from "react"
 import { formatDateTimeGregorian } from "@/lib/utils"
+import { apiClient } from "@/lib/api-client"
 
 interface DashboardProps {
   docs: Correspondence[]
