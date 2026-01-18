@@ -863,6 +863,10 @@ class ApiClient {
     return this.request<any>(`/admin/status/clear`, { method: 'POST' })
   }
 
+  async getStats() {
+    return this.request<{ incoming: number, outgoing: number, urgent: number, total: number }>('/documents?stats=true').catch(() => null)
+  }
+
   async fixSequences() {
     return this.request<any>(`/admin/fix-sequences`, { method: 'POST' })
   }

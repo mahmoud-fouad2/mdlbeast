@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bell, Check, Trash2, RefreshCcw, MailOpen, AlertCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import AsyncButton from './ui/async-button'
+import { formatDateTimeGregorian } from '@/lib/utils'
 
 type NotificationItem = {
   id: number
@@ -120,7 +121,7 @@ export default function NotificationCenter() {
                 </div>
                 {n.message && <div className="text-sm text-slate-600 mt-1 leading-relaxed">{n.message}</div>}
                 <div className="text-[11px] text-slate-400 font-bold mt-2">
-                  {n.created_at ? new Date(n.created_at).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US') : ''}
+                  {n.created_at ? formatDateTimeGregorian(n.created_at) : ''}
                 </div>
               </div>
 

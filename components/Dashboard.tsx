@@ -5,6 +5,7 @@ import { FilePlus, FileMinus, Layers, Calendar, Clock, AlertTriangle, ArrowUpRig
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, PieChart as RechartsPie, Pie, AreaChart, Area, Legend } from "recharts"
 import { useI18n } from "@/lib/i18n-context"
 import { useEffect, useState } from "react"
+import { formatDateTimeGregorian } from "@/lib/utils"
 
 interface DashboardProps {
   docs: Correspondence[]
@@ -13,15 +14,22 @@ interface DashboardProps {
 export default function Dashboard({ docs }: DashboardProps) {
   const { t, locale } = useI18n()
   const [mounted, setMounted] = useState(false)
-  
+  const [stats, setStats] = useState({ incoming: 0, outgoing: 0, urgent: 0, total: 0 })
+
   useEffect(() => {
     setMounted(true)
+    // Fetch correct total stats from backend (since docs is now paginated)
+    apiClient.getStats().then(s => {
+        if (s) setStats(s)
+    }).catch(console.error)
   }, [])
 
-  const incoming = docs.filter((d) => d.type === "INCOMING").length
-  const outgoing = docs.filter((d) => d.type === "OUTGOING").length
-  const urgent = docs.filter((d) => d.priority === "عاجل جداً" || d.priority === "عاجل" || d.priority === "عاجله").length
-  const total = docs.length
+  // Use backend stats if available, otherwise fallback to prop (e.g. initial load)
+  // Note: prop based stats are likely wrong due to pagination, so prefer API stats
+  const incoming = stats.total > 0 ? stats.incoming : docs.filter((d) => d.type === "INCOMING").length
+  const outgoing = stats.total > 0 ? stats.outgoing : docs.filter((d) => d.type === "OUTGOING").length
+  const urgent = stats.total > 0 ? stats.urgent : docs.filter((d) => d.priority === "عاجل جداً" || d.priority === "عاجل" || d.priority === "عاجله").length
+  const total = stats.total > 0 ? stats.total : docs.length
 
   const parseDocDate = (d: Correspondence) => {
     const raw = (d.documentDate || (d as any).date || (d as any).created_at || '') as any
@@ -89,12 +97,7 @@ export default function Dashboard({ docs }: DashboardProps) {
         </div>
         <div className="flex items-center gap-3 text-xs font-bold text-slate-600 bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm">
           <Calendar size={16} className="text-blue-600" />
-          {mounted ? new Date().toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }) : <span className="w-32 h-4 bg-slate-100 animate-pulse rounded block"></span>}
+          {mounted ? formatDateTimeGregorian(new Date().toISOString()) : <span className="w-32 h-4 bg-slate-100 animate-pulse rounded block"></span>}
         </div>
       </div>
 

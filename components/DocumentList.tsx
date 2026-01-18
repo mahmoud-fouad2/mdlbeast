@@ -13,6 +13,8 @@ import { apiClient } from "@/lib/api-client"
 import { Spinner } from "./ui/spinner"
 import { useI18n } from "@/lib/i18n-context"
 
+import { formatDateTimeGregorian } from "@/lib/utils"
+
 interface DocumentListProps {
   docs: Correspondence[]
   settings: SystemSettings
@@ -310,16 +312,7 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                             <div className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-50 w-fit px-2 py-1 rounded-md">
                               <Calendar size={12} />
                               <span dir="ltr" className="font-mono">
-                                {(() => {
-                                  try {
-                                    const d = new Date((doc as any).displayDate || doc.date || doc.documentDate || '');
-                                    if (isNaN(d.getTime())) return '---';
-                                    return d.toLocaleString(locale === 'ar' ? 'en-GB' : 'en-US', { 
-                                      day: '2-digit', month: '2-digit', year: 'numeric', 
-                                      hour: '2-digit', minute: '2-digit', hour12: true 
-                                    }).replace(',', '');
-                                  } catch (_e) { return '---' }
-                                })()}
+                                {formatDateTimeGregorian((doc as any).displayDate || doc.date || doc.documentDate || '')}
                               </span>
                             </div>
                           )}

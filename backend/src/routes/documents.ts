@@ -7,9 +7,11 @@ import { query } from "../config/database"
 import { authenticateToken, requirePermission } from "../middleware/auth"
 import type { AuthRequest } from "../types"
 import { hasPermission } from "../lib/permissions"
+import { storageService } from "../services/storageService"
 
 const router = express.Router()
 
+// Replaced duplicated/Supabase logic with storageService
 async function resolveAuthorizedPreviewUrl(params: { barcode: string; idx: number; user: any }): Promise<string> {
   const { barcode, idx, user } = params
 
@@ -43,57 +45,30 @@ async function resolveAuthorizedPreviewUrl(params: { barcode: string; idx: numbe
     throw err
   }
 
-  const { USE_R2_ONLY } = await import('../config/storage')
-  const supabaseUrl = USE_R2_ONLY ? '' : process.env.SUPABASE_URL
-  const supabaseKeyRaw = USE_R2_ONLY ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-  const supabaseKey = String(supabaseKeyRaw).trim()
-  const useR2 = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'r2' || Boolean(process.env.CF_R2_ENDPOINT)
-
-  if (useR2) {
-    try {
-      const { getSignedDownloadUrl } = await import('../lib/r2-storage')
+  // Use Centralized Storage Service (R2 Only as requested)
+  try {
       let key = pdf.key
+      // If no explicit key, try to derive from URL (legacy support)
       if (!key && pdf.url) {
-        try {
-          const u = new URL(String(pdf.url))
-          const pathname = u.pathname.replace(/^\//, '')
-          const bucket = (process.env.CF_R2_BUCKET || pdf.bucket || '').replace(/\/$/, '')
-          if (bucket && pathname.startsWith(bucket + '/')) key = decodeURIComponent(pathname.slice(bucket.length + 1))
-          else {
-            const parts = pathname.split('/')
-            if (parts.length > 1) key = decodeURIComponent(parts.slice(1).join('/'))
-          }
-        } catch { /* ignore */ }
+          key = storageService.deriveKeyFromUrl(pdf.url)
       }
-      if (key) return await getSignedDownloadUrl(String(key), 60 * 5)
-    } catch (e) {
-      console.warn('preview: R2 signed URL failed', e)
-    }
+
+      if (key) {
+          return await storageService.getSignedDownloadUrl(key, 60 * 5)
+      }
+      
+      // Fallback: if it's an external URL (not ours), return as is
+      if (pdf.url) return String(pdf.url)
+
+  } catch (e) {
+      console.warn('preview: generated signed URL failed', e)
   }
 
-  if (USE_R2_ONLY && pdf.key && !useR2) {
-    const err: any = new Error('R2-only storage configured but R2 is not configured')
-    err.status = 500
-    throw err
-  }
-
-  if (pdf.key && supabaseUrl && supabaseKey && pdf.bucket) {
-    try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
-      const { data: signedData, error: signedErr } = await supabase.storage.from(pdf.bucket).createSignedUrl(pdf.key, 60 * 5)
-      if (!signedErr && signedData?.signedUrl) return signedData.signedUrl
-    } catch (e) {
-      console.warn('preview: supabase signed URL failed', e)
-    }
-  }
-
-  if (pdf.url) return String(pdf.url)
-
-  const err: any = new Error('No attachment')
+  const err: any = new Error('Attachment parsing failed')
   err.status = 404
   throw err
 }
+
 
 function tryDeriveR2KeyFromUrl(rawUrl: string): { key: string | null; bucket: string | null } {
   try {
@@ -108,47 +83,37 @@ function tryDeriveR2KeyFromUrl(rawUrl: string): { key: string | null; bucket: st
   }
 }
 
-async function fetchBytes(url: string): Promise<Buffer> {
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch: ${r.status}`)
-  return Buffer.from(await r.arrayBuffer())
-}
-
 async function loadPdfBytesFromAttachment(attachment: any): Promise<Buffer> {
-  const { preferR2 } = await import('../config/storage')
-  const useR2 = preferR2()
-
   const directKey = attachment?.key ? String(attachment.key) : ''
-  if (useR2 && directKey) {
-    const { downloadToBuffer } = await import('../lib/r2-storage')
-    return downloadToBuffer(directKey)
+  if (directKey) {
+      return storageService.downloadToBuffer(directKey)
   }
 
   const url = attachment?.url ? String(attachment.url) : ''
-  if (useR2 && url) {
-    const derived = tryDeriveR2KeyFromUrl(url)
-    if (derived.key) {
-      const { downloadToBuffer } = await import('../lib/r2-storage')
-      return downloadToBuffer(derived.key)
+  if (url) {
+    const derivedKey = storageService.deriveKeyFromUrl(url)
+    if (derivedKey) {
+        return storageService.downloadToBuffer(derivedKey)
     }
+    // Fallback if not an R2 key: try to fetch
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(`Failed to fetch external URL: ${r.status}`)
+    return Buffer.from(await r.arrayBuffer())
   }
 
-  if (!url) throw new Error('No attachment URL')
-  return fetchBytes(url)
+  throw new Error('No attachment URL or Key')
 }
 
 async function loadImageBytesFromUrl(imageUrl: string): Promise<Buffer> {
-  const { preferR2 } = await import('../config/storage')
-  const useR2 = preferR2()
-  if (useR2) {
-    const derived = tryDeriveR2KeyFromUrl(imageUrl)
-    if (derived.key) {
-      const { downloadToBuffer } = await import('../lib/r2-storage')
-      return downloadToBuffer(derived.key)
+    const derivedKey = storageService.deriveKeyFromUrl(imageUrl)
+    if (derivedKey) {
+        return storageService.downloadToBuffer(derivedKey)
     }
-  }
-  return fetchBytes(imageUrl)
+    const r = await fetch(imageUrl)
+    if (!r.ok) throw new Error(`Failed to fetch image: ${r.status}`)
+    return Buffer.from(await r.arrayBuffer())
 }
+
 
 // All routes require authentication
 router.use(authenticateToken)
@@ -308,6 +273,31 @@ router.get("/", authenticateToken, requirePermission('archive', 'view_idx'), asy
       baseWhere += ` AND status = $${paramCount}`
       queryParams.push(status)
       paramCount++
+    }
+    
+    // Clean, Optimized Statistics Query (Grouped)
+    // Supports Dashboard performance by calculating DB-side stats instead of fetching all rows
+    if (req.query.stats === 'true') {
+        // Only run stats if specifically requested to avoid overhead on normal list usage
+        // Note: The caller (Dashboard) should call this separately without 'limit'
+        
+        const statsQuery = `
+          SELECT 
+            COUNT(*) FILTER (WHERE type = 'INCOMING') as incoming,
+            COUNT(*) FILTER (WHERE type = 'OUTGOING') as outgoing,
+            COUNT(*) FILTER (WHERE priority = 'عاجل' OR priority = 'عاجل جداً' OR priority = 'عاجله') as urgent,
+            COUNT(*) as total
+          FROM documents d LEFT JOIN users u ON d.user_id = u.id ${baseWhere}
+        `
+        const statsRes = await query(statsQuery, queryParams)
+        // Parse results safely
+        const row = statsRes.rows[0]
+        return res.json({
+            incoming: Number(row?.incoming || 0),
+            outgoing: Number(row?.outgoing || 0),
+            urgent: Number(row?.urgent || 0),
+            total: Number(row?.total || 0)
+        })
     }
 
     if (type) {

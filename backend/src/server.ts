@@ -50,8 +50,8 @@ try {
 
 // Show only presence/absence of optional sensitive configs (do NOT print lengths or snippets)
 import { USE_R2_ONLY } from './config/storage'
-const SUPABASE_CONFIGURED = USE_R2_ONLY ? false : (!!process.env.SUPABASE_SERVICE_ROLE_KEY && !!process.env.SUPABASE_URL && !!process.env.SUPABASE_BUCKET)
-console.info('CONFIG: supabase configured=', Boolean(SUPABASE_CONFIGURED))
+
+console.info('CONFIG: using R2 only')
 const R2_CONFIGURED = !!process.env.CF_R2_ACCESS_KEY_ID && !!process.env.CF_R2_SECRET_ACCESS_KEY && !!process.env.CF_R2_ENDPOINT && !!process.env.CF_R2_BUCKET
 console.info('CONFIG: r2 configured=', Boolean(R2_CONFIGURED))
 
