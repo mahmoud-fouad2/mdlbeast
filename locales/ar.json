@@ -296,6 +296,7 @@
   "user.form.password_ph_edit": "اتركه فارغاً للإبقاء على القديم",
   "user.form.role": "الصلاحية الأساسية",
   "user.form.position": "المنصب الإداري",
+  "user.form.position_placeholder": "ادخل المسمى الوظيفي",
   "user.form.manager": "المدير المباشر (التبعية)",
   "user.form.scope": "نطاق الرؤية",
   "user.form.phone": "رقم الهاتف",

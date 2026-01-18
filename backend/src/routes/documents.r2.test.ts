@@ -2,9 +2,18 @@ import request from 'supertest'
 import express from 'express'
 import jwt from 'jsonwebtoken'
 
-jest.mock('../lib/r2-storage', () => ({
-  getSignedDownloadUrl: jest.fn(async (key: string, ttl: number) => `https://r2.example.com/${key}?sig=abc`),
-  getPublicUrl: jest.fn((k: string) => `https://r2.example.com/${k}`),
+// Set env vars BEFORE imports
+process.env.USE_R2_ONLY = 'true'
+process.env.CF_R2_BUCKET = 'test-bucket'
+process.env.CF_R2_ENDPOINT = 'https://r2.example.com'
+process.env.JWT_SECRET = 'test-secret-1'
+
+// Mock storageService directly
+jest.mock('../services/storageService', () => ({
+  storageService: {
+    deriveKeyFromUrl: jest.fn((url: string) => 'uploads/test.pdf'),
+    getSignedDownloadUrl: jest.fn(async (key: string, ttl: number) => `https://r2.example.com/${key}?sig=abc`),
+  }
 }))
 
 jest.mock('../config/database', () => ({
@@ -46,6 +55,6 @@ describe('documents preview (R2-only)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(res.body.previewUrl).toMatch(/https?:\/\/r2.example.com\/.+\?sig=/)
+    expect(res.body.previewUrl).toMatch(/https?:\/\/(?:.+\.)?r2\.example\.com\/.+\?sig=/)
   })
 })

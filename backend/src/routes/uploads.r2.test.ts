@@ -37,16 +37,18 @@ describe('uploads (R2-only)', () => {
     app.use('/uploads', uploadsRouter)
 
     const filePath = path.resolve(__dirname, '..', 'test-fixtures', 'dummy.pdf')
-    // ensure test fixture exists
-    if (!fs.existsSync(filePath)) {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true })
-      fs.writeFileSync(filePath, 'PDF-DUMMY')
-    }
+    // Always write a valid PDF header so magic number validation passes
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, Buffer.from('%PDF-1.4 dummy content'))
 
     const res = await request(app)
       .post('/uploads')
-      .attach('file', filePath)
-      .expect(200)
+      .attach('file', filePath, { contentType: 'application/pdf' })
+    
+    if (res.status !== 200) {
+        console.error('Upload failed with status', res.status, 'body:', res.body)
+    }
+    expect(res.status).toBe(200)
 
     expect(res.body.storage).toBe('r2')
     expect(res.body.url).toMatch(/https?:\/\/r2.example.com\//)

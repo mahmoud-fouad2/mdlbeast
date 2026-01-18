@@ -296,6 +296,7 @@
   "user.form.password_ph_edit": "Leave empty to keep current password",
   "user.form.role": "Primary Role",
   "user.form.position": "Admin Position",
+  "user.form.position_placeholder": "Enter job position",
   "user.form.manager": "Direct Manager",
   "user.form.scope": "View Scope",
   "user.form.phone": "Phone",

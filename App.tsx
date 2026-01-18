@@ -379,10 +379,10 @@ const App: React.FC = () => {
       <button 
         onClick={() => setActiveTab(id)} 
         title={isSidebarCollapsed ? label : ''}
-        className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg text-xs font-bold transition-all duration-200 ${
+        className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg text-sm font-bold transition-all duration-200 ${
           activeTab === id 
             ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10' 
-            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
         }`}
       >
         <Icon size={isSidebarCollapsed ? 20 : 18} />
@@ -414,9 +414,9 @@ const App: React.FC = () => {
       <div className={`mb-3 transition-all duration-300 ${isExpanded ? 'bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden' : 'px-2'}`}>
         <button
           onClick={() => toggleSection(id)}
-          className={`w-full flex items-center justify-between px-4 py-3.5 ${!isExpanded && 'rounded-xl'} text-xs font-bold transition-all group ${
+          className={`w-full flex items-center justify-between px-4 py-3.5 ${!isExpanded && 'rounded-xl'} text-sm font-bold transition-all group ${
             dir === 'rtl' 
-              ? 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' 
+              ? 'text-slate-700 hover:bg-slate-50 hover:text-slate-900' 
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 uppercase tracking-wide'
           } ${isExpanded ? 'bg-slate-50/50 text-slate-900 border-b border-slate-100' : ''}`}
         >
