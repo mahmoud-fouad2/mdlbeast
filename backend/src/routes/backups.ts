@@ -89,9 +89,15 @@ router.post('/', async (req: any, res: any) => {
     if (wantAES) {
       const encKey = String(process.env.BACKUP_ENC_KEY || '')
       try {
-        const k = Buffer.from(encKey, 'base64')
-        if (k.length !== 32) {
-          console.warn('BACKUP_ENC_KEY is not valid base64 32 bytes; proceeding without AES encryption')
+        let isValid = false
+        // Try base64
+        const k64 = Buffer.from(encKey, 'base64')
+        if (k64.length === 32) isValid = true
+        // Try raw 32 chars (utf8)
+        else if (Buffer.from(encKey).length === 32) isValid = true
+
+        if (!isValid) {
+          console.warn('BACKUP_ENC_KEY must be 32 bytes (base64 or raw string); proceeding without AES encryption')
           encryptAES = false
         }
       } catch (e) {

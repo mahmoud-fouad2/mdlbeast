@@ -20,11 +20,10 @@ interface DocumentListProps {
   settings: SystemSettings
   currentUser?: any
   users?: any[]
-  tenants?: any[]
   onRefresh?: () => void | Promise<void>
 }
 
-export default function DocumentList({ docs, settings, currentUser, users: _users, tenants, onRefresh }: DocumentListProps) {
+export default function DocumentList({ docs, settings, currentUser, users: _users, onRefresh }: DocumentListProps) {
   const { t, locale, dir } = useI18n()
   const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
@@ -362,8 +361,8 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                                       try {
                                         const url = await apiClient.getPreviewUrl(doc.barcode, idx)
                                         if (url) window.open(url, '_blank')
-                                        else alert('لا يوجد ملف لعرضه')
-                                      } catch(_e) { alert('فشل فتح المرفق') }
+                                        else alert(t('common.no_file'))
+                                      } catch(_e) { alert(t('common.error_open_attachment')) }
                                     }}
                                     className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 text-[10px] font-black flex items-center justify-center transition-all border border-slate-200 shadow-sm"
                                     title={`Preview ${idx + 1}`}
@@ -572,8 +571,8 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                                     window.open(url, '_blank')
                                     apiClient.logAction('VIEW_DOCUMENT', `Opened attachment ${idx + 1} for document ${doc.barcode}`, 'DOCUMENT', doc.barcode)
                                   }
-                                  else alert('لا يوجد ملف لعرضه')
-                                } catch(_e) { alert('فشل فتح المرفق') }
+                                  else alert(t('common.no_file'))
+                                } catch(_e) { alert(t('common.error_open_attachment')) }
                               }}
                               className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 text-xs font-black flex items-center justify-center border border-slate-200"
                             >
@@ -581,7 +580,7 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                             </button>
                             <button
                               onClick={async () => {
-                                if (!confirm(`هل تريد حذف المرفق ${idx + 1}؟`)) return
+                                if (!confirm(t('common.confirm') + '?')) return
                                 try {
                                   await apiClient.deleteAttachment(doc.id, idx)
                                   // Update local state immediately without refresh
@@ -600,13 +599,13 @@ export default function DocumentList({ docs, settings, currentUser, users: _user
                                       return d
                                     })
                                   )
-                                  alert('تم حذف المرفق بنجاح')
+                                  alert(t('common.success_delete_attachment'))
                                 } catch(e: any) {
-                                  alert('فشل حذف المرفق: ' + (e?.message || e))
+                                  alert(t('common.error') + ': ' + (e?.message || e))
                                 }
                               }}
                               className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                              title="حذف المرفق"
+                              title={t('common.delete')}
                             >
                               ×
                             </button>

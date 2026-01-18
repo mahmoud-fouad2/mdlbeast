@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Camera, Lock, Eye, EyeOff, Check, AlertCircle, User } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
 import type { User as UserType } from '../types';
+import { useI18n } from '../lib/i18n-context';
 
 interface UserSettingsModalProps {
   user: UserType;
@@ -11,6 +12,7 @@ interface UserSettingsModalProps {
 }
 
 const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onClose, onUpdate }) => {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -51,12 +53,12 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setUploadError('حجم الملف كبير جداً. الحد الأقصى 5 ميجابايت');
+        setUploadError(t('user_settings.upload_error_size'));
         return;
       }
       
       if (!file.type.startsWith('image/')) {
-        setUploadError('يرجى اختيار ملف صورة فقط');
+        setUploadError(t('user_settings.upload_error_type'));
         return;
       }
       
@@ -92,7 +94,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
       
       setTimeout(() => setUploadSuccess(false), 3000);
     } catch (error: any) {
-      setUploadError(error?.message || 'فشل رفع الصورة');
+      setUploadError(error?.message || t('common.error'));
     } finally {
       setIsUploading(false);
     }
@@ -102,17 +104,17 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
     setPasswordError(null);
     
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('يرجى ملء جميع الحقول');
+      setPasswordError(t('user_settings.fill_all_fields'));
       return;
     }
     
     if (newPassword.length < 6) {
-      setPasswordError('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');
+      setPasswordError(t('user_settings.password_length'));
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      setPasswordError('كلمة المرور الجديدة وتأكيدها غير متطابقين');
+      setPasswordError(t('user_settings.password_mismatch'));
       return;
     }
     
@@ -126,7 +128,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
       setConfirmPassword('');
       setTimeout(() => setPasswordSuccess(false), 3000);
     } catch (error: any) {
-      setPasswordError(error?.message || 'فشل تغيير كلمة المرور');
+      setPasswordError(error?.message || t('user_settings.password_change_failed'));
     } finally {
       setIsChangingPassword(false);
     }
@@ -134,10 +136,10 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
 
   const getRoleLabel = (role?: string) => {
     switch (role?.toLowerCase()) {
-      case 'admin': return 'مدير نظام';
-      case 'manager': return 'مدير تنفيذي';
-      case 'supervisor': return 'مدير مباشر';
-      default: return 'مستخدم';
+      case 'admin': return t('user_settings.role_admin');
+      case 'manager': return t('user_settings.role_manager');
+      case 'supervisor': return t('user_settings.role_supervisor');
+      default: return t('user_settings.role_user');
     }
   };
 
@@ -154,7 +156,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
           </button>
           
           <div className="text-center pt-2">
-            <h2 className="text-xl font-black mb-1">إعدادات الحساب</h2>
+            <h2 className="text-xl font-black mb-1">{t('user_settings.title')}</h2>
             <p className="text-slate-400 text-xs">{user.full_name || user.username}</p>
           </div>
         </div>
@@ -170,7 +172,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
             }`}
           >
             <User size={16} className="inline ml-2" />
-            الملف الشخصي
+            {t('user_settings.profile')}
           </button>
           <button
             onClick={() => setActiveTab('security')}
@@ -181,7 +183,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
             }`}
           >
             <Lock size={16} className="inline ml-2" />
-            الأمان
+            {t('user_settings.security')}
           </button>
         </div>
         
@@ -217,7 +219,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
                   className="hidden"
                 />
                 
-                <p className="text-xs text-slate-400 mt-3">انقر على الكاميرا لتغيير الصورة</p>
+                <p className="text-xs text-slate-400 mt-3">{t('user_settings.change_avatar_hint')}</p>
               </div>
               
               {/* Upload Error/Success Messages */}
@@ -231,7 +233,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               {uploadSuccess && (
                 <div className="flex items-center gap-2 p-3 bg-green-50 text-green-600 rounded-xl text-sm">
                   <Check size={16} />
-                  تم رفع الصورة بنجاح
+                  {t('user_settings.upload_success')}
                 </div>
               )}
               
@@ -245,12 +247,12 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
                   {isUploading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      جاري الرفع...
+                      {t('user_settings.uploading')}
                     </>
                   ) : (
                     <>
                       <Upload size={16} />
-                      حفظ الصورة
+                      {t('user_settings.upload_save')}
                     </>
                   )}
                 </button>
@@ -259,17 +261,17 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               {/* User Info */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-slate-400 text-sm">اسم المستخدم</span>
+                  <span className="text-slate-400 text-sm">{t('user_settings.username')}</span>
                   <span className="font-bold text-slate-900">{user.username}</span>
                 </div>
                 {user.email && (
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-slate-400 text-sm">البريد الإلكتروني</span>
+                    <span className="text-slate-400 text-sm">{t('user_settings.email')}</span>
                     <span className="font-bold text-slate-900 text-sm">{user.email}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-slate-400 text-sm">الصلاحية</span>
+                  <span className="text-slate-400 text-sm">{t('user_settings.role')}</span>
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">
                     {getRoleLabel(user.role)}
                   </span>
@@ -283,20 +285,20 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                 <p className="text-amber-800 text-xs font-bold flex items-center gap-2">
                   <AlertCircle size={14} />
-                  لأمان حسابك، يرجى عدم مشاركة كلمة المرور مع أي شخص
+                  {t('user_settings.security_note')}
                 </p>
               </div>
               
               {/* Current Password */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">كلمة المرور الحالية</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">{t('user_settings.current_password')}</label>
                 <div className="relative">
                   <input
                     type={showCurrentPassword ? 'text' : 'password'}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full px-4 py-3 pl-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    placeholder="أدخل كلمة المرور الحالية"
+                    placeholder={t('user_settings.enter_current_password')}
                   />
                   <button
                     type="button"
@@ -310,14 +312,14 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               
               {/* New Password */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">كلمة المرور الجديدة</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">{t('user_settings.new_password')}</label>
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full px-4 py-3 pl-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    placeholder="أدخل كلمة المرور الجديدة"
+                    placeholder={t('user_settings.enter_new_password')}
                   />
                   <button
                     type="button"
@@ -331,14 +333,14 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               
               {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">تأكيد كلمة المرور</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">{t('user_settings.confirm_password')}</label>
                 <div className="relative">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full px-4 py-3 pl-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    placeholder="أعد إدخال كلمة المرور الجديدة"
+                    placeholder={t('user_settings.enter_confirm_password')}
                   />
                   <button
                     type="button"
@@ -361,7 +363,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
               {passwordSuccess && (
                 <div className="flex items-center gap-2 p-3 bg-green-50 text-green-600 rounded-xl text-sm">
                   <Check size={16} />
-                  تم تغيير كلمة المرور بنجاح
+                  {t('user_settings.password_changed_success')}
                 </div>
               )}
               
@@ -374,12 +376,12 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ user, isOpen, onC
                 {isChangingPassword ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    جاري التغيير...
+                    {t('user_settings.changing_password')}
                   </>
                 ) : (
                   <>
                     <Lock size={16} />
-                    تغيير كلمة المرور
+                    {t('user_settings.change_password_btn')}
                   </>
                 )}
               </button>

@@ -849,7 +849,7 @@ class ApiClient {
   }
 
   async clearAuditLogs() {
-    return this.request<any>(`/audit/clear`, { method: 'DELETE' })
+    return this.request<any>(`/audit`, { method: 'DELETE' })
   }
 
   async updateUserPermissions(userId: number, permissions: any) {

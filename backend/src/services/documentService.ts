@@ -159,7 +159,7 @@ export class DocumentService {
         await query(
           `INSERT INTO barcodes (barcode, type, status, priority, subject, attachments, user_id)
            VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [barcode, dbType, finalStatus || null, priority || null, finalSubject || null, JSON.stringify(attachments || []), user.id],
+          [barcode, dbType, finalStatus || null, priority || null, finalSubject || null, JSON.stringify(attachments || []), creatorId],
         )
       }
     } catch (e) {

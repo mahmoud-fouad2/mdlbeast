@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfouad-del/mdlbeast"
+    "url": "https://github.com/mahmoud-fouad2/mdlbeast"
   },
   "main": "dist/server.js",
   "scripts": {

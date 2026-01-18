@@ -375,24 +375,24 @@ export default function AuditLogs() {
               </button>
               <button
                 onClick={async () => {
-                   if(confirm('هل أنت متأكد من مسح جميع السجلات؟ لا يمكن التراجع عن هذا الإجراء.')) {
+                   if(confirm(t('audit.clearConfirm'))) {
                       try {
                         const res = await apiClient.clearAuditLogs();
                         if(res) {
                            setLogs([]);
-                           alert('تم مسح السجلات بنجاح');
+                           alert(t('audit.cleared'));
                         }
                       } catch(e) {
-                         alert('فشل مسح السجلات');
+                         alert(t('backup.clear_logs_error'));
                          console.error(e);
                       }
                    }
                 }}
                 className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors"
-                title="مسح السجلات"
+                title={t('audit.clear')}
               >
                 <Trash2 size={16} />
-                <span className="hidden sm:inline">مسح الكل</span>
+                <span className="hidden sm:inline">{t('audit.clear')}</span>
               </button>
             </div>
           </div>

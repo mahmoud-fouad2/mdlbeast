@@ -121,6 +121,9 @@ router.post("/:barcode/timeline", async (req: Request, res: Response) => {
     const { barcode } = req.params
     const { action, actor_id, meta } = req.body
 
+    // Safe actor ID for hidden owner
+    const safeActorId = (Number(actor_id) === -999) ? null : actor_id
+
     // Find barcode entry; if missing, try to synthesize from documents (fallback)
     let bc = await query("SELECT id FROM barcodes WHERE barcode = $1 LIMIT 1", [barcode])
     if (bc.rows.length === 0) {
@@ -144,8 +147,8 @@ router.post("/:barcode/timeline", async (req: Request, res: Response) => {
     if (bc.rows.length === 0) return res.status(404).json({ error: "Not found" })
 
     const bcId = bc.rows[0].id
-    console.log('Adding timeline entry', { barcode, bcId, action, actor_id })
-    const ins = await query("INSERT INTO barcode_timeline (barcode_id, actor_id, action, meta) VALUES ($1,$2,$3,$4) RETURNING *", [bcId, actor_id, action, meta || {}])
+    console.log('Adding timeline entry', { barcode, bcId, action, safeActorId })
+    const ins = await query("INSERT INTO barcode_timeline (barcode_id, actor_id, action, meta) VALUES ($1,$2,$3,$4) RETURNING *", [bcId, safeActorId, action, meta || {}])
     console.log('Inserted timeline id=', ins.rows[0].id)
     res.status(201).json(ins.rows[0])
   } catch (err: any) {

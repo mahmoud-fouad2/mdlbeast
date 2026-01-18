@@ -1,0 +1,69 @@
+{
+  "name": "MDLBEAST Communications",
+  "short_name": "MDLBEAST",
+  "description": "نظام الاتصالات الإدارية - MDLBEAST Entertainment Company",
+  "start_url": "/mdlbeast/",
+  "scope": "/mdlbeast/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/mdlbeast/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mdlbeast/icon.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/mdlbeast/icon-light-32x32.jpg",
+      "sizes": "32x32",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/mdlbeast/icon-dark-32x32.jpg",
+      "sizes": "32x32",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/mdlbeast/apple-icon.jpg",
+      "sizes": "180x180",
+      "type": "image/jpeg",
+      "purpose": "apple touch icon"
+    },
+    {
+      "src": "/mdlbeast/favicon.jpg",
+      "sizes": "64x64",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/mdlbeast/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "لوحة التحكم",
+      "short_name": "Dashboard",
+      "description": "فتح لوحة التحكم",
+      "url": "/mdlbeast/dashboard/",
+      "icons": [{ "src": "/mdlbeast/icon.jpg", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -78,8 +78,19 @@ export async function createAndUploadBackup(opts: { encryptAES?: boolean, gpgRec
       uploadKey = `backups/${archiveName}.gpg`
     } else if (opts.encryptAES && process.env.BACKUP_ENC_KEY) {
       const crypto = await import('crypto')
-      const key = Buffer.from(String(process.env.BACKUP_ENC_KEY || ''), 'base64')
-      if (key.length !== 32) throw new Error('BACKUP_ENC_KEY must be base64 32 bytes')
+      const rawEnv = String(process.env.BACKUP_ENC_KEY || '')
+      let key = Buffer.from(rawEnv, 'base64')
+      
+      // Support raw 32-char string if base64 didn't result in 32 bytes
+      if (key.length !== 32) {
+         const rawKey = Buffer.from(rawEnv)
+         if (rawKey.length === 32) {
+           key = rawKey
+         } else {
+           throw new Error('BACKUP_ENC_KEY must be 32 bytes (base64 encoded or raw 32-char string)')
+         }
+      }
+
       const iv = crypto.randomBytes(12)
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
       const enc = Buffer.concat([cipher.update(finalBuf), cipher.final()])

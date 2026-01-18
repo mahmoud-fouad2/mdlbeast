@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../lib/api-client'
 import AsyncButton from './ui/async-button'
+import { useI18n } from '../lib/i18n-context'
 
 interface DocumentData {
   id?: number
@@ -27,7 +28,6 @@ interface DocumentData {
   classification?: string
   attachments?: any[]
   attachment_count?: number
-  tenant_id?: number
   user_id?: number
   pdfFile?: any
 }
@@ -45,6 +45,8 @@ interface TimelineEntry {
 }
 
 const BarcodeScanner: React.FC = () => {
+  const { t } = useI18n()
+  
   // Core states
   const [isScanning, setIsScanning] = useState(false)
   const [manualId, setManualId] = useState('')
@@ -83,16 +85,16 @@ const BarcodeScanner: React.FC = () => {
   }, [])
 
   // Show status message with auto-dismiss
-  const showStatus = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setStatusMessage({ text, type })
+  const showStatus = useCallback((key: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setStatusMessage({ text: t(key, key), type })
     setTimeout(() => setStatusMessage(null), 3000)
-  }, [])
+  }, [t])
 
   // Fetch document by barcode
   const fetchByBarcode = useCallback(async (rawBarcode: string) => {
     const barcode = String(rawBarcode || '').trim().toUpperCase()
     if (!barcode) {
-      showStatus('قيمة الباركود فارغة', 'error')
+      showStatus('scanner.empty_barcode', 'error')
       return
     }
     
@@ -106,7 +108,7 @@ const BarcodeScanner: React.FC = () => {
         setEditForm(res)
         const tl = await apiClient.getBarcodeTimeline(barcode).catch(() => [])
         setTimeline(tl || [])
-        showStatus('تم العثور على المعاملة', 'success')
+        showStatus('scanner.found', 'success')
         setActiveTab('details')
         return
       }
@@ -119,19 +121,19 @@ const BarcodeScanner: React.FC = () => {
         setEditForm(b)
         const tl = await apiClient.getBarcodeTimeline(b.barcode).catch(() => [])
         setTimeline(tl || [])
-        showStatus('تم العثور على المعاملة', 'success')
+        showStatus('scanner.found', 'success')
         return
       }
       
       setFoundDoc(null)
       setTimeline([])
-      showStatus('لم يتم العثور على معاملة بهذا الرقم', 'error')
+      showStatus('scanner.not_found', 'error')
     } catch (err: any) {
       console.error('API error', err)
       if (err && String(err).toLowerCase().includes('not found')) {
-        showStatus('لم يتم العثور على معاملة بهذا الرقم', 'error')
+        showStatus('scanner.not_found', 'error')
       } else {
-        showStatus('حدث خطأ أثناء جلب البيانات', 'error')
+        showStatus('scanner.fetch_error', 'error')
       }
     } finally {
       setIsLoadingBarcode(false)
@@ -175,11 +177,11 @@ const BarcodeScanner: React.FC = () => {
         })
         rafRef.current = requestAnimationFrame(decodeLoop)
       } else {
-        showStatus('الكشف التلقائي غير متوفر - استخدم البحث اليدوي', 'error')
+        showStatus('scanner.detection_unavailable', 'error')
       }
     } catch (err) {
       console.error("Error accessing camera:", err)
-      showStatus('تعذر الوصول للكاميرا - تأكد من منح الصلاحيات', 'error')
+      showStatus('scanner.camera_error', 'error')
       setIsScanning(false)
     }
   }
@@ -208,7 +210,7 @@ const BarcodeScanner: React.FC = () => {
   const copyBarcode = async () => {
     if (foundDoc?.barcode) {
       await navigator.clipboard.writeText(foundDoc.barcode)
-      showStatus('تم نسخ الباركود', 'success')
+      showStatus('scanner.copied', 'success')
     }
   }
 
@@ -278,11 +280,11 @@ const BarcodeScanner: React.FC = () => {
         setEditForm(updated)
       }
       
-      showStatus('تم حفظ التعديلات بنجاح', 'success')
+      showStatus('scanner.save_success', 'success')
       setEditing(false)
     } catch (e) {
       console.error('Failed to save edits', e)
-      showStatus('فشل حفظ التعديلات', 'error')
+      showStatus('scanner.save_error', 'error')
     } finally {
       setEditPending(false)
     }
@@ -297,7 +299,7 @@ const BarcodeScanner: React.FC = () => {
     if (!val || !foundDoc) return
     
     try {
-      showStatus('جاري إضافة المدخل...', 'info')
+      showStatus('scanner.timeline_adding', 'info')
       await apiClient.addBarcodeTimeline(foundDoc.barcode, { action: val })
       setTimeline(prev => [{ 
         created_at: new Date().toISOString(), 
@@ -305,25 +307,25 @@ const BarcodeScanner: React.FC = () => {
         action: val 
       }, ...prev])
       input.value = ''
-      showStatus('تم إضافة المدخل', 'success')
+      showStatus('scanner.timeline_added', 'success')
     } catch (err) {
       console.error(err)
-      showStatus('فشل إضافة مدخل للسجل', 'error')
+      showStatus('scanner.timeline_error', 'error')
     }
   }
 
   // Delete document handler
   const handleDelete = async () => {
-    if (!foundDoc || !confirm('هل أنت متأكد من حذف هذا المستند؟ لا يمكن التراجع.')) return
+    if (!foundDoc || !confirm(t('scanner.delete_confirm'))) return
     
     try {
       await apiClient.deleteDocument(foundDoc.barcode)
       setFoundDoc(null)
       setTimeline([])
       setManualId('')
-      showStatus('تم حذف المستند بنجاح', 'success')
+      showStatus('scanner.delete_success', 'success')
     } catch (e) {
-      showStatus('فشل حذف المستند', 'error')
+      showStatus('scanner.delete_error', 'error')
     }
   }
 
@@ -333,10 +335,10 @@ const BarcodeScanner: React.FC = () => {
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg mb-4">
           <Scan size={28} />
-          <h2 className="text-2xl font-black">تتبع الباركود</h2>
+          <h2 className="text-2xl font-black">{t('scanner.title')}</h2>
         </div>
         <p className="text-slate-500 max-w-md mx-auto">
-          استخدم الكاميرا لمسح الباركود أو أدخل الرقم يدوياً للاستعلام الفوري عن بيانات المعاملة
+          {t('scanner.subtitle')}
         </p>
       </div>
 
@@ -361,7 +363,7 @@ const BarcodeScanner: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
               <Scan size={18} className="text-blue-600" />
-              مسح بالكاميرا
+              {t('scanner.camera_scan')}
             </h3>
             
             <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden relative border-2 border-slate-700">
@@ -381,9 +383,9 @@ const BarcodeScanner: React.FC = () => {
                   <button 
                     onClick={stopScanner}
                     className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full font-bold text-sm flex items-center gap-2 transition-all"
-                    aria-label="إيقاف الكاميرا"
+                    aria-label={t('scanner.stop_camera')}
                   >
-                    <X size={16} /> إيقاف
+                    <X size={16} /> {t('scanner.stop_camera')}
                   </button>
                 </>
               ) : (
@@ -392,9 +394,9 @@ const BarcodeScanner: React.FC = () => {
                   <button 
                     onClick={startScanner}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg"
-                    aria-label="تشغيل الكاميرا لمسح الباركود"
+                    aria-label={t('scanner.start_camera')}
                   >
-                    تشغيل الكاميرا
+                    {t('scanner.start_camera')}
                   </button>
                 </div>
               )}
@@ -405,18 +407,18 @@ const BarcodeScanner: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
               <Search size={18} className="text-blue-600" />
-              بحث يدوي
+              {t('scanner.manual_search')}
             </h3>
             
             <form onSubmit={handleManualSearch} className="space-y-3">
               <div className="relative">
                 <input 
                   type="text" 
-                  placeholder="أدخل رقم الباركود (مثال: 1-00000001)"
+                  placeholder={t('scanner.barcode_placeholder')}
                   className="w-full p-3.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-mono text-sm uppercase transition-all"
                   value={manualId}
                   onChange={e => setManualId(e.target.value)}
-                  aria-label="حقل إدخال رقم الباركود"
+                  aria-label={t('scanner.barcode_placeholder')}
                 />
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               </div>
@@ -425,17 +427,17 @@ const BarcodeScanner: React.FC = () => {
                 type="submit"
                 disabled={isLoadingBarcode || !manualId.trim()}
                 className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
-                aria-label="البحث عن المعاملة"
+                aria-label={t('scanner.search')}
               >
                 {isLoadingBarcode ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    جاري البحث...
+                    {t('scanner.searching')}
                   </>
                 ) : (
                   <>
                     <Search size={18} />
-                    بحث
+                    {t('scanner.search')}
                   </>
                 )}
               </button>
@@ -457,7 +459,7 @@ const BarcodeScanner: React.FC = () => {
                           ? 'bg-blue-100 text-blue-700 border border-blue-200' 
                           : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
                       }`}>
-                        {foundDoc.type === 'INCOMING' ? '📥 وارد' : '📤 صادر'}
+                        {foundDoc.type === 'INCOMING' ? `📥 ${t('scanner.incoming')}` : `📤 ${t('scanner.outgoing')}`}
                       </span>
                       {getPriorityBadge(foundDoc.priority)}
                       {foundDoc.classification && (
@@ -467,7 +469,7 @@ const BarcodeScanner: React.FC = () => {
                       )}
                     </div>
                     <h3 className="text-xl font-black text-slate-900 leading-tight">
-                      {foundDoc.title || foundDoc.subject || 'بدون عنوان'}
+                      {foundDoc.title || foundDoc.subject || t('common.no') + ' ' + t('scanner.subject')}
                     </h3>
                   </div>
                   
@@ -477,8 +479,8 @@ const BarcodeScanner: React.FC = () => {
                       <button 
                         onClick={copyBarcode}
                         className="text-slate-400 hover:text-blue-600 transition-colors"
-                        title="نسخ الباركود"
-                        aria-label="نسخ رقم الباركود"
+                        title={t('scanner.copy_barcode')}
+                        aria-label={t('scanner.copy_barcode')}
                       >
                         <Copy size={14} />
                       </button>
@@ -490,9 +492,9 @@ const BarcodeScanner: React.FC = () => {
               {/* Tabs */}
               <div className="flex border-b border-slate-200">
                 {[
-                  { id: 'details', label: 'التفاصيل', icon: FileText },
-                  { id: 'timeline', label: 'السجل الزمني', icon: History },
-                  { id: 'attachments', label: 'المرفقات', icon: Paperclip, count: foundDoc.attachments?.length || 0 }
+                  { id: 'details', label: t('scanner.tab_details'), icon: FileText },
+                  { id: 'timeline', label: t('scanner.tab_timeline'), icon: History },
+                  { id: 'attachments', label: t('scanner.tab_attachments'), icon: Paperclip, count: foundDoc.attachments?.length || 0 }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -524,7 +526,7 @@ const BarcodeScanner: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
                           <Building2 size={14} />
-                          الجهة المرسلة
+                          {t('scanner.sender')}
                         </div>
                         <p className="font-bold text-slate-900">{foundDoc.sender || '—'}</p>
                       </div>
@@ -532,7 +534,7 @@ const BarcodeScanner: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
                           <User size={14} />
-                          الجهة المستلمة
+                          {t('scanner.recipient')}
                         </div>
                         <p className="font-bold text-slate-900">{foundDoc.recipient || foundDoc.receiver || '—'}</p>
                       </div>
@@ -540,7 +542,7 @@ const BarcodeScanner: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
                           <Calendar size={14} />
-                          تاريخ التسجيل
+                          {t('scanner.registration_date')}
                         </div>
                         <p className="font-bold text-slate-900">{formatDate(foundDoc.date || foundDoc.created_at)}</p>
                       </div>
@@ -548,7 +550,7 @@ const BarcodeScanner: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
                           <Tag size={14} />
-                          الحالة
+                          {t('scanner.status')}
                         </div>
                         <p className="font-bold text-slate-900">{foundDoc.status || '—'}</p>
                       </div>
@@ -558,7 +560,7 @@ const BarcodeScanner: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase mb-2">
                           <FileText size={14} />
-                          الوصف / الملاحظات
+                          {t('scanner.description')}
                         </div>
                         <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                           {foundDoc.description || foundDoc.notes}
@@ -573,12 +575,12 @@ const BarcodeScanner: React.FC = () => {
                       {showAllDetails ? (
                         <>
                           <ChevronUp size={16} />
-                          إخفاء التفاصيل الإضافية
+                          {t('scanner.hide_details')}
                         </>
                       ) : (
                         <>
                           <ChevronDown size={16} />
-                          عرض المزيد من التفاصيل
+                          {t('scanner.show_more')}
                         </>
                       )}
                     </button>
@@ -591,21 +593,15 @@ const BarcodeScanner: React.FC = () => {
                             <span className="text-sm font-bold text-slate-700">{foundDoc.id}</span>
                           </div>
                         )}
-                        {foundDoc.tenant_id && (
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase block">Tenant</span>
-                            <span className="text-sm font-bold text-slate-700">{foundDoc.tenant_id}</span>
-                          </div>
-                        )}
                         {foundDoc.created_at && (
                           <div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase block">تاريخ الإنشاء</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">{t('scanner.creation_date')}</span>
                             <span className="text-sm font-bold text-slate-700">{formatDateTime(foundDoc.created_at)}</span>
                           </div>
                         )}
                         {foundDoc.attachment_count !== undefined && (
                           <div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase block">عدد المرفقات</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase block">{t('scanner.attachments_count')}</span>
                             <span className="text-sm font-bold text-slate-700">{foundDoc.attachment_count}</span>
                           </div>
                         )}
@@ -620,16 +616,16 @@ const BarcodeScanner: React.FC = () => {
                     <form onSubmit={handleAddTimelineEntry} className="flex gap-2">
                       <input 
                         name="note" 
-                        placeholder="أضف ملاحظة أو إجراء للسجل الزمني..."
+                        placeholder={t('scanner.timeline_placeholder')}
                         className="flex-1 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:bg-white focus:border-blue-500 transition-all"
-                        aria-label="حقل إضافة ملاحظة للسجل الزمني"
+                        aria-label={t('scanner.timeline_placeholder')}
                       />
                       <button 
                         type="submit"
                         className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all"
-                        aria-label="إضافة ملاحظة"
+                        aria-label={t('scanner.timeline_add')}
                       >
-                        إضافة
+                        {t('scanner.timeline_add')}
                       </button>
                     </form>
 
@@ -663,8 +659,8 @@ const BarcodeScanner: React.FC = () => {
                       ) : (
                         <div className="text-center py-8 text-slate-400">
                           <History size={32} className="mx-auto mb-2 opacity-30" />
-                          <p className="font-bold">لا توجد مدخلات في السجل الزمني</p>
-                          <p className="text-sm">أضف أول ملاحظة للبدء</p>
+                          <p className="font-bold">{t('scanner.timeline_empty')}</p>
+                          <p className="text-sm">{t('scanner.timeline_start')}</p>
                         </div>
                       )}
                     </div>
@@ -695,15 +691,15 @@ const BarcodeScanner: React.FC = () => {
                             
                             <AsyncButton
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                              title="معاينة"
-                              aria-label={`معاينة المرفق ${idx + 1}`}
+                              title={t('scanner.preview')}
+                              aria-label={`${t('scanner.preview')} ${idx + 1}`}
                               onClickAsync={async () => {
                                 try {
                                   const url = await apiClient.getPreviewUrl(foundDoc.barcode, idx)
                                   if (url) window.open(url, '_blank')
-                                  else showStatus('لا يوجد ملف للمعاينة', 'error')
+                                  else showStatus('scanner.no_preview', 'error')
                                 } catch {
-                                  showStatus('فشل فتح المرفق', 'error')
+                                  showStatus('scanner.attachment_error', 'error')
                                 }
                               }}
                             >
@@ -715,8 +711,8 @@ const BarcodeScanner: React.FC = () => {
                     ) : (
                       <div className="text-center py-8 text-slate-400">
                         <Paperclip size={32} className="mx-auto mb-2 opacity-30" />
-                        <p className="font-bold">لا توجد مرفقات</p>
-                        <p className="text-sm">هذه المعاملة لا تحتوي على ملفات مرفقة</p>
+                        <p className="font-bold">{t('scanner.no_attachments')}</p>
+                        <p className="text-sm">{t('scanner.no_attachments_desc')}</p>
                       </div>
                     )}
                   </div>
@@ -728,23 +724,23 @@ const BarcodeScanner: React.FC = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <AsyncButton 
                     className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all col-span-2"
-                    aria-label="فتح الملف الكامل"
+                    aria-label={t('scanner.preview_file')}
                     onClickAsync={async () => {
                       try {
                         const previewUrl = await apiClient.getPreviewUrl(foundDoc.barcode)
                         if (!previewUrl) {
-                          showStatus('لم يتم العثور على ملف للمعاينة', 'error')
+                          showStatus('scanner.preview_error', 'error')
                           return
                         }
                         window.open(previewUrl, '_blank')
                       } catch (e) {
                         console.error('Failed to open preview', e)
-                        showStatus('فشل فتح الملف', 'error')
+                        showStatus('scanner.open_error', 'error')
                       }
                     }}
                   >
                     <Eye size={18} />
-                    معاينة الملف
+                    {t('scanner.preview_file')}
                   </AsyncButton>
 
                   {currentUserPermissions?.archive?.edit === true && (
@@ -754,10 +750,10 @@ const BarcodeScanner: React.FC = () => {
                         setEditing(true)
                       }}
                       className="bg-amber-100 hover:bg-amber-200 text-amber-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
-                      aria-label="تعديل القيد"
+                      aria-label={t('scanner.edit')}
                     >
                       <Edit3 size={18} />
-                      تعديل
+                      {t('scanner.edit')}
                     </button>
                   )}
 
@@ -765,10 +761,10 @@ const BarcodeScanner: React.FC = () => {
                     <button 
                       onClick={handleDelete}
                       className="bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
-                      aria-label="حذف القيد"
+                      aria-label={t('scanner.delete')}
                     >
                       <Trash2 size={18} />
-                      حذف
+                      {t('scanner.delete')}
                     </button>
                   )}
                 </div>
@@ -779,11 +775,11 @@ const BarcodeScanner: React.FC = () => {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
                     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-                      <h4 className="text-lg font-black text-slate-900">تعديل بيانات القيد</h4>
+                      <h4 className="text-lg font-black text-slate-900">{t('scanner.edit_modal_title')}</h4>
                       <button 
                         onClick={() => setEditing(false)}
                         className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-all"
-                        aria-label="إغلاق نافذة التعديل"
+                        aria-label={t('common.close')}
                       >
                         <X size={20} />
                       </button>
@@ -791,69 +787,69 @@ const BarcodeScanner: React.FC = () => {
                     
                     <div className="p-6 space-y-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">نوع القيد</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.doc_type')}</label>
                         <select 
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
                           value={editForm.type || ''}
                           onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value as any }))}
                         >
-                          <option value="INCOMING">وارد</option>
-                          <option value="OUTGOING">صادر</option>
+                          <option value="INCOMING">{t('scanner.incoming')}</option>
+                          <option value="OUTGOING">{t('scanner.outgoing')}</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الموضوع</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.subject')}</label>
                         <input 
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
                           value={editForm.subject || editForm.title || ''}
                           onChange={(e) => setEditForm(prev => ({ ...prev, subject: e.target.value, title: e.target.value }))}
-                          placeholder="موضوع المعاملة"
+                          placeholder={t('scanner.subject_placeholder')}
                         />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">من</label>
+                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.from')}</label>
                           <input 
                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
                             value={editForm.sender || ''}
                             onChange={(e) => setEditForm(prev => ({ ...prev, sender: e.target.value }))}
-                            placeholder="الجهة المرسلة"
+                            placeholder={t('scanner.from_placeholder')}
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">إلى</label>
+                          <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.to')}</label>
                           <input 
                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
                             value={editForm.recipient || editForm.receiver || ''}
                             onChange={(e) => setEditForm(prev => ({ ...prev, recipient: e.target.value, receiver: e.target.value }))}
-                            placeholder="الجهة المستلمة"
+                            placeholder={t('scanner.to_placeholder')}
                           />
                         </div>
                       </div>
                       
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الأولوية</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.priority')}</label>
                         <select 
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all"
                           value={editForm.priority || ''}
                           onChange={(e) => setEditForm(prev => ({ ...prev, priority: e.target.value }))}
                         >
-                          <option value="عادي">عادي</option>
-                          <option value="عاجل">عاجل</option>
-                          <option value="عاجل جداً">عاجل جداً</option>
+                          <option value="عادي">{t('scanner.priority_normal')}</option>
+                          <option value="عاجل">{t('scanner.priority_urgent')}</option>
+                          <option value="عاجل جداً">{t('scanner.priority_very_urgent')}</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">الملاحظات</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{t('scanner.notes')}</label>
                         <textarea 
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-all resize-none"
                           rows={3}
                           value={editForm.notes || editForm.description || ''}
                           onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value, description: e.target.value }))}
-                          placeholder="ملاحظات إضافية..."
+                          placeholder={t('scanner.notes_placeholder')}
                         />
                       </div>
                     </div>
@@ -863,7 +859,7 @@ const BarcodeScanner: React.FC = () => {
                         onClick={() => setEditing(false)}
                         className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
                       >
-                        إلغاء
+                        {t('scanner.cancel')}
                       </button>
                       <button 
                         onClick={handleSaveEdits}
@@ -873,10 +869,10 @@ const BarcodeScanner: React.FC = () => {
                         {editPending ? (
                           <>
                             <Loader2 size={18} className="animate-spin" />
-                            جاري الحفظ...
+                            {t('scanner.saving')}
                           </>
                         ) : (
-                          'حفظ التعديلات'
+                          t('scanner.save')
                         )}
                       </button>
                     </div>
@@ -890,15 +886,15 @@ const BarcodeScanner: React.FC = () => {
               <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                 <Scan size={40} className="text-slate-300" />
               </div>
-              <h3 className="text-lg font-black text-slate-600 mb-2">في انتظار المسح</h3>
+              <h3 className="text-lg font-black text-slate-600 mb-2">{t('scanner.waiting')}</h3>
               <p className="text-slate-400 max-w-sm">
-                قم بمسح الباركود باستخدام الكاميرا أو أدخل الرقم يدوياً للاستعلام عن بيانات المعاملة
+                {t('scanner.waiting_desc')}
               </p>
               
               {isLoadingBarcode && (
                 <div className="mt-6 flex items-center gap-2 text-blue-600">
                   <Loader2 size={20} className="animate-spin" />
-                  <span className="font-bold">جاري البحث...</span>
+                  <span className="font-bold">{t('scanner.searching')}</span>
                 </div>
               )}
             </div>

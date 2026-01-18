@@ -793,7 +793,7 @@ const App: React.FC = () => {
           {activeTab === 'scanner' && hasPermission(currentUser, 'archive', 'create') && <BarcodeScanner />}
           {activeTab === 'reports' && hasPermission(currentUser, 'reports', 'view_idx') && <ReportGenerator docs={docs} settings={{orgName: 'MDLBEAST', logoUrl: '/mdlbeast/logo.png'}} />}
           {activeTab === 'audit' && hasPermission(currentUser, 'users', 'view_audit_logs') && <AuditLogs />}
-          {activeTab === 'approvals' && hasPermission(currentUser, 'approvals', 'view_idx') && <Approvals currentUser={currentUser} tenantSignatureUrl='' />}
+          {activeTab === 'approvals' && hasPermission(currentUser, 'approvals', 'view_idx') && <Approvals currentUser={currentUser} />}
           {activeTab === 'notifications' && <NotificationCenter />}
           {activeTab === 'internal' && hasPermission(currentUser, 'archive', 'create') && <InternalCommunication currentUser={currentUser} users={users} />}
           {activeTab === 'users' && hasPermission(currentUser, 'users', 'view_idx') && <UserManagement users={users} onUpdateUsers={async () => { loadInitialData(); }} currentUserEmail={currentUser.email || currentUser.username || ''} />}

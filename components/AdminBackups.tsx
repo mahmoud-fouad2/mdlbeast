@@ -24,7 +24,7 @@ interface BackupStats {
 }
 
 export default function AdminBackups() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [items, setItems] = useState<BackupItem[]>([])
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState<BackupStats>({ totalBackups: 0, totalSize: 0 })
@@ -71,9 +71,9 @@ export default function AdminBackups() {
   }
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'غير محدد'
+    if (!dateStr) return t('backup.time.undefined')
     try {
-      return new Date(dateStr).toLocaleString('en-GB', {
+      return new Date(dateStr).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-GB', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -89,11 +89,11 @@ export default function AdminBackups() {
     if (!dateStr) return null
     const diff = Date.now() - new Date(dateStr).getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return 'اليوم'
-    if (days === 1) return 'أمس'
-    if (days < 7) return `منذ ${days} أيام`
-    if (days < 30) return `منذ ${Math.floor(days / 7)} أسابيع`
-    return `منذ ${Math.floor(days / 30)} شهر`
+    if (days === 0) return t('backup.time.today')
+    if (days === 1) return t('backup.time.yesterday')
+    if (days < 7) return t('backup.time.days_ago').replace('{{days}}', days.toString())
+    if (days < 30) return t('backup.time.weeks_ago').replace('{{weeks}}', Math.floor(days / 7).toString())
+    return t('backup.time.months_ago').replace('{{months}}', Math.floor(days / 30).toString())
   }
 
   const toggleSelectItem = (key: string) => {
@@ -110,7 +110,7 @@ export default function AdminBackups() {
 
   const deleteSelected = async () => {
     if (selectedItems.size === 0) return
-    if (!confirm(`هل أنت متأكد من حذف ${selectedItems.size} نسخة احتياطية؟`)) return
+    if (!confirm(t('backup.actions.delete_confirm').replace('{{count}}', selectedItems.size.toString()))) return
     
     for (const key of selectedItems) {
       try {
@@ -139,7 +139,7 @@ export default function AdminBackups() {
             </div>
             <div>
               <div className="text-3xl font-black text-slate-900">{formatSize(stats.totalSize)}</div>
-              <div className="text-xs font-bold text-slate-500">حجم النسخ الكلي</div>
+              <div className="text-xs font-bold text-slate-500">{t('backup.stats.total_size')}</div>
             </div>
           </div>
         </div>
@@ -150,9 +150,9 @@ export default function AdminBackups() {
               <Clock className="text-amber-600" size={24} />
             </div>
             <div>
-              <div className="text-xl font-black text-slate-900 truncate">{getBackupAge(stats.lastBackup) || 'لا يوجد'}</div>
+              <div className="text-xl font-black text-slate-900 truncate">{getBackupAge(stats.lastBackup) || t('backup.stats.none')}</div>
               <div className="text-xs font-bold text-slate-500 truncate">
-                {stats.lastBackup ? formatDate(stats.lastBackup).split(',')[0] : 'لم يتم النسخ بعد'}
+                {stats.lastBackup ? formatDate(stats.lastBackup).split(',')[0] : t('backup.stats.not_backed_up')}
               </div>
             </div>
           </div>
@@ -166,9 +166,9 @@ export default function AdminBackups() {
              <div>
                <div className="flex items-center gap-2">
                  <div className={`w-3 h-3 rounded-full ${stats.totalBackups > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-                 <span className="text-xl font-black text-slate-900">{stats.totalBackups > 0 ? 'محمي' : 'غير محمي'}</span>
+                 <span className="text-xl font-black text-slate-900">{stats.totalBackups > 0 ? t('backup.stats.protected') : t('backup.stats.unprotected')}</span>
                </div>
-               <div className="text-xs font-bold text-slate-500">حالة النسخ الاحتياطي</div>
+               <div className="text-xs font-bold text-slate-500">{t('backup.stats.status')}</div>
              </div>
           </div>
         </div>
@@ -182,19 +182,19 @@ export default function AdminBackups() {
               <div className="p-3 bg-indigo-50 rounded-2xl">
                 <Database className="text-indigo-600" size={24} />
               </div>
-              <span className="text-slate-900">مركز النسخ الاحتياطي</span>
+              <span className="text-slate-900">{t('backup.section.title')}</span>
             </h3>
-            <p className="text-sm text-slate-500 font-medium">إنشاء وإدارة النسخ الاحتياطية الشاملة للنظام</p>
+            <p className="text-sm text-slate-500 font-medium">{t('backup.section.description')}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-xs text-slate-400 font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center gap-2">
               <RefreshCw size={12} />
-              {lastRefresh.toLocaleTimeString('ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}
+              {lastRefresh.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <button 
               onClick={load} 
               className="p-3 hover:bg-slate-50 rounded-xl transition-all border border-slate-200 hover:border-slate-300 active:scale-95" 
-              title="تحديث القائمة"
+              title={t('backup.actions.refresh')}
             >
               <RefreshCw size={20} className={loading ? "animate-spin text-indigo-500" : "text-slate-600"} />
             </button>
@@ -207,7 +207,7 @@ export default function AdminBackups() {
           <AsyncButton 
             className="group relative overflow-hidden bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 p-6 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm hover:shadow-lg h-full" 
             onClickAsync={async () => {
-              if (!confirm('سيتم إنشاء نسخة شاملة للقاعدة والملفات والإعدادات.\n\nهذه العملية قد تستغرق بعض الوقت. موافق؟')) return
+              if (!confirm(t('backup.cards.full.confirm'))) return
               try {
                 const res = await apiClient.createBackup()
                 await load()
@@ -225,11 +225,11 @@ export default function AdminBackups() {
               <HardDrive size={32} className="text-indigo-600" />
             </div>
             <div className="text-center">
-              <div className="font-black text-lg text-slate-800 mb-1">نسخة شاملة</div>
-              <div className="text-xs text-slate-500 font-medium">قاعدة بيانات + ملفات + إعدادات</div>
+              <div className="font-black text-lg text-slate-800 mb-1">{t('backup.cards.full.title')}</div>
+              <div className="text-xs text-slate-500 font-medium">{t('backup.cards.full.desc')}</div>
             </div>
             <div className="mt-auto pt-4 border-t border-slate-100 w-full text-center text-[10px] text-slate-400 font-bold">
-               نسخة كاملة للنظام
+               {t('backup.cards.full.footer')}
             </div>
           </AsyncButton>
 
@@ -237,23 +237,27 @@ export default function AdminBackups() {
           <button
             disabled={isCreatingR2Backup}
             onClick={async () => {
-              if (!confirm('سيتم إنشاء نسخة مضغوطة من جميع ملفات R2.\n\n⏱️ النسخة ستكون متاحة للتحميل لمدة 24 ساعة.\n📁 للملفات الكبيرة قد يستغرق الأمر عدة دقائق.\n\nمتابعة؟')) return;
+              if (!confirm(t('backup.cards.r2.confirm'))) return;
               
               setIsCreatingR2Backup(true);
-              setR2BackupProgress('🔍 جارٍ فحص الملفات...');
+              setR2BackupProgress(t('backup.cards.r2.progress_scan'));
               
               try {
-                setR2BackupProgress('📦 جارٍ تحميل وضغط الملفات...');
+                setR2BackupProgress(t('backup.cards.r2.progress_compress'));
                 const data = await apiClient.createBackup();
                 
                 if (data.downloadUrl) {
-                  setR2BackupProgress('✅ جاهز للتحميل!');
+                  setR2BackupProgress(t('backup.progress_ready'));
                   window.open(data.downloadUrl, '_blank');
-                  alert(`✅ تم إنشاء نسخة R2 بنجاح!\n\n📦 الحجم: ${formatSize(data.totalSize)}\n📁 عدد الملفات: ${data.totalFiles}\n⏱️ صالحة حتى: ${formatDate(data.expiresAt)}\n\n⚠️ الرابط سيحذف تلقائياً بعد 24 ساعة`);
+                  const msg = t('backup.success_r2')
+                    .replace('{{size}}', formatSize(data.totalSize))
+                    .replace('{{files}}', data.totalFiles)
+                    .replace('{{date}}', formatDate(data.expiresAt))
+                  alert(msg);
                 }
               } catch (e: any) {
                 console.error(e);
-                alert('❌ فشل إنشاء نسخة R2: ' + (e.message || 'خطأ'));
+                alert(t('backup.error_r2') + (e.message || t('backup.error_generic')));
               } finally {
                 setIsCreatingR2Backup(false);
                 setR2BackupProgress(null);
@@ -265,12 +269,12 @@ export default function AdminBackups() {
               {isCreatingR2Backup ? <RefreshCw size={32} className="animate-spin text-emerald-600" /> : <Cloud size={32} className="text-emerald-600" />}
             </div>
             <div className="text-center">
-              <div className="font-black text-lg text-slate-800 mb-1">ملفات سحابية (R2)</div>
-              <div className="text-xs text-slate-500 font-medium">{isCreatingR2Backup ? r2BackupProgress : 'نسخة احتياطية للمرفقات فقط'}</div>
+              <div className="font-black text-lg text-slate-800 mb-1">{t('backup.cards.r2.title')}</div>
+              <div className="text-xs text-slate-500 font-medium">{isCreatingR2Backup ? r2BackupProgress : t('backup.cards.r2.desc')}</div>
             </div>
             <div className="mt-auto pt-4 border-t border-slate-100 w-full text-center text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1">
                <Timer size={12} />
-               رابط صالح لمدة 24 ساعة
+               {t('backup.cards.r2.footer')}
             </div>
           </button>
 
@@ -278,7 +282,7 @@ export default function AdminBackups() {
           <AsyncButton 
             className="group relative overflow-hidden bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-300 p-6 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm hover:shadow-lg h-full" 
             onClickAsync={async () => {
-                if (!confirm('تصدير جميع البيانات كملف JSON؟')) return;
+                if (!confirm(t('backup.cards.json.confirm'))) return;
                 try {
                     const [docsRes, users, auditLogs] = await Promise.all([
                         apiClient.getDocuments({ limit: 10000 }).catch(() => ({ data: [] })),
@@ -291,19 +295,19 @@ export default function AdminBackups() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a'); a.href = url; a.download = `MDLBEAST-BACKUP-${new Date().toISOString()}.json`;
                     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-                    alert(`✅ تم التصدير بنجاح (${docs.length} مستند)`)
-                } catch (e) { console.error(e); alert('❌ فشل التصدير'); }
+                    alert(t('backup.success_export').replace('{{count}}', docs.length.toString()))
+                } catch (e) { console.error(e); alert(t('backup.error_export')); }
             }}
           >
             <div className="p-4 bg-amber-50 rounded-2xl group-hover:scale-110 transition-transform mb-2">
               <FileJson size={32} className="text-amber-600" />
             </div>
             <div className="text-center">
-              <div className="font-black text-lg text-slate-800 mb-1">تصدير بيانات JSON</div>
-              <div className="text-xs text-slate-500 font-medium">سري وخفيف الحجم</div>
+              <div className="font-black text-lg text-slate-800 mb-1">{t('backup.cards.json.title')}</div>
+              <div className="text-xs text-slate-500 font-medium">{t('backup.cards.json.desc')}</div>
             </div>
             <div className="mt-auto pt-4 border-t border-slate-100 w-full text-center text-[10px] text-slate-400 font-bold">
-               للنقل السريع بين الأنظمة
+               {t('backup.cards.json.footer')}
             </div>
           </AsyncButton>
         </div>
@@ -314,7 +318,7 @@ export default function AdminBackups() {
              <div className="p-2 bg-white rounded-lg shadow-sm">
                 <RotateCcw size={20} className="text-slate-600" />
              </div>
-             <h3 className="font-black text-slate-700">خيارات الاستعادة</h3>
+             <h3 className="font-black text-slate-700">{t('backup.restore')}</h3>
            </div>
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -323,8 +327,8 @@ export default function AdminBackups() {
                 <Upload size={20} />
               </div>
               <div>
-                <div className="font-bold text-slate-800 text-sm mb-1 group-hover:text-indigo-700">استعادة ملف JSON</div>
-                <div className="text-[10px] text-slate-400">استيراد بيانات فقط دون الملفات</div>
+                <div className="font-bold text-slate-800 text-sm mb-1 group-hover:text-indigo-700">{t('backup.cards.json_restore.title')}</div>
+                <div className="text-[10px] text-slate-400">{t('backup.cards.json_restore.desc')}</div>
               </div>
               <input type="file" accept="application/json" onChange={async (e) => {
                 const f = (e.target as HTMLInputElement).files?.[0]; if(!f) return;
@@ -337,8 +341,8 @@ export default function AdminBackups() {
                 <FileArchive size={20} />
               </div>
               <div>
-                <div className="font-bold text-slate-800 text-sm mb-1 group-hover:text-red-700">استعادة نسخة شاملة</div>
-                <div className="text-[10px] text-slate-400">⚠️ يستبدل قاعدة البيانات والملفات بالكامل</div>
+                <div className="font-bold text-slate-800 text-sm mb-1 group-hover:text-red-700">{t('backup.cards.full_restore.title')}</div>
+                <div className="text-[10px] text-slate-400">{t('backup.cards.full_restore.desc')}</div>
               </div>
               <input type="file" accept=".tar,.tar.gz,.tgz,.gpg,.enc" onChange={async (e) => {
                 const f = (e.target as HTMLInputElement).files?.[0]; if(!f) return;
@@ -355,7 +359,7 @@ export default function AdminBackups() {
         >
           <div className="flex items-center gap-3">
             <Settings size={18} className="text-slate-500" />
-            <span className="font-bold text-slate-700">خيارات متقدمة</span>
+            <span className="font-bold text-slate-700">{t('backup.options.advanced')}</span>
           </div>
           {showAdvanced ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
         </button>
@@ -368,8 +372,8 @@ export default function AdminBackups() {
                 <div className="flex items-center gap-3">
                   <Timer size={18} className="text-blue-500" />
                   <div>
-                    <div className="font-bold text-slate-700 text-sm">النسخ التلقائي</div>
-                    <div className="text-xs text-slate-400">نسخ يومي تلقائي</div>
+                    <div className="font-bold text-slate-700 text-sm">{t('backup.options.auto_backup')}</div>
+                    <div className="text-xs text-slate-400">{t('backup.options.auto_backup_desc')}</div>
                   </div>
                 </div>
                 <button 
@@ -387,7 +391,7 @@ export default function AdminBackups() {
                   className="flex items-center justify-center gap-2 p-4 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl border border-red-200 transition-colors"
                 >
                   <Trash2 size={18} />
-                  <span className="font-bold">حذف المحدد ({selectedItems.size})</span>
+                  <span className="font-bold">{t('backup.options.delete_selected').replace('{{count}}', selectedItems.size.toString())}</span>
                 </button>
               )}
             </div>
@@ -395,7 +399,7 @@ export default function AdminBackups() {
             <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
               <Info size={16} className="text-amber-600 shrink-0" />
               <p className="text-xs text-amber-700">
-                يُنصح بإنشاء نسخة احتياطية شاملة قبل أي تحديثات كبيرة للنظام. احتفظ بنسخة واحدة على الأقل خارج الخادم.
+                {t('backup.options.warning_text')}
               </p>
             </div>
           </div>
@@ -406,7 +410,7 @@ export default function AdminBackups() {
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-black text-slate-800 flex items-center gap-2">
               <History size={18} className="text-slate-400" />
-              الأرشيف المحلي
+              {t('backup.list.title')}
             </h4>
             <div className="flex items-center gap-2">
               <button
@@ -433,8 +437,8 @@ export default function AdminBackups() {
               <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <Database className="text-slate-300" size={40} />
               </div>
-              <div className="text-slate-500 font-black text-lg mb-2">لا توجد نسخ احتياطية</div>
-              <p className="text-slate-400 text-sm">أنشئ أول نسخة احتياطية لحماية بياناتك</p>
+              <div className="text-slate-500 font-black text-lg mb-2">{t('backup.list.empty_title')}</div>
+              <p className="text-slate-400 text-sm">{t('backup.list.empty_desc')}</p>
             </div>
           )}
           
@@ -471,7 +475,7 @@ export default function AdminBackups() {
                       <button 
                         onClick={() => copyBackupKey(i.key)} 
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded transition-all"
-                        title="نسخ المفتاح"
+                        title={t('backup.list.copy_key')}
                       >
                         <Copy size={12} className="text-slate-400" />
                       </button>
@@ -500,34 +504,34 @@ export default function AdminBackups() {
                       try {
                         const r = await apiClient.downloadBackupUrl(i.key)
                         window.open(r.url || r.previewUrl || r.signedUrl, '_blank')
-                      } catch (_e) { alert('❌ فشل التحميل') }
+                      } catch (_e) { alert(t('backup.error_download')) }
                     }}
                   >
                     <Download size={16} />
-                    تحميل
+                    {t('backup.list.actions.download')}
                   </button>
                   
                   <button 
                     className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm hover:shadow-md" 
                     onClick={async () => {
-                      if (!confirm('⚠️ تحذير!\n\nاستعادة النسخة الشاملة ستستبدل قاعدة البيانات والملفات الحالية.\n\nهل أنت متأكد؟')) return
-                      if (!confirm('🔴 تأكيد نهائي:\n\nسيتم فقدان أي بيانات تم إنشاؤها بعد هذه النسخة.\n\nمتابعة؟')) return
+                      if (!confirm(t('backup.list.restore_confirm_1'))) return
+                      if (!confirm(t('backup.list.restore_confirm_2'))) return
                       try {
                         await apiClient.restoreBackup(i.key)
-                        alert('✅ تمت الاستعادة بنجاح')
+                        alert(t('backup.success_restore_full'))
                         await load()
-                      } catch (e) { alert('❌ فشلت الاستعادة: ' + (e as any)?.message || 'خطأ') }
+                      } catch (e) { alert(t('backup.error_restore_detail') + (e as any)?.message || t('backup.error_generic')) }
                     }}
                   >
                     <RefreshCw size={16} />
-                    استعادة
+                    {t('backup.list.actions.restore')}
                   </button>
 
                   <button 
                     className="px-3 py-2.5 bg-white border border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-xl transition-all shadow-sm hover:shadow-md" 
-                    title="حذف النسخة"
+                    title={t('backup.options.delete')}
                     onClick={async () => {
-                      if (!confirm('هل أنت متأكد أنك تريد حذف هذه النسخة الاحتياطية؟\n\nلا يمكن التراجع عن هذا الإجراء.')) return
+                      if (!confirm(t('backup.list.actions.delete_confirm_single'))) return
                       await apiClient.deleteBackup(i.key)
                       await load()
                     }}
@@ -544,11 +548,11 @@ export default function AdminBackups() {
         <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <Shield size={14} className="text-emerald-500" />
-            <span>جميع النسخ مشفرة ومحمية</span>
+            <span>{t('backup.footer.encrypted')}</span>
           </div>
           <div className="flex items-center gap-2">
             <Cloud size={14} />
-            <span>التخزين السحابي: متصل</span>
+            <span>{t('backup.footer.cloud_connected')}</span>
           </div>
         </div>
       </div>

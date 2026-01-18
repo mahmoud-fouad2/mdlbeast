@@ -8,13 +8,14 @@ import { apiClient } from '../lib/api-client';
 import { useToast } from '../hooks/use-toast';
 import { User, ApprovalRequest } from '../types';
 import ApprovalSigner from './ApprovalSigner';
+import { useI18n } from '../lib/i18n-context';
 
 interface ApprovalsProps {
   currentUser: User;
-  tenantSignatureUrl?: string;
 }
 
-export default function Approvals({ currentUser, tenantSignatureUrl }: ApprovalsProps) {
+export default function Approvals({ currentUser }: ApprovalsProps) {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'my-requests' | 'for-approval'>('my-requests');
   const [myRequests, setMyRequests] = useState<ApprovalRequest[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
@@ -154,7 +155,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRequest.manager_id) {
-      toast({ title: "تنبيه", description: "يرجى اختيار المدير", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('approvals.select_manager_required'), variant: "destructive" });
       return;
     }
     
@@ -167,12 +168,12 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
         manager_id: Number(newRequest.manager_id)
       });
       
-      toast({ title: "تم بنجاح", description: "تم إرسال الطلب للاعتماد" });
+      toast({ title: t('common.success'), description: t('approvals.submit_success') });
       setShowNewRequestForm(false);
       setNewRequest({ title: '', description: '', manager_id: currentUser.manager_id || '', attachment_url: '' });
       fetchData();
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل إرسال الطلب", variant: "destructive" });
+      toast({ title: t('common.error'), description: error.message || t('approvals.error_submit'), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -188,13 +189,13 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
         rejection_reason: rejectionReason
       });
       
-      toast({ title: "تم الرفض", description: "تم رفض الطلب بنجاح" });
+      toast({ title: t('approvals.status_rejected'), description: t('common.success') });
       setShowRejectModal(false);
       setSelectedRequest(null);
       setRejectionReason('');
       fetchData();
     } catch (error: any) {
-      toast({ title: "خطأ", description: "فشل رفض الطلب", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('approvals.error_reject'), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -209,12 +210,12 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
         status: 'APPROVED'
       });
       
-      toast({ title: "تم الاعتماد", description: "تم اعتماد الطلب وتوقيعه بنجاح" });
+      toast({ title: t('approvals.status_approved'), description: t('common.success') });
       setShowSignModal(false);
       setSelectedRequest(null);
       fetchData();
     } catch (error: any) {
-      toast({ title: "خطأ", description: "فشل اعتماد الطلب", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('approvals.error_approve'), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -224,8 +225,8 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">نظام الإعتمادات</h2>
-          <p className="text-slate-500 mt-2 font-medium">إدارة الطلبات والموافقات الرسمية</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('approvals.title')}</h2>
+          <p className="text-slate-500 mt-2 font-medium">{t('approvals.subtitle')}</p>
         </div>
         
         <div className="flex bg-slate-100 p-1 rounded-2xl">
@@ -233,14 +234,14 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
             onClick={() => setActiveTab('my-requests')}
             className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'my-requests' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
           >
-            طلباتي
+            {t('approvals.my_requests')}
           </button>
           {(['manager', 'admin', 'supervisor'].includes(String(currentUser.role || '').toLowerCase())) && (
             <button
               onClick={() => setActiveTab('for-approval')}
               className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'for-approval' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
-              للاعتماد
+              {t('approvals.for_approval')}
               {pendingApprovals.length > 0 && (
                 <span className="mr-2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingApprovals.length}</span>
               )}
@@ -256,40 +257,40 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
               onClick={() => setShowNewRequestForm(true)}
               className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
             >
-              <Plus size={18} /> طلب جديد
+              <Plus size={18} /> {t('approvals.new_request')}
             </button>
           </div>
 
           {showNewRequestForm && (
             <form onSubmit={handleSubmitRequest} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl animate-in zoom-in-95 duration-300">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-black text-slate-900">إنشاء طلب جديد</h3>
+                <h3 className="text-xl font-black text-slate-900">{t('approvals.create_request')}</h3>
                 <button type="button" onClick={() => setShowNewRequestForm(false)} className="text-slate-400 hover:text-red-500"><XCircle size={24}/></button>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500">عنوان الطلب</label>
+                  <label className="text-xs font-bold text-slate-500">{t('approvals.request_title')}</label>
                   <input 
                     required
                     type="text" 
                     className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:bg-white focus:border focus:border-slate-900 transition-all"
                     value={newRequest.title}
                     onChange={e => setNewRequest({...newRequest, title: e.target.value})}
-                    placeholder="مثال: طلب إجازة، اعتماد مستند..."
+                    placeholder={t('approvals.request_title_placeholder')}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500">المدير المسؤول</label>
+                  <label className="text-xs font-bold text-slate-500">{t('approvals.responsible_manager')}</label>
                   {managers.length === 0 ? (
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                       <div className="text-amber-800 text-sm font-bold mb-2 flex items-center gap-2">
                         <span>⚠️</span>
-                        <span>لم يتم تعيين مدير مباشر لك</span>
+                        <span>{t('approvals.no_manager_assigned')}</span>
                       </div>
                       <div className="text-amber-700 text-xs">
-                        يرجى التواصل مع الإدارة لتعيين مدير مباشر لك من <strong>إدارة المستخدمين</strong> حتى تتمكن من إنشاء طلبات الاعتماد.
+                        {t('approvals.contact_admin')}
                       </div>
                     </div>
                   ) : (
@@ -299,7 +300,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                       value={newRequest.manager_id}
                       onChange={e => setNewRequest({...newRequest, manager_id: e.target.value})}
                     >
-                      <option value="">اختر المدير...</option>
+                      <option value="">{t('approvals.select_manager')}</option>
                       {managers.map(m => (
                         <option key={m.id} value={m.id}>{m.full_name || m.username}</option>
                       ))}
@@ -308,17 +309,17 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-bold text-slate-500">تفاصيل الطلب</label>
+                  <label className="text-xs font-bold text-slate-500">{t('approvals.request_details')}</label>
                   <textarea 
                     className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:bg-white focus:border focus:border-slate-900 transition-all min-h-[100px]"
                     value={newRequest.description}
                     onChange={e => setNewRequest({...newRequest, description: e.target.value})}
-                    placeholder="اكتب تفاصيل الطلب هنا..."
+                    placeholder={t('approvals.request_details_placeholder')}
                   />
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-bold text-slate-500">المرفقات (PDF أو صورة)</label>
+                  <label className="text-xs font-bold text-slate-500">{t('approvals.attachments')}</label>
                   <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:bg-slate-50 transition-colors relative">
                     <input 
                       type="file" 
@@ -329,12 +330,12 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                     {newRequest.attachment_url ? (
                       <div className="flex items-center justify-center gap-2 text-green-600 font-bold">
                         <CheckCircle2 size={20} />
-                        تم رفع الملف بنجاح
+                        {t('approvals.file_uploaded')}
                       </div>
                     ) : (
                       <div className="text-slate-400 font-bold flex flex-col items-center gap-2">
                         <Upload size={24} />
-                        <span>اضغط لرفع الملف أو اسحبه هنا</span>
+                        <span>{t('approvals.upload_file')}</span>
                       </div>
                     )}
                   </div>
@@ -344,10 +345,20 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
               <div className="mt-8 flex justify-end">
                 <button 
                   type="submit" 
-                  disabled={isSubmitting || !newRequest.attachment_url}
+                  disabled={isSubmitting}
+                  onClick={(e) => {
+                    if (!newRequest.attachment_url) {
+                      e.preventDefault();
+                      toast({ 
+                        title: t('approvals.alert'), 
+                        description: t('approvals.attach_file_first'), 
+                        variant: "destructive" 
+                      });
+                    }
+                  }}
                   className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'جارٍ الإرسال...' : 'إرسال الطلب'}
+                  {isSubmitting ? t('approvals.submitting') : t('approvals.submit_request')}
                 </button>
               </div>
             </form>
@@ -393,7 +404,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                         <span className="text-slate-300">•</span>
                         <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
                           <FileSignature size={14} />
-                          <span>موجه إلى: {req.manager?.full_name || 'غير معروف'}</span>
+                          <span>{t('approvals.directed_to')}: {req.manager?.full_name || t('approvals.unknown')}</span>
                         </div>
                       </div>
                     </div>
@@ -405,9 +416,9 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                       req.status === 'REJECTED' ? 'bg-red-50 text-red-700 border border-red-200' :
                       'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}>
-                      {req.status === 'APPROVED' ? '✓ تم الاعتماد' :
-                       req.status === 'REJECTED' ? '✕ مرفوض' :
-                       '⏱ قيد المراجعة'}
+                      {req.status === 'APPROVED' ? `✓ ${t('approvals.status_approved')}` :
+                       req.status === 'REJECTED' ? `✕ ${t('approvals.status_rejected')}` :
+                       `⏱ ${t('approvals.status_pending')}`}
                     </div>
                     
                     {req.status === 'APPROVED' && req.signed_attachment_url && (
@@ -418,8 +429,8 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                             const url = req.signed_attachment_url;
                             if (!url) {
                               toast({ 
-                                title: "خطأ", 
-                                description: "لا يوجد ملف معتمد", 
+                                title: t('approvals.error'), 
+                                description: t('approvals.no_signed_file'), 
                                 variant: "destructive" 
                               });
                               return;
@@ -447,14 +458,14 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                           } catch (error) {
                             console.error('Failed to download:', error);
                             toast({ 
-                              title: "خطأ", 
-                              description: "فشل تحميل الملف", 
+                              title: t('approvals.error'), 
+                              description: t('approvals.download_failed'), 
                               variant: "destructive" 
                             });
                           }
                         }}
                         className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
-                        title="تحميل الملف المعتمد"
+                        title={t('approvals.download_signed')}
                       >
                         <Download size={18} />
                       </button>
@@ -473,7 +484,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                           setShowNewRequestForm(true);
                         }}
                         className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
-                        title="تعديل وإعادة إرسال"
+                        title={t('approvals.edit_and_resend')}
                       >
                         <PenTool size={18} />
                       </button>
@@ -483,14 +494,14 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                 
                 {req.status === 'REJECTED' && req.rejection_reason && (
                   <div className="w-full bg-red-50 p-4 rounded-2xl text-xs font-bold text-red-700 mt-4">
-                    سبب الرفض: {req.rejection_reason}
+                    {t('approvals.rejection_reason')}: {req.rejection_reason}
                   </div>
                 )}
               </div>
             ))}
             
             {myRequests.length === 0 && !isLoading && (
-              <div className="text-center py-12 text-slate-400 font-medium">لا توجد طلبات سابقة</div>
+              <div className="text-center py-12 text-slate-400 font-medium">{t('approvals.no_previous_requests')}</div>
             )}
           </div>
         </div>
@@ -514,7 +525,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                             {req.approval_number}
                           </span>
                         )}
-                        <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-black rounded-full">جديد</span>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-black rounded-full">{t('approvals.new')}</span>
                       </div>
                       {req.description && (
                         <p className="text-sm text-slate-600 mb-3 leading-relaxed">{req.description}</p>
@@ -522,7 +533,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                       <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
                         <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg">
                           <span className="text-lg">👤</span>
-                          <span>مُقدم من: {req.requester?.full_name || 'غير معروف'}</span>
+                          <span>{t('approvals.submitted_by')}: {req.requester?.full_name || t('approvals.unknown')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <Clock size={14} />
@@ -545,12 +556,12 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                           const { url } = await apiClient.getApprovalAttachmentUrl(req.id);
                           window.open(url, '_blank');
                         } catch (error) {
-                          toast({ title: "خطأ", description: "فشل فتح المعاينة", variant: "destructive" });
+                          toast({ title: t('approvals.error'), description: t('approvals.preview_failed'), variant: "destructive" });
                         }
                       }}
                       className="flex-1 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
                     >
-                      <Eye size={18} /> معاينة المستند
+                      <Eye size={18} /> {t('approvals.preview_document')}
                     </button>
                     
                     <button 
@@ -560,7 +571,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                       }}
                       className="flex-1 px-5 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
-                      <XCircle size={18} /> رفض الطلب
+                      <XCircle size={18} /> {t('approvals.reject_request')}
                     </button>
                     
                     <button 
@@ -570,7 +581,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                       }}
                       className="flex-1 px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl text-sm font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
                     >
-                      <FileSignature size={18} /> اعتماد و توقيع
+                      <FileSignature size={18} /> {t('approvals.approve_and_sign')}
                     </button>
                   </div>
                 </div>
@@ -584,7 +595,7 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
             ))}
             
             {pendingApprovals.length === 0 && !isLoading && (
-              <div className="text-center py-12 text-slate-400 font-medium">لا توجد طلبات بانتظار الاعتماد</div>
+              <div className="text-center py-12 text-slate-400 font-medium">{t('approvals.no_pending_requests')}</div>
             )}
           </div>
         </div>
@@ -594,12 +605,12 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md animate-in zoom-in-95 duration-300">
-            <h3 className="text-xl font-black text-slate-900 mb-4">رفض الطلب</h3>
-            <p className="text-slate-500 text-sm font-bold mb-4">يرجى ذكر سبب الرفض للموظف</p>
+            <h3 className="text-xl font-black text-slate-900 mb-4">{t('approvals.reject_request')}</h3>
+            <p className="text-slate-500 text-sm font-bold mb-4">{t('approvals.provide_rejection_reason')}</p>
             
             <textarea 
               className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:bg-white focus:border focus:border-slate-900 transition-all min-h-[120px] mb-6"
-              placeholder="سبب الرفض..."
+              placeholder={t('approvals.rejection_reason_placeholder')}
               value={rejectionReason}
               onChange={e => setRejectionReason(e.target.value)}
             />
@@ -609,14 +620,14 @@ export default function Approvals({ currentUser, tenantSignatureUrl }: Approvals
                 onClick={() => setShowRejectModal(false)}
                 className="flex-1 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
               >
-                إلغاء
+                {t('approvals.cancel')}
               </button>
               <button 
                 onClick={handleReject}
                 disabled={!rejectionReason}
                 className="flex-1 py-4 rounded-2xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                تأكيد الرفض
+                {t('approvals.confirm_reject')}
               </button>
             </div>
           </div>

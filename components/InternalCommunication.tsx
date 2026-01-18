@@ -53,7 +53,9 @@ interface InternalCommunicationProps {
 
 export default function InternalCommunication({ currentUser, users: propUsers }: InternalCommunicationProps) {
     const { t, locale, dir } = useI18n(); // Updated Hook
-    const canStartChat = Boolean((currentUser as any)?.permissions?.communication?.access_chat);
+    
+    // Admin always has access, otherwise check permissions
+    const canStartChat = currentUser?.role === 'admin' || Boolean((currentUser as any)?.permissions?.communication?.access_chat);
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [users, setUsers] = useState<User[]>(propUsers || []);

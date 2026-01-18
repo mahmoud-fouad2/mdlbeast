@@ -37,8 +37,13 @@ async function ensureUser(email: string | undefined, password: string | undefine
         [email, hash, name, role]
       );
     } else {
-      console.log(`[Startup] Updating ${role} password: ${email}`);
-      await query("UPDATE users SET password = $1, full_name = $2, role = $3 WHERE id = $4", [hash, name, role, existing.rows[0].id]);
+      // Only update if explicitly requested via env var, otherwise preserve user changes
+      if (process.env.RESET_ADMIN_ON_STARTUP === 'true') {
+        console.log(`[Startup] Resetting ${role} password/data: ${email}`);
+        await query("UPDATE users SET password = $1, full_name = $2, role = $3 WHERE id = $4", [hash, name, role, existing.rows[0].id]);
+      } else {
+        console.log(`[Startup] User ${email} exists, skipping reset (RESET_ADMIN_ON_STARTUP!=true)`);
+      }
     }
   } catch (err) {
     console.error(`[Startup] Failed to ensure ${role}:`, err);

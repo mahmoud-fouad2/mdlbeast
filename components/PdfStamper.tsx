@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react"
 import type { Correspondence, SystemSettings } from "@/types"
 import { Save, X, MousePointer2, Scan, Layers, FileSearch, Eye } from "lucide-react"
 import SignedPdfPreview from './SignedPdfPreview'
+import { useI18n } from '@/lib/i18n-context'
 
 interface PdfStamperProps {
   doc: Correspondence
@@ -14,6 +15,7 @@ interface PdfStamperProps {
 }
 
 export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) {
+  const { t } = useI18n()
   const BASE_STAMP_WIDTH = 160
   const [pos, setPos] = useState({ x: 400, y: 20 })
   const [isDragging, setIsDragging] = useState(false)
@@ -125,11 +127,11 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
       // Dispatch event to update list without reload
       window.dispatchEvent(new CustomEvent('document:stamped', { detail: { barcode: doc.barcode } }))
 
-      alert('تم ختم المستند بنجاح')
+      alert(t('common.success_stamp_doc'))
       onClose()
     } catch (e: any) {
       console.error('Stamp failed', e)
-      alert('فشل ختم المستند: ' + (e?.message || e))
+      alert(t('archive.saveError') + ': ' + (e?.message || e))
     } finally {
       setIsSaving(false)
     }
@@ -165,7 +167,7 @@ export default function PdfStamper({ doc, settings, onClose }: PdfStamperProps) 
       }
     } catch (e: any) {
       console.error('Preview failed', e)
-      alert('فشل إنشاء المعاينة: ' + (e?.message || e))
+      alert(t('approvals.error_preview') + ': ' + (e?.message || e))
     } finally {
       setIsSaving(false)
     }
