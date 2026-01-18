@@ -591,5 +591,34 @@
   "reports.moreDocs": "معاملات إضافية",
   "reports.noData": "لا توجد بيانات",
   "reports.changeFilters": "جرّب تغيير الفلاتر",
-  "user.form.position_placeholder": "أدخل المسمى الوظيفي"
+  "user.form.position_placeholder": "أدخل المسمى الوظيفي",
+  "backup.success_full": "✅ تم إنشاء النسخة الشاملة بنجاح!",
+  "backup.success_full_key": "✅ تم إنشاء النسخة الشاملة بنجاح!\n\nالمفتاح: ",
+  "backup.error_full": "❌ فشل إنشاء النسخة الشاملة",
+  "backup.success_r2": "✅ تم إنشاء نسخة R2 بنجاح!\n\n📦 الحجم: {{size}}\n📁 عدد الملفات: {{files}}\n⏱️ صالحة حتى: {{date}}\n\n⚠️ الرابط سيحذف تلقائياً بعد 24 ساعة",
+  "backup.error_r2": "❌ فشل إنشاء نسخة R2: ",
+  "backup.progress_ready": "✅ جاهز للتحميل!",
+  "backup.success_export": "✅ تم التصدير بنجاح ({{count}} مستند)",
+  "backup.error_export": "❌ فشل التصدير",
+  "backup.confirm_restore_json": "⚠️ تأكيد استعادة البيانات من JSON؟",
+  "backup.success_restore": "✅ تم",
+  "backup.error_generic": "❌ خطأ",
+  "backup.confirm_restore_upload": "⚠️ تحذير: سيتم حذف البيانات الحالية واستبدالها.\nمتابعة؟",
+  "backup.error_download": "❌ فشل التحميل",
+  "backup.error_restore_detail": "❌ فشلت الاستعادة: ",
+  "backup.success_restore_full": "✅ تمت الاستعادة بنجاح",
+  "backup.clear_logs_success": "تم مسح السجلات بنجاح",
+  "backup.clear_logs_error": "فشل مسح السجلات",
+  "scanner.barcode_empty": "قيمة الباركود فارغة",
+  "approvals.error_generic": "خطأ",
+  "approvals.error_preview": "فشل تحميل المعاينة",
+  "approvals.error_upload": "فشل رفع الملف",
+  "approvals.error_submit": "فشل إرسال الطلب",
+  "approvals.error_reject": "فشل رفض الطلب",
+  "approvals.error_approve": "فشل اعتماد الطلب",
+  "approvals.error_open_preview": "فشل فتح المعاينة",
+  "common.no_file": "لا يوجد ملف لعرضه",
+  "common.error_open_attachment": "فشل فتح المرفق",
+  "common.success_delete_attachment": "تم حذف المرفق بنجاح",
+  "common.success_stamp_doc": "تم ختم المستند بنجاح"
 }

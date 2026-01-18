@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import AsyncButton from './ui/async-button'
 import { apiClient } from '@/lib/api-client'
+import { useI18n } from '@/lib/i18n-context'
 import { 
   Database, Download, Trash2, RefreshCw, RotateCcw, Upload, FileJson, HardDrive, 
   Cloud, Clock, Calendar, Shield, FileArchive,
@@ -23,6 +24,7 @@ interface BackupStats {
 }
 
 export default function AdminBackups() {
+  const { t } = useI18n()
   const [items, setItems] = useState<BackupItem[]>([])
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState<BackupStats>({ totalBackups: 0, totalSize: 0 })
@@ -210,12 +212,12 @@ export default function AdminBackups() {
                 const res = await apiClient.createBackup()
                 await load()
                 if (res && res.key) {
-                  alert('✅ تم إنشاء النسخة الشاملة بنجاح!\n\nالمفتاح: ' + res.key)
+                  alert(t('backup.success_full_key') + res.key)
                 } else {
-                  alert('✅ تم إنشاء النسخة الشاملة بنجاح')
+                  alert(t('backup.success_full'))
                 }
               } catch (_e) {
-                alert('❌ فشل إنشاء النسخة الشاملة')
+                alert(t('backup.error_full'))
               }
             }}
           >
@@ -326,7 +328,7 @@ export default function AdminBackups() {
               </div>
               <input type="file" accept="application/json" onChange={async (e) => {
                 const f = (e.target as HTMLInputElement).files?.[0]; if(!f) return;
-                if(confirm('⚠️ تأكيد استعادة البيانات من JSON؟')) { try { await apiClient.restoreJsonBackup(f); alert('✅ تم'); await load() } catch { alert('❌ خطأ') } }
+                if(confirm(t('backup.confirm_restore_json'))) { try { await apiClient.restoreJsonBackup(f); alert(t('backup.success_restore')); await load() } catch { alert(t('backup.error_generic')) } }
               }} className="hidden" />
             </label>
 
@@ -340,7 +342,7 @@ export default function AdminBackups() {
               </div>
               <input type="file" accept=".tar,.tar.gz,.tgz,.gpg,.enc" onChange={async (e) => {
                 const f = (e.target as HTMLInputElement).files?.[0]; if(!f) return;
-                if(confirm('⚠️ تحذير: سيتم حذف البيانات الحالية واستبدالها.\nمتابعة؟')) { try { await apiClient.restoreBackupUpload(f); alert('✅ تم'); await load() } catch { alert('❌ خطأ') } }
+                if(confirm(t('backup.confirm_restore_upload'))) { try { await apiClient.restoreBackupUpload(f); alert(t('backup.success_restore')); await load() } catch { alert(t('backup.error_generic')) } }
               }} className="hidden" />
             </label>
            </div>
